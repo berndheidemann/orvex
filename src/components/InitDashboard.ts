@@ -2,7 +2,7 @@ import React from "react";
 import { Box, Text, useInput, useApp } from "ink";
 import { useInitRunner } from "../hooks/useInitRunner.ts";
 import { useTerminalSize } from "../hooks/useTerminalSize.ts";
-import type { PhaseState, RoundStatus, PhaseStatus } from "../hooks/useInitRunner.ts";
+import type { PhaseState, RoundStatus, AgentStatus, PhaseStatus } from "../hooks/useInitRunner.ts";
 
 const { createElement: h, useEffect } = React;
 
@@ -21,14 +21,24 @@ const ROUND_ICONS: Record<RoundStatus, string> = {
   pending: "○",
   running: "▶",
   done: "✓",
-  error: "✗",
 };
 
 const ROUND_COLORS: Record<RoundStatus, string> = {
   pending: "gray",
   running: "yellow",
   done: "green",
-  error: "red",
+};
+
+const AGENT_ICONS: Record<AgentStatus, string> = {
+  pending: "○",
+  running: "▶",
+  done: "✓",
+};
+
+const AGENT_COLORS: Record<AgentStatus, string> = {
+  pending: "gray",
+  running: "yellow",
+  done: "green",
 };
 
 const PHASE_COLORS: Record<PhaseStatus, string> = {
@@ -80,10 +90,26 @@ function PhaseBlock(props: {
         h(
           Box,
           { key: String(idx), flexDirection: "row", gap: 1 },
+          // Round status icon + label
           h(Text, { color: ROUND_COLORS[round.status] },
             ROUND_ICONS[round.status]),
           h(Text, { dimColor: round.status === "pending" },
-            `${round.label}  —  ${round.agent}`),
+            round.label),
+          h(Text, { dimColor: true }, " ·"),
+          // Per-agent status
+          ...round.agents.map((agent, ai) =>
+            h(
+              Box,
+              { key: String(ai), flexDirection: "row", gap: 0 },
+              h(Text, { color: AGENT_COLORS[agent.status] },
+                ` ${AGENT_ICONS[agent.status]} `),
+              h(Text, { dimColor: agent.status === "pending", color: agent.status === "running" ? "yellow" : undefined },
+                agent.name),
+              ai < round.agents.length - 1
+                ? h(Text, { dimColor: true }, "  ·")
+                : null,
+            )
+          ),
         )
       ),
     ),
