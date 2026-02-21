@@ -370,7 +370,7 @@ summarize_log() {
   tool_count=$(jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use") | .name' "$logfile" 2>/dev/null | wc -l | tr -d ' ')
   exit_code=$(jq -r 'select(.type=="result") | .exit_code // 1' "$logfile" 2>/dev/null | tail -1)
   cost=$(jq -r 'select(.type=="result") | .total_cost_usd // 0' "$logfile" 2>/dev/null | tail -1)
-  cost_fmt=$(echo "${cost:-0}" | awk '{printf "%.2f", $1+0}')
+  cost_fmt=$(echo "${cost:-0}" | LC_NUMERIC=C awk '{printf "%.2f", $1+0}')
   top_tools=$(jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use") | .name' "$logfile" 2>/dev/null | sort | uniq -c | sort -rn | head -3 | awk '{printf "%s(%s) ",$2,$1}')
   iter_num=$(basename "$logfile" .jsonl | grep -Eo '[0-9]+$' || echo "?")
   echo "**Iter ${iter_num}**: ${tool_count:-0} tools, \$${cost_fmt}, exit=${exit_code:-1}"

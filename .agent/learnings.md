@@ -1,12 +1,17 @@
-# Erkenntnisse
+# Persistente Erkenntnisse
 
-### 2026-02-21 — macOS grep -P nicht verfügbar
+> Nur appenden — niemals bestehende Eintraege loeschen oder aendern.
+> Format: ### [Datum] — [Thema] + kurze Beschreibung (max 5 Zeilen)
 
-BSD grep unterstützt kein `-P` (PCRE). Überall `grep -oP` durch `grep -Eo` ersetzen.
-Lookbehind-Patterns: in zwei grep-Aufrufe aufteilen (erst Kontext, dann Zahl extrahieren).
-Betrifft: loop.sh Zeilen 444, 896, 912.
+<!-- Erste Erkenntnis hier einfuegen -->
 
-### 2026-02-21 — summarize-log.sh fehlte
+### 2026-02-21 — macOS LC_NUMERIC und awk-printf
 
-loop.sh Zeile 374 rief ein nicht existierendes Skript auf → Validator blind.
-Fix: summarize_log()-Funktion inline in loop.sh (jq-basiert, siehe PLAN.md DEF-2).
+Auf macOS mit nicht-englischer Locale (z.B. de_DE) nutzt awk Komma als Dezimaltrennzeichen.
+`awk '{printf "%.2f", 0.05}'` ergibt `0,00` statt `0.05`.
+Fix: immer `LC_NUMERIC=C awk` verwenden — analog zu bestehenden Aufrufen im Code.
+
+### 2026-02-21 — grep -c Exit Code bei 0 Treffern
+
+`grep -c 'pattern' file` gibt Exit 1 zurück wenn Count=0 (keine Treffer).
+In Bash-Prüfketten mit `&&` bricht das ab. Lösung: `(grep -c ... || true)` verwenden.
