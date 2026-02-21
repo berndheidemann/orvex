@@ -6,6 +6,7 @@ import { useIterationsReader } from "../hooks/useIterationsReader.ts";
 import { useKeyboardControls } from "../hooks/useKeyboardControls.ts";
 import { useEventsReader } from "../hooks/useEventsReader.ts";
 import { useTerminalSize } from "../hooks/useTerminalSize.ts";
+import { usePrdTitles } from "../hooks/usePrdTitles.ts";
 import { ContextEditor } from "./ContextEditor.ts";
 import { STATUS_COLORS } from "../types.ts";
 import type { IterationEntry } from "../types.ts";
@@ -27,11 +28,20 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 const PHASE_LABELS: Record<string, string> = {
-  preflight:       "⚙  preflight",
-  implementing:    "▶  implementing",
-  validating:      "✓  validating",
-  post_processing: "⟳  post-processing",
+  preflight:       "preflight",
+  implementing:    "implementing",
+  validating:      "validating",
+  post_processing: "post-processing",
 };
+
+// Phases map to step 1–3 (implementing and validating are both step 2)
+const PHASE_STEPS: Record<string, number> = {
+  preflight:       1,
+  implementing:    2,
+  validating:      2,
+  post_processing: 3,
+};
+const PHASE_TOTAL = 3;
 
 function ProgressBar(props: {
   filled: number;
@@ -143,6 +153,7 @@ export function Dashboard(): React.ReactElement {
   const elapsed = useElapsedTime();
   const { entries: iterEntries, available: iterAvailable } =
     useIterationsReader();
+  const prdTitles = usePrdTitles();
   const { paused, lastAction, editingContext, quitting, closeEditor } = useKeyboardControls();
   const {
     events,
@@ -182,13 +193,14 @@ export function Dashboard(): React.ReactElement {
   const lastPhaseEvent = [...events].reverse()
     .find((ev): ev is LoopPhaseEvent => ev.type === "loop:phase");
   const currentPhase = lastPhaseEvent?.phase ?? null;
+  const phaseStep = currentPhase ? (PHASE_STEPS[currentPhase] ?? 0) : 0;
 
   // REQ progress counters
   const totalReqs = entries.length;
   const doneReqs = entries.filter(([, r]) => r.status === "done").length;
 
-  // Progress bar width: half the terminal width minus labels
-  const barWidth = Math.max(10, Math.floor(columns / 2) - 20);
+  // Progress bar width: ~1/3 terminal width
+  const barWidth = Math.max(10, Math.floor(columns / 3));
 
   // Extract tool:call events and current model
   const toolEvents = events.filter((ev): ev is ToolCall => ev.type === "tool:call");
@@ -207,13 +219,19 @@ export function Dashboard(): React.ReactElement {
           Box,
           { flexDirection: "column" },
           ...entries.flatMap(([id, req]) => {
+            const prefix = req.status === "in_progress" ? "▶ " : "  ";
+            const title = prdTitles[id];
             const row = h(
-              Text,
-              {
-                key: id,
-                color: STATUS_COLORS[req.status],
-              },
-              `${req.status === "in_progress" ? "▶ " : "  "}${id}  [${req.status}]`,
+              Box,
+              { key: id, flexDirection: "column" },
+              h(
+                Text,
+                { color: STATUS_COLORS[req.status] },
+                `${prefix}${id}  [${req.status}]`,
+              ),
+              title
+                ? h(Text, { dimColor: true }, `    ${title.slice(0, 30)}`)
+                : null,
             );
 
             if (req.status !== "blocked") {
@@ -261,19 +279,23 @@ export function Dashboard(): React.ReactElement {
       h(Text, { dimColor: true }, "|"),
       h(Text, { dimColor: true }, `Iter ${currentIter}`),
     ),
-    // Progress row
+    // REQ progress bar
     h(
       Box,
-      { flexDirection: "row", gap: 2 },
-      h(Text, { dimColor: true }, "REQs "),
-      h(ProgressBar, { filled: doneReqs, total: totalReqs, width: barWidth }),
-      h(Text, { dimColor: true }, ` ${doneReqs}/${totalReqs}`),
-      totalReqs > 0
-        ? h(Text, { dimColor: true }, "  │")
-        : null,
+      { flexDirection: "row", gap: 1 },
+      h(Text, { dimColor: true }, "REQs  "),
+      h(ProgressBar, { filled: doneReqs, total: totalReqs, width: barWidth, color: "green" }),
+      h(Text, { dimColor: true }, `  ${doneReqs}/${totalReqs} done`),
+    ),
+    // Phase progress bar
+    h(
+      Box,
+      { flexDirection: "row", gap: 1 },
+      h(Text, { dimColor: true }, "Phase "),
+      h(ProgressBar, { filled: phaseStep, total: PHASE_TOTAL, width: barWidth, color: "yellow" }),
       currentPhase
-        ? h(Text, { color: "yellow" }, `  ${PHASE_LABELS[currentPhase] ?? currentPhase}`)
-        : null,
+        ? h(Text, { color: "yellow" }, `  ${PHASE_LABELS[currentPhase]}  (${phaseStep}/${PHASE_TOTAL})`)
+        : h(Text, { dimColor: true }, "  —"),
     ),
     h(Text, { dimColor: true }, "─".repeat(50)),
     // Split layout
