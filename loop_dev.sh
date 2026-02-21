@@ -342,7 +342,12 @@ build_agent_prompt() {
     if [ -f "$CONTEXT_FILE" ]; then
       echo "### Current Project Context (.agent/context.md):"
       echo ""
-      cat "$CONTEXT_FILE"
+      local _ctx_lines
+      _ctx_lines=$(wc -l < "$CONTEXT_FILE" | tr -d ' ')
+      if [ "$_ctx_lines" -gt 50 ]; then
+        echo -e "  ${YELLOW}⚠ context.md hat ${_ctx_lines} Zeilen (max 50) — wird auf 50 Zeilen gekürzt${RESET}" >&2
+      fi
+      head -50 "$CONTEXT_FILE"
       echo ""
     fi
     local backlog_p0
