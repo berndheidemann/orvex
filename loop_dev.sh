@@ -483,6 +483,14 @@ tag_iteration() {
   fi
 }
 
+# ── TUI Event emitter ─────────────────────────────────────────
+# Writes a JSON line to .agent/events.jsonl when KINEMA_TUI=1.
+emit_event() {
+  [[ "${KINEMA_TUI:-0}" != "1" ]] && return
+  local json="$1"
+  echo "$json" >> "${KINEMA_AGENT_DIR:-.agent}/events.jsonl"
+}
+
 # ── Agent branch setup ────────────────────────────────────────
 setup_agent_branch() {
   if ! git rev-parse --verify HEAD >/dev/null 2>&1; then
@@ -613,6 +621,7 @@ parse_progress() {
             local tool_name
             tool_name=$(echo "$tool_json" | jq -r '.name // "?"' 2>/dev/null)
 
+            local ev_category ev_summary
             case "$tool_name" in
               Read|Glob|Grep)
                 local summary
@@ -620,11 +629,13 @@ parse_progress() {
                   .input | (.file_path // .pattern // .path // (tostring | .[:80]))
                 ' 2>/dev/null)
                 echo -e "  ${CYAN}[$tool_count]${RESET} ${GREEN}$tool_name${RESET} ${DIM}${summary}${RESET}"
+                ev_category="read"; ev_summary="$tool_name ${summary}"
                 ;;
               Edit|Write)
                 local summary
                 summary=$(echo "$tool_json" | jq -r '.input.file_path // "?"' 2>/dev/null)
                 echo -e "  ${CYAN}[$tool_count]${RESET} ${YELLOW}$tool_name${RESET} ${DIM}${summary}${RESET}"
+                ev_category="write"; ev_summary="$tool_name ${summary}"
                 ;;
               Bash)
                 local cmd
@@ -632,6 +643,7 @@ parse_progress() {
                 local display="${cmd:0:100}"
                 [ ${#cmd} -gt 100 ] && display="${display}…"
                 echo -e "  ${CYAN}[$tool_count]${RESET} ${YELLOW}Bash${RESET} ${DIM}${display}${RESET}"
+                ev_category="bash"; ev_summary="${display}"
                 ;;
               Task)
                 local task_model task_type task_desc model_color
@@ -645,20 +657,31 @@ parse_progress() {
                   *)      model_color="${DIM}" ;;
                 esac
                 echo -e "  ${CYAN}[$tool_count]${RESET} ${BOLD}Task${RESET} ${model_color}[$task_model]${RESET} ${DIM}${task_type}${RESET} → ${DIM}${task_desc}${RESET}"
+                ev_category="task"; ev_summary="[$task_model] ${task_type}: ${task_desc}"
                 ;;
               mcp__playwright__*)
                 local action="${tool_name#mcp__playwright__}"
                 action="${action#browser_}"
                 echo -e "  ${CYAN}[$tool_count]${RESET} ${MAGENTA}Playwright${RESET} ${DIM}${action}${RESET}"
+                ev_category="playwright"; ev_summary="${action}"
                 ;;
               mcp__*)
                 local short="${tool_name#mcp__}"
                 echo -e "  ${CYAN}[$tool_count]${RESET} ${DIM}MCP:${short}${RESET}"
+                ev_category="mcp"; ev_summary="${short}"
                 ;;
               *)
                 echo -e "  ${CYAN}[$tool_count]${RESET} ${DIM}$tool_name${RESET}"
+                ev_category="mcp"; ev_summary="${tool_name}"
                 ;;
             esac
+            emit_event "$(jq -nc \
+              --argjson ts "$(date +%s%3N)" \
+              --argjson iter "${ITERATION:-0}" \
+              --arg toolName "$tool_name" \
+              --arg category "$ev_category" \
+              --arg summary "$ev_summary" \
+              '{"type":"tool:call","ts":$ts,"iter":$iter,"toolName":$toolName,"category":$category,"summary":$summary}')"
           done <<< "$tools_json"
         fi
         ;;
@@ -789,6 +812,10 @@ while :; do
   local_in_progress=$(count_in_progress_reqs)
   if [ "$local_open" -eq 0 ] && [ "$local_in_progress" -eq 0 ]; then
     echo -e "${GREEN}${BOLD}All requirements done!${RESET}"
+    emit_event "$(jq -nc \
+      --argjson ts "$(date +%s%3N)" \
+      --argjson iter "$ITERATION" \
+      '{"type":"system:event","ts":$ts,"iter":$iter,"kind":"all_done","message":"All requirements done"}')"
     break
   fi
 
@@ -872,6 +899,21 @@ while :; do
     fi
   fi
 
+  # Emit iteration:start event
+  local _iter_req_id
+  _iter_req_id=$(echo "${NEXT_REQ_HINT:-}" | grep -Eo 'REQ-[0-9]+[a-z]?' | head -1 || true)
+  local _iter_mode="implement"
+  [ "$IS_VALIDATION" -eq 1 ] && _iter_mode="validate"
+  emit_event "$(jq -nc \
+    --argjson ts "$(date +%s%3N)" \
+    --argjson iter "$ITERATION" \
+    --arg reqId "${_iter_req_id:-null}" \
+    --arg mode "$_iter_mode" \
+    --arg model "${ITER_MODEL:-unknown}" \
+    'if $reqId == "null" then {"type":"iteration:start","ts":$ts,"iter":$iter,"reqId":null,"mode":$mode,"model":$model}
+     else {"type":"iteration:start","ts":$ts,"iter":$iter,"reqId":$reqId,"mode":$mode,"model":$model}
+     end')"
+
   # Run Claude agent
   set +eo pipefail
   (
@@ -904,6 +946,12 @@ while :; do
         '.[$req].status = "blocked" | .[$req].notes = "Skipped via TUI"' \
         "$STATUS_JSON" > "${STATUS_JSON}.tmp" && mv "${STATUS_JSON}.tmp" "$STATUS_JSON"
       echo -e "  ${YELLOW}${SKIP_REQ} → blocked (skipped)${RESET}"
+      emit_event "$(jq -nc \
+        --argjson ts "$(date +%s%3N)" \
+        --argjson iter "$ITERATION" \
+        --arg reqId "$SKIP_REQ" \
+        --arg reason "Skipped via TUI" \
+        '{"type":"req:status","ts":$ts,"iter":$iter,"reqId":$reqId,"from":"in_progress","to":"blocked","reason":$reason}')"
     fi
   fi
 
@@ -915,6 +963,15 @@ while :; do
 
   ITER_END=$(date +%s)
   ITER_DURATION=$((ITER_END - ITER_START))
+
+  emit_event "$(jq -nc \
+    --argjson ts "$(date +%s%3N)" \
+    --argjson iter "$ITERATION" \
+    --argjson durationMs "$((ITER_DURATION * 1000))" \
+    --argjson costUsd "${ITER_COST:-0}" \
+    --argjson toolCount "${ITER_TOOLS:-0}" \
+    --argjson exitCode "${EXIT_CODE:-1}" \
+    '{"type":"iteration:end","ts":$ts,"iter":$iter,"durationMs":$durationMs,"costUsd":$costUsd,"toolCount":$toolCount,"exitCode":$exitCode}')"
 
   if [ "$EXIT_CODE" -eq 124 ]; then
     echo -e "  ${RED}${BOLD}Iteration timed out after $(format_duration "$ITER_TIMEOUT")${RESET}"
@@ -980,6 +1037,12 @@ while :; do
         jq --arg req "$REPEAT_REQ" \
           '.[$req].status = "blocked" | .[$req].notes = "Auto-blocked: 3 consecutive failed attempts"' \
           "$STATUS_JSON" > "${STATUS_JSON}.tmp" && mv "${STATUS_JSON}.tmp" "$STATUS_JSON"
+        emit_event "$(jq -nc \
+          --argjson ts "$(date +%s%3N)" \
+          --argjson iter "$ITERATION" \
+          --arg reqId "$REPEAT_REQ" \
+          --arg reason "Auto-blocked: 3 consecutive failed attempts" \
+          '{"type":"req:status","ts":$ts,"iter":$iter,"reqId":$reqId,"from":"in_progress","to":"blocked","reason":$reason}')"
       fi
     fi
   fi

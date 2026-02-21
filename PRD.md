@@ -399,3 +399,87 @@ Dieses REQ umfasst **beide Seiten**: die TUI-Tastaturlogik und die loop_dev.sh-I
 FIFO non-blocking Read: `read -t 0 cmd < .agent/control.fifo 2>/dev/null || true`
 `loop_dev.sh` legt `.agent/control.fifo` beim Start via `mkfifo` an (falls nicht existent).
 Pause-Check vor jedem claude-Aufruf: `while [ -f ".agent/pause.flag" ]; do sleep 1; done`
+
+---
+
+## Phase 3: Events-Stream + Split-Window TUI
+
+### REQ-010: `emit_event()` in `loop_dev.sh`
+
+- **Status:** done
+- **Priorität:** P1
+- **Größe:** M
+- **Abhängig von:** REQ-009
+
+#### Beschreibung
+
+`loop_dev.sh` emittiert strukturierte JSON-Events nach `.agent/events.jsonl`, wenn `KINEMA_TUI=1` gesetzt ist. Die Funktion `emit_event()` schreibt eine JSON-Zeile in die Datei. Emit-Punkte: `iteration:start` (vor Claude-Start), `tool:call` (pro Tool-Call in `parse_progress`), `iteration:end` (nach ITER_COST/ITER_TOOLS), `req:status` (skip/auto-block), `system:event` (all_done).
+
+#### Akzeptanzkriterien
+
+- [ ] `grep -c 'emit_event()' loop_dev.sh` ergibt `1` (Funktion genau einmal definiert)
+- [ ] `grep 'emit_event' loop_dev.sh | wc -l` ergibt mindestens `6` (Funktion + 5 Aufrufstellen)
+- [ ] Bei `KINEMA_TUI=0` (oder ungesetzt) schreibt kein Emit-Aufruf in `.agent/events.jsonl`
+- [ ] Bei `KINEMA_TUI=1` enthält `.agent/events.jsonl` nach einer Iteration Zeilen mit `iteration:start`, `tool:call`, `iteration:end`
+- [ ] NEGATIV: `bash -n loop_dev.sh` ergibt Exit 0 (Syntax valide)
+
+#### Verifikation
+
+- `grep -c 'emit_event()' loop_dev.sh` ergibt `1`
+- `KINEMA_TUI=1 ./loop_dev.sh` starten → `cat .agent/events.jsonl | head -3 | jq .type` zeigt `"iteration:start"`
+- `bash -n loop_dev.sh` ergibt Exit 0
+
+---
+
+### REQ-011: `useEventsReader` Hook
+
+- **Status:** done
+- **Priorität:** P1
+- **Größe:** S
+- **Abhängig von:** REQ-010
+
+#### Beschreibung
+
+Neuer Deno/Ink-Hook `src/hooks/useEventsReader.ts`. Liest `events.jsonl` alle 500ms (Byte-Offset-Tracking mit `useRef`), gibt `EventsState` zurück: `{ events: LoopEvent[], currentIter: number, currentReq: string | null, totalLiveCost: number }`. Importiert `LoopEvent` aus `../events.ts`.
+
+#### Akzeptanzkriterien
+
+- [ ] `test -f src/hooks/useEventsReader.ts && echo OK` ergibt `OK`
+- [ ] `grep 'useEventsReader' src/hooks/useEventsReader.ts` ergibt mindestens eine Zeile
+- [ ] `grep 'EventsState' src/hooks/useEventsReader.ts` ergibt mindestens eine Zeile
+- [ ] `deno task check` ergibt Exit 0 (TypeScript-Check sauber)
+- [ ] NEGATIV: Fehlendes `events.jsonl` führt nicht zum Absturz (leerer Zustand)
+
+#### Verifikation
+
+- `test -f src/hooks/useEventsReader.ts && echo OK` ergibt `OK`
+- `deno task check` ergibt Exit 0
+- `grep -n 'any' src/hooks/useEventsReader.ts` ergibt keine Ausgabe (keine any-Types)
+
+---
+
+### REQ-012: Split-Window Dashboard
+
+- **Status:** done
+- **Priorität:** P1
+- **Größe:** M
+- **Abhängig von:** REQ-011
+
+#### Beschreibung
+
+`src/components/Dashboard.ts` zeigt ein Split-Window Layout: links (40%) die REQ-Liste (aus `useStatusPoller`), rechts (60%) einen scrollenden Activity-Feed (aus `useEventsReader`) mit den letzten ~20 `tool:call`-Events + aktueller Iteration als Header. Farbkodierung: `bash`=yellow, `write`=red, `read`=blue, `task`=magenta, `playwright`=cyan, `mcp`=gray. Footer unter beiden Spalten mit Kosten und Tastatur-Hints.
+
+#### Akzeptanzkriterien
+
+- [ ] `grep 'flexDirection.*row' src/components/Dashboard.ts` ergibt mindestens eine Zeile (Row-Layout)
+- [ ] `grep 'useEventsReader' src/components/Dashboard.ts` ergibt mindestens eine Zeile
+- [ ] TUI zeigt nach Start zwei Spalten (REQ-Liste links, Activity-Feed rechts)
+- [ ] Tool-Call-Farben: bash=yellow, write=red, read=blue, task=magenta, playwright=cyan, mcp=gray
+- [ ] `deno task build` erzeugt neues `kinema-tui` Binary
+- [ ] NEGATIV: Leere `events.jsonl` führt nicht zum TUI-Absturz
+
+#### Verifikation
+
+- `grep 'flexDirection.*row' src/components/Dashboard.ts` ergibt mindestens eine Zeile
+- `deno task check` ergibt Exit 0
+- `deno task build` ergibt Exit 0
