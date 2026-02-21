@@ -70,11 +70,28 @@ export function Dashboard(): React.ReactElement {
   const elapsed = useElapsedTime();
   const { entries: iterEntries, available: iterAvailable } =
     useIterationsReader();
-  const { paused, lastAction } = useKeyboardControls();
+  const { paused, lastAction, editorOpen } = useKeyboardControls();
+
+  // While editor is open, yield the terminal to avoid display corruption
+  if (editorOpen) {
+    return h(
+      Box,
+      { flexDirection: "column" },
+      h(Text, { color: "green", bold: true }, "✏  Editing context.md..."),
+      h(Text, { dimColor: true }, "(TUI paused — close editor to resume)"),
+    );
+  }
 
   const entries = Object.entries(data);
   const activeEntry = entries.find(([, req]) => req.status === "in_progress");
   const activeReqId = activeEntry ? activeEntry[0] : null;
+
+  // Sum costs from iterations.jsonl
+  const totalCost = iterEntries.reduce((sum: number, e: IterationEntry) => {
+    const c = parseFloat(String(e["cost"] ?? "0"));
+    return sum + (isNaN(c) ? 0 : c);
+  }, 0);
+  const costStr = `$${totalCost.toFixed(4)}`;
 
   return h(
     Box,
@@ -85,7 +102,7 @@ export function Dashboard(): React.ReactElement {
       { flexDirection: "row", gap: 2 },
       h(Text, { color: "cyan" }, `Runtime: ${elapsed}`),
       h(Text, { dimColor: true }, "|"),
-      h(Text, { color: "cyan" }, "Cost: $0.00"),
+      h(Text, { color: "cyan" }, `Cost: ${costStr}`),
     ),
     h(Text, { dimColor: true }, "─".repeat(40)),
     // REQ list
