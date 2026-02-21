@@ -160,6 +160,16 @@ export function InitDashboard(props: {
       { flexDirection: "column", padding: 1 },
       h(Text, { color: "red", bold: true }, "⚠  Fehler"),
       h(Text, {}, state.error),
+      state.liveLines.length > 0
+        ? h(
+            Box,
+            { flexDirection: "column", marginTop: 1 },
+            h(Text, { dimColor: true }, "Letzte Ausgabe:"),
+            ...state.liveLines.map((line, i) =>
+              h(Text, { key: String(i), dimColor: true, wrap: "truncate" }, line)
+            ),
+          )
+        : null,
     );
   }
 

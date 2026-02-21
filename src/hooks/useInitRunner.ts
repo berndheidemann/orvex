@@ -51,16 +51,29 @@ async function runClaude(
   onChunk: (text: string) => void,
   signal: AbortSignal,
 ): Promise<string> {
-  // stream-json emits one JSON line per token — avoids text-mode buffering
+  // stream-json emits one JSON line per event — real streaming, no buffering
+  // --dangerously-skip-permissions required: without it claude asks interactively
+  // Prompt via stdin so no shell-escaping edge cases
   const cmd = new Deno.Command("claude", {
-    args: ["-p", prompt, "--model", "claude-opus-4-6", "--output-format", "stream-json"],
-    stdin: "null",
+    args: [
+      "-p",
+      "--dangerously-skip-permissions",
+      "--output-format=stream-json",
+      "--model", "claude-opus-4-6",
+      "--max-turns", "1",
+    ],
+    stdin: "piped",
     stdout: "piped",
     stderr: "piped",
   });
 
   const proc = cmd.spawn();
   const decoder = new TextDecoder();
+
+  // Write prompt to stdin and close
+  const writer = proc.stdin.getWriter();
+  await writer.write(new TextEncoder().encode(prompt));
+  await writer.close();
 
   // Drain stderr in background; surface as [err] lines
   const drainStderr = (async () => {
@@ -98,15 +111,18 @@ async function runClaude(
         if (!trimmed) continue;
         try {
           const obj = JSON.parse(trimmed);
-          if (obj.type === "text" && typeof obj.text === "string") {
-            // Streaming token
-            fullText += obj.text;
-            onChunk(obj.text);
-          } else if (obj.type === "result" && typeof obj.result === "string") {
-            // Final synthesised result — use as definitive output
-            fullText = obj.result;
+          // stream-json format: {"type":"assistant","message":{"content":[{"type":"text","text":"..."}]}}
+          if (obj.type === "assistant") {
+            const content: Array<{ type: string; text?: string }> =
+              obj.message?.content ?? [];
+            for (const item of content) {
+              if (item.type === "text" && typeof item.text === "string") {
+                fullText += item.text;
+                onChunk(item.text);
+              }
+            }
           }
-        } catch { /* non-JSON line */ }
+        } catch { /* non-JSON line, ignore */ }
       }
     }
   } finally {
