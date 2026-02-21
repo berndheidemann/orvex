@@ -3,6 +3,7 @@ import { Box, Text } from "ink";
 import { useStatusPoller } from "../hooks/useStatusPoller.ts";
 import { useElapsedTime } from "../hooks/useElapsedTime.ts";
 import { useIterationsReader } from "../hooks/useIterationsReader.ts";
+import { useKeyboardControls } from "../hooks/useKeyboardControls.ts";
 import { STATUS_COLORS } from "../types.ts";
 import type { IterationEntry } from "../types.ts";
 
@@ -69,6 +70,7 @@ export function Dashboard(): React.ReactElement {
   const elapsed = useElapsedTime();
   const { entries: iterEntries, available: iterAvailable } =
     useIterationsReader();
+  const { paused, lastAction } = useKeyboardControls();
 
   const entries = Object.entries(data);
   const activeEntry = entries.find(([, req]) => req.status === "in_progress");
@@ -125,5 +127,17 @@ export function Dashboard(): React.ReactElement {
       : h(Text, { dimColor: true }, "No active REQ"),
     // Error indicator (only if present)
     error !== null ? h(Text, { color: "red" }, `⚠  ${error}`) : null,
+    // Pause indicator
+    paused ? h(Text, { color: "yellow", bold: true }, "⏸  PAUSED") : null,
+    // Action feedback (skip / editor)
+    lastAction === "skip-sent"
+      ? h(Text, { color: "green" }, "✓ Skip sent")
+      : lastAction === "editor-no-env"
+      ? h(Text, { color: "red" }, "⚠  $EDITOR not set")
+      : lastAction === "editor-opened"
+      ? h(Text, { color: "green" }, "✓ Editor opened")
+      : null,
+    // Keyboard hint
+    h(Text, { dimColor: true }, "[p] pause  [s] skip  [e] edit context"),
   );
 }

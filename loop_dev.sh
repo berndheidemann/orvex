@@ -21,6 +21,11 @@ set -euo pipefail
 
 # ── Lock file (PID-based, macOS-compatible) ──────────────────────
 mkdir -p .agent
+
+# ── Control FIFO (TUI → loop_dev.sh) ─────────────────────────────
+CONTROL_FIFO=".agent/control.fifo"
+[ -p "$CONTROL_FIFO" ] || mkfifo "$CONTROL_FIFO"
+
 LOCKFILE=".agent/loop.lock"
 if [ -f "$LOCKFILE" ]; then
   _lock_pid=$(cat "$LOCKFILE" 2>/dev/null || echo "")
@@ -530,6 +535,7 @@ cleanup() {
   print_summary
   return_to_original_branch
   rm -f "$COST_FILE" "$TOOLS_FILE" "$STATUS_FILE" "$EXIT_FILE" "$LOCKFILE"
+  rm -f ".agent/pause.flag" "$CONTROL_FIFO"
   exit 130
 }
 trap cleanup EXIT INT TERM
@@ -788,6 +794,16 @@ while :; do
     echo -e "${YELLOW}Reached max iterations ($MAX_ITERATIONS). Stopping.${RESET}"
     break
   fi
+
+  # ── Pause check (TUI sets .agent/pause.flag) ─────────────────
+  if [ -f ".agent/pause.flag" ]; then
+    echo -e "  ${YELLOW}⏸  Paused — remove .agent/pause.flag or press [p] in TUI to resume${RESET}"
+    while [ -f ".agent/pause.flag" ]; do
+      sleep 2
+    done
+    echo -e "  ${GREEN}▶  Resumed${RESET}"
+  fi
+
   ITERATION=$((ITERATION + 1))
 
   ITER_LABEL="$ITERATION$([ "$MAX_ITERATIONS" -gt 0 ] && echo "/$MAX_ITERATIONS" || true)"
@@ -870,6 +886,24 @@ while :; do
   set -eo pipefail
 
   EXIT_CODE=$(cat "$EXIT_FILE" 2>/dev/null || echo "1")
+
+  # ── Non-blocking control FIFO read (TUI skip signal) ─────────
+  # macOS: open FIFO in read-write mode (<>) to avoid blocking on open().
+  # read -t 1: wait up to 1s for data (reads immediately if available).
+  FIFO_CMD=""
+  if [ -p "$CONTROL_FIFO" ]; then
+    read -t 1 FIFO_CMD <> "$CONTROL_FIFO" 2>/dev/null || true
+  fi
+  if [ "$FIFO_CMD" = "skip" ]; then
+    echo -e "  ${YELLOW}${BOLD}Skip requested via TUI${RESET}"
+    SKIP_REQ=$(jq -r 'to_entries[] | select(.value.status == "in_progress") | .key' "$STATUS_JSON" 2>/dev/null | head -1)
+    if [ -n "$SKIP_REQ" ]; then
+      jq --arg req "$SKIP_REQ" \
+        '.[$req].status = "blocked" | .[$req].notes = "Skipped via TUI"' \
+        "$STATUS_JSON" > "${STATUS_JSON}.tmp" && mv "${STATUS_JSON}.tmp" "$STATUS_JSON"
+      echo -e "  ${YELLOW}${SKIP_REQ} → blocked (skipped)${RESET}"
+    fi
+  fi
 
   kill_dev_servers
 
@@ -958,3 +992,4 @@ print_summary
 return_to_original_branch
 kill_dev_servers
 rm -f "$COST_FILE" "$TOOLS_FILE" "$STATUS_FILE" "$EXIT_FILE" "$LOCKFILE"
+rm -f ".agent/pause.flag" "$CONTROL_FIFO"
