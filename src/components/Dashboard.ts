@@ -2,13 +2,73 @@ import React from "react";
 import { Box, Text } from "ink";
 import { useStatusPoller } from "../hooks/useStatusPoller.ts";
 import { useElapsedTime } from "../hooks/useElapsedTime.ts";
+import { useIterationsReader } from "../hooks/useIterationsReader.ts";
 import { STATUS_COLORS } from "../types.ts";
+import type { IterationEntry } from "../types.ts";
 
 const { createElement: h } = React;
+
+const MAX_BLOCKED_ENTRIES = 3;
+
+function formatTimestamp(ts: string): string {
+  // Show date + time without timezone for brevity
+  return ts.replace("T", " ").replace(/\+.*$/, "").replace(/Z$/, "");
+}
+
+function BlockedDetail(props: {
+  reqId: string;
+  notes: string | undefined;
+  allEntries: IterationEntry[];
+  available: boolean;
+}): React.ReactElement {
+  const { reqId, notes, allEntries, available } = props;
+
+  if (!available) {
+    return h(
+      Box,
+      { paddingLeft: 4 },
+      h(Text, { dimColor: true }, "Keine Verlaufsdaten verfügbar"),
+    );
+  }
+
+  // Filter iterations matching this REQ
+  const matching = allEntries.filter((e) =>
+    e.req_hint.startsWith(reqId)
+  );
+
+  if (matching.length === 0) {
+    return h(
+      Box,
+      { paddingLeft: 4 },
+      h(Text, { dimColor: true }, "Keine Verlaufsdaten verfügbar"),
+    );
+  }
+
+  // Show last MAX_BLOCKED_ENTRIES entries
+  const shown = matching.slice(-MAX_BLOCKED_ENTRIES);
+
+  return h(
+    Box,
+    { flexDirection: "column" },
+    ...shown.map((entry) =>
+      h(
+        Box,
+        { key: String(entry.iteration), paddingLeft: 4 },
+        h(
+          Text,
+          { color: "red" },
+          `iter-${entry.iteration}  ${formatTimestamp(entry.timestamp)}  ${notes ?? "—"}`,
+        ),
+      )
+    ),
+  );
+}
 
 export function Dashboard(): React.ReactElement {
   const { data, error } = useStatusPoller();
   const elapsed = useElapsedTime();
+  const { entries: iterEntries, available: iterAvailable } =
+    useIterationsReader();
 
   const entries = Object.entries(data);
   const activeEntry = entries.find(([, req]) => req.status === "in_progress");
@@ -32,16 +92,31 @@ export function Dashboard(): React.ReactElement {
       : h(
           Box,
           { flexDirection: "column" },
-          ...entries.map(([id, req]) =>
-            h(
+          ...entries.flatMap(([id, req]) => {
+            const row = h(
               Text,
               {
                 key: id,
                 color: STATUS_COLORS[req.status],
               },
               `${req.status === "in_progress" ? "▶ " : "  "}${id}  [${req.status}]`,
-            )
-          ),
+            );
+
+            if (req.status !== "blocked") {
+              return [row];
+            }
+
+            return [
+              row,
+              h(BlockedDetail, {
+                key: `${id}-detail`,
+                reqId: id,
+                notes: req.notes,
+                allEntries: iterEntries,
+                available: iterAvailable,
+              }),
+            ];
+          }),
         ),
     h(Text, { dimColor: true }, "─".repeat(40)),
     // Active REQ info

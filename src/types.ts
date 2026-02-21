@@ -7,6 +7,14 @@ export interface ReqEntry {
   priority: Priority;
   size: Size;
   deps: string[];
+  notes?: string;
+}
+
+export interface IterationEntry {
+  iteration: number;
+  timestamp: string;
+  req_hint: string;
+  [key: string]: unknown;
 }
 
 export type StatusData = Record<string, ReqEntry>;
