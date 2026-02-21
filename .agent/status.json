@@ -1,18 +1,18 @@
 {
   "REQ-001": {
-    "status": "in_progress",
+    "status": "done",
     "priority": "P0",
     "size": "S",
     "deps": []
   },
   "REQ-002": {
-    "status": "in_progress",
+    "status": "done",
     "priority": "P0",
     "size": "S",
     "deps": []
   },
   "REQ-003": {
-    "status": "in_progress",
+    "status": "done",
     "priority": "P0",
     "size": "S",
     "deps": []
