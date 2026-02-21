@@ -258,7 +258,7 @@ erst nach 2s + Render-Zeit aktualisieren. 3s wäre zu knapp.
 
 ### REQ-007: Blocked-Reason-Inline-Anzeige
 
-- **Status:** in_progress
+- **Status:** done
 - **Priorität:** P2
 - **Größe:** S
 - **Abhängig von:** REQ-006
@@ -271,10 +271,10 @@ Bei blockierten REQs zeigt die TUI die letzten 3 Fehlversuche an. Datenquellen:
 
 #### Akzeptanzkriterien
 
-- [ ] Blocked-REQs expandieren in der REQ-Liste zu einem Detail-View mit bis zu 3 Einträgen
-- [ ] Jeder Eintrag zeigt: Iterationsnummer (aus iterations.jsonl), Zeitstempel (aus iterations.jsonl), notes-Text (aus status.json)
-- [ ] NEGATIV: Mehr als 3 Einträge werden nicht angezeigt (kein Overflow)
-- [ ] NEGATIV: Wenn zu einem blocked-REQ keine Einträge in `.agent/iterations.jsonl` existieren (oder die Datei fehlt), zeigt der Detail-View "Keine Verlaufsdaten verfügbar" statt Absturz
+- [x] Blocked-REQs expandieren in der REQ-Liste zu einem Detail-View mit bis zu 3 Einträgen
+- [x] Jeder Eintrag zeigt: Iterationsnummer (aus iterations.jsonl), Zeitstempel (aus iterations.jsonl), notes-Text (aus status.json)
+- [x] NEGATIV: Mehr als 3 Einträge werden nicht angezeigt (kein Overflow)
+- [x] NEGATIV: Wenn zu einem blocked-REQ keine Einträge in `.agent/iterations.jsonl` existieren (oder die Datei fehlt), zeigt der Detail-View "Keine Verlaufsdaten verfügbar" statt Absturz
 
 #### Verifikation
 
