@@ -187,7 +187,7 @@ die Grenze überschreitet.
 
 ### REQ-005: Kinema-TUI Grundgerüst (Deno + Ink)
 
-- **Status:** open
+- **Status:** in_progress
 - **Priorität:** P1
 - **Größe:** M
 - **Abhängig von:** REQ-001, REQ-002, REQ-003
