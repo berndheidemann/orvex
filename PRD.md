@@ -13,7 +13,7 @@ Jedes Requirement folgt diesem Format:
 ```
 ### REQ-NNN: [Titel]
 
-- **Status:** open|in_progress|done|blocked
+- **Status:** in_progress|in_progress|done|blocked
 - **Priorität:** P0|P1|P2
 - **Größe:** S|M
 - **Abhängig von:** REQ-XXX | ---
@@ -223,7 +223,7 @@ Das Deno-Projekt liegt direkt in `dev/` (neben loop_dev.sh).
 
 ### REQ-006: Live-Status-Dashboard
 
-- **Status:** open
+- **Status:** in_progress
 - **Priorität:** P1
 - **Größe:** M
 - **Abhängig von:** REQ-005
@@ -258,7 +258,7 @@ erst nach 2s + Render-Zeit aktualisieren. 3s wäre zu knapp.
 
 ### REQ-007: Blocked-Reason-Inline-Anzeige
 
-- **Status:** open
+- **Status:** in_progress
 - **Priorität:** P2
 - **Größe:** S
 - **Abhängig von:** REQ-006
@@ -290,7 +290,7 @@ Bei blockierten REQs zeigt die TUI die letzten 3 Fehlversuche an. Datenquellen:
 
 ### REQ-008: Event-Schema TypeScript-Typen
 
-- **Status:** open
+- **Status:** in_progress
 - **Priorität:** P1
 - **Größe:** S
 - **Abhängig von:** REQ-005
@@ -358,7 +358,7 @@ type LoopEvent = IterationStart | IterationEnd | ToolCall | AgentOutput | ReqSta
 
 ### REQ-009: Pause/Skip/Edit-Interaktivität
 
-- **Status:** open
+- **Status:** in_progress
 - **Priorität:** P2
 - **Größe:** M
 - **Abhängig von:** REQ-006, REQ-008
