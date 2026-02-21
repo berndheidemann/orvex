@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# kinema — Unified entry point for the Kinema agent framework
+# Usage: cd my-project && /path/to/kinema
+set -euo pipefail
+
+FRAMEWORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOOP_SCRIPT="$FRAMEWORK_DIR/loop_dev.sh"
+TUI_BIN="$FRAMEWORK_DIR/kinema-tui"
+
+# ── Validation ────────────────────────────────────────────────
+errors=0
+
+for f in PRD.md AGENT.md VALIDATOR.md; do
+  if [ ! -f "$f" ] && [ ! -L "$f" ]; then
+    echo "❌  $f fehlt in $(pwd)"
+    errors=$((errors + 1))
+  fi
+done
+
+if [ -f PRD.md ] && ! grep -q '^### REQ-' PRD.md 2>/dev/null; then
+  echo "❌  PRD.md enthält keine Requirements (erwartet: '### REQ-XXX:')"
+  errors=$((errors + 1))
+fi
+
+if [ $errors -gt 0 ]; then
+  echo ""
+  echo "Starte kinema in einem Projekt-Ordner mit PRD.md, AGENT.md und VALIDATOR.md."
+  exit 1
+fi
+
+# ── Setup ─────────────────────────────────────────────────────
+mkdir -p .agent/logs
+
+# status.json nur löschen wenn leer/uninitalisiert — sonst bleibt Projekt-State erhalten
+if [ -f .agent/status.json ]; then
+  req_count=$(jq 'length' .agent/status.json 2>/dev/null || echo "0")
+  if [ "$req_count" = "0" ]; then
+    rm .agent/status.json
+  fi
+fi
+
+export KINEMA_AGENT_DIR="$(pwd)/.agent"
+
+# ── Loop im Hintergrund starten ────────────────────────────────
+LOOP_LOG=".agent/logs/loop.log"
+"$LOOP_SCRIPT" >"$LOOP_LOG" 2>&1 &
+LOOP_PID=$!
+
+cleanup() {
+  kill "$LOOP_PID" 2>/dev/null || true
+  wait "$LOOP_PID" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+# Loop-Absturz früh erkennen
+sleep 1
+if ! kill -0 "$LOOP_PID" 2>/dev/null; then
+  echo "❌  loop_dev.sh ist sofort beendet. Ausgabe:"
+  echo ""
+  tail -20 "$LOOP_LOG"
+  exit 1
+fi
+
+# ── TUI im Vordergrund ────────────────────────────────────────
+KINEMA_AGENT_DIR="$(pwd)/.agent" "$TUI_BIN"
