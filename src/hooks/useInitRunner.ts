@@ -52,19 +52,34 @@ async function runClaude(
   signal: AbortSignal,
 ): Promise<string> {
   const cmd = new Deno.Command("claude", {
-    args: ["-p", "--model", "claude-opus-4-6", "--output-format", "text",
+    // Pass prompt as positional argument — avoids stdin ambiguity
+    args: ["-p", prompt, "--model", "claude-opus-4-6", "--output-format", "text",
            "--dangerously-skip-permissions"],
-    stdin: "piped",
+    stdin: "null",
     stdout: "piped",
-    stderr: "null",
+    stderr: "piped",
   });
 
   const proc = cmd.spawn();
-  const writer = proc.stdin.getWriter();
-  await writer.write(new TextEncoder().encode(prompt));
-  await writer.close();
-
   const decoder = new TextDecoder();
+
+  // Drain stderr in background; surface as [err] lines in live output
+  const drainStderr = (async () => {
+    const errReader = proc.stderr.getReader();
+    try {
+      while (true) {
+        const { done, value } = await errReader.read();
+        if (done) break;
+        const text = decoder.decode(value, { stream: true });
+        for (const line of text.split("\n")) {
+          if (line.trim()) onChunk(`[err] ${line}\n`);
+        }
+      }
+    } finally {
+      errReader.releaseLock();
+    }
+  })();
+
   const reader = proc.stdout.getReader();
   let output = "";
   try {
@@ -78,7 +93,12 @@ async function runClaude(
   } finally {
     reader.releaseLock();
   }
-  await proc.status;
+
+  await drainStderr;
+  const status = await proc.status;
+  if (!status.success && output.trim() === "") {
+    throw new Error(`claude exited with code ${status.code}`);
+  }
   return output;
 }
 
