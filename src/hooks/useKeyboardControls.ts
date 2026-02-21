@@ -1,9 +1,8 @@
 import React from "react";
-import { useInput } from "ink";
+import { useApp, useInput } from "ink";
 
 const { useState, useEffect, useCallback } = React;
 
-// KINEMA_AGENT_DIR env var overrides the default path (enables multi-project support)
 const AGENT_DIR = (
   Deno.env.get("KINEMA_AGENT_DIR") ??
   new URL("../../.agent", import.meta.url).pathname
@@ -11,27 +10,25 @@ const AGENT_DIR = (
 
 const PAUSE_FLAG_PATH = `${AGENT_DIR}/pause.flag`;
 const CONTROL_FIFO_PATH = `${AGENT_DIR}/control.fifo`;
-const CONTEXT_PATH = `${AGENT_DIR}/context.md`;
 
 export interface ControlState {
   paused: boolean;
   lastAction: string | null;
-  editorOpen: boolean;
+  editingContext: boolean;
+  quitting: boolean;
+  closeEditor: () => void;
 }
 
 export function useKeyboardControls(): ControlState {
+  const { exit } = useApp();
   const [paused, setPaused] = useState<boolean>(false);
   const [lastAction, setLastAction] = useState<string | null>(null);
-  const [editorOpen, setEditorOpen] = useState<boolean>(false);
-  const [pendingEditor, setPendingEditor] = useState<boolean>(false);
+  const [editingContext, setEditingContext] = useState<boolean>(false);
+  const [quitting, setQuitting] = useState<boolean>(false);
 
   // On mount: sync initial paused state from filesystem
   useEffect(() => {
-    Deno.stat(PAUSE_FLAG_PATH).then(() => {
-      setPaused(true);
-    }).catch(() => {
-      // File doesn't exist → not paused, that's fine
-    });
+    Deno.stat(PAUSE_FLAG_PATH).then(() => setPaused(true)).catch(() => {});
   }, []);
 
   const showAction = useCallback((msg: string) => {
@@ -39,43 +36,20 @@ export function useKeyboardControls(): ControlState {
     setTimeout(() => setLastAction(null), 3000);
   }, []);
 
-  // Launch editor blockingly via effect (allows async/await, sets editorOpen flag)
-  useEffect(() => {
-    if (!pendingEditor) return;
-    const editor = Deno.env.get("EDITOR");
-    if (!editor) {
-      showAction("editor-no-env");
-      setPendingEditor(false);
-      return;
-    }
-    setEditorOpen(true);
-    void (async () => {
-      try {
-        const proc = new Deno.Command(editor, {
-          args: [CONTEXT_PATH],
-          stdin: "inherit",
-          stdout: "inherit",
-          stderr: "inherit",
-        }).spawn();
-        await proc.status;
-      } finally {
-        setEditorOpen(false);
-        showAction("editor-opened");
-        setPendingEditor(false);
-      }
-    })();
-  }, [pendingEditor, showAction]);
+  const closeEditor = useCallback(() => {
+    setEditingContext(false);
+    showAction("editor-closed");
+  }, [showAction]);
 
-  useInput((input, _key) => {
+  // Main keyboard handler — inactive while editor or quitting
+  useInput((input, key) => {
     switch (input) {
       case "p": {
         setPaused((prev: boolean) => {
           const next = !prev;
           if (next) {
-            // Create pause flag
             Deno.writeTextFile(PAUSE_FLAG_PATH, "").catch(() => {});
           } else {
-            // Remove pause flag
             Deno.remove(PAUSE_FLAG_PATH).catch(() => {});
           }
           return next;
@@ -84,7 +58,6 @@ export function useKeyboardControls(): ControlState {
       }
 
       case "s": {
-        // Write "skip" to control FIFO via shell to avoid blocking on open()
         new Deno.Command("bash", {
           args: ["-c", `echo skip > "${CONTROL_FIFO_PATH}" 2>/dev/null || true`],
           stdin: "null",
@@ -96,18 +69,20 @@ export function useKeyboardControls(): ControlState {
       }
 
       case "e": {
-        // Guard: don't open a second editor if one is already running
-        if (!pendingEditor && !editorOpen) {
-          setPendingEditor(true);
-        }
+        setEditingContext(true);
+        break;
+      }
+
+      case "q": {
+        setQuitting(true);
+        setTimeout(() => exit(), 80);
         break;
       }
 
       default:
-        // Unknown keys: no effect
         break;
     }
-  });
+  }, { isActive: !editingContext && !quitting });
 
-  return { paused, lastAction, editorOpen };
+  return { paused, lastAction, editingContext, quitting, closeEditor };
 }

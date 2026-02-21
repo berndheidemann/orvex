@@ -5,6 +5,7 @@ import { useElapsedTime } from "../hooks/useElapsedTime.ts";
 import { useIterationsReader } from "../hooks/useIterationsReader.ts";
 import { useKeyboardControls } from "../hooks/useKeyboardControls.ts";
 import { useEventsReader } from "../hooks/useEventsReader.ts";
+import { ContextEditor } from "./ContextEditor.ts";
 import { STATUS_COLORS } from "../types.ts";
 import type { IterationEntry } from "../types.ts";
 import type { ToolCall } from "../events.ts";
@@ -122,7 +123,7 @@ export function Dashboard(): React.ReactElement {
   const elapsed = useElapsedTime();
   const { entries: iterEntries, available: iterAvailable } =
     useIterationsReader();
-  const { paused, lastAction, editorOpen } = useKeyboardControls();
+  const { paused, lastAction, editingContext, quitting, closeEditor } = useKeyboardControls();
   const {
     events,
     currentIter,
@@ -130,14 +131,17 @@ export function Dashboard(): React.ReactElement {
     totalLiveCost,
   } = useEventsReader();
 
-  // While editor is open, yield the terminal to avoid display corruption
-  if (editorOpen) {
+  if (quitting) {
     return h(
       Box,
       { flexDirection: "column" },
-      h(Text, { color: "green", bold: true }, "✏  Editing context.md..."),
-      h(Text, { dimColor: true }, "(TUI paused — close editor to resume)"),
+      h(Text, { color: "yellow", bold: true }, "⏳  Quitting — stopping loop…"),
+      h(Text, { dimColor: true }, "(waiting for background process to finish)"),
     );
+  }
+
+  if (editingContext) {
+    return h(ContextEditor, { onClose: closeEditor });
   }
 
   const entries = Object.entries(data);
@@ -239,10 +243,8 @@ export function Dashboard(): React.ReactElement {
     paused ? h(Text, { color: "yellow", bold: true }, "⏸  PAUSED") : null,
     lastAction === "skip-sent"
       ? h(Text, { color: "green" }, "✓ Skip sent")
-      : lastAction === "editor-no-env"
-      ? h(Text, { color: "red" }, "⚠  $EDITOR not set")
-      : lastAction === "editor-opened"
-      ? h(Text, { color: "green" }, "✓ Editor opened")
+      : lastAction === "editor-closed"
+      ? h(Text, { color: "green" }, "✓ context.md saved")
       : null,
     h(Text, { dimColor: true }, "[p] pause  [s] skip  [e] edit context  [q] quit"),
   );

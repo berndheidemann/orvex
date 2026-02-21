@@ -279,7 +279,7 @@ recover_in_progress() {
     echo -e "  ${YELLOW}Crash recovery: $count REQ(s) stuck in 'in_progress' → resetting to 'open'${RESET}"
     jq 'map_values(if .status == "in_progress" then .status = "open" else . end)' \
       "$STATUS_JSON" > "${STATUS_JSON}.tmp" && mv "${STATUS_JSON}.tmp" "$STATUS_JSON"
-    sed -i 's/^\- \*\*Status:\*\* in_progress/- **Status:** open/' "$PRD_FILE"
+    sed -i '' 's/^\- \*\*Status:\*\* in_progress/- **Status:** open/' "$PRD_FILE"
     git add "$STATUS_JSON" "$PRD_FILE" && \
       git commit -m "loop.sh: crash recovery — reset in_progress REQs to open" 2>/dev/null || true
   fi
@@ -676,7 +676,7 @@ parse_progress() {
                 ;;
             esac
             emit_event "$(jq -nc \
-              --argjson ts "$(date +%s%3N)" \
+              --argjson ts "$(( $(date +%s) * 1000 ))" \
               --argjson iter "${ITERATION:-0}" \
               --arg toolName "$tool_name" \
               --arg category "$ev_category" \
@@ -813,7 +813,7 @@ while :; do
   if [ "$local_open" -eq 0 ] && [ "$local_in_progress" -eq 0 ]; then
     echo -e "${GREEN}${BOLD}All requirements done!${RESET}"
     emit_event "$(jq -nc \
-      --argjson ts "$(date +%s%3N)" \
+      --argjson ts "$(( $(date +%s) * 1000 ))" \
       --argjson iter "$ITERATION" \
       '{"type":"system:event","ts":$ts,"iter":$iter,"kind":"all_done","message":"All requirements done"}')"
     break
@@ -900,12 +900,11 @@ while :; do
   fi
 
   # Emit iteration:start event
-  local _iter_req_id
   _iter_req_id=$(echo "${NEXT_REQ_HINT:-}" | grep -Eo 'REQ-[0-9]+[a-z]?' | head -1 || true)
-  local _iter_mode="implement"
+  _iter_mode="implement"
   [ "$IS_VALIDATION" -eq 1 ] && _iter_mode="validate"
   emit_event "$(jq -nc \
-    --argjson ts "$(date +%s%3N)" \
+    --argjson ts "$(( $(date +%s) * 1000 ))" \
     --argjson iter "$ITERATION" \
     --arg reqId "${_iter_req_id:-null}" \
     --arg mode "$_iter_mode" \
@@ -947,7 +946,7 @@ while :; do
         "$STATUS_JSON" > "${STATUS_JSON}.tmp" && mv "${STATUS_JSON}.tmp" "$STATUS_JSON"
       echo -e "  ${YELLOW}${SKIP_REQ} → blocked (skipped)${RESET}"
       emit_event "$(jq -nc \
-        --argjson ts "$(date +%s%3N)" \
+        --argjson ts "$(( $(date +%s) * 1000 ))" \
         --argjson iter "$ITERATION" \
         --arg reqId "$SKIP_REQ" \
         --arg reason "Skipped via TUI" \
@@ -965,7 +964,7 @@ while :; do
   ITER_DURATION=$((ITER_END - ITER_START))
 
   emit_event "$(jq -nc \
-    --argjson ts "$(date +%s%3N)" \
+    --argjson ts "$(( $(date +%s) * 1000 ))" \
     --argjson iter "$ITERATION" \
     --argjson durationMs "$((ITER_DURATION * 1000))" \
     --argjson costUsd "${ITER_COST:-0}" \
@@ -1038,7 +1037,7 @@ while :; do
           '.[$req].status = "blocked" | .[$req].notes = "Auto-blocked: 3 consecutive failed attempts"' \
           "$STATUS_JSON" > "${STATUS_JSON}.tmp" && mv "${STATUS_JSON}.tmp" "$STATUS_JSON"
         emit_event "$(jq -nc \
-          --argjson ts "$(date +%s%3N)" \
+          --argjson ts "$(( $(date +%s) * 1000 ))" \
           --argjson iter "$ITERATION" \
           --arg reqId "$REPEAT_REQ" \
           --arg reason "Auto-blocked: 3 consecutive failed attempts" \
