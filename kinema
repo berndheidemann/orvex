@@ -1,11 +1,39 @@
 #!/usr/bin/env bash
 # kinema — Unified entry point for the Kinema agent framework
-# Usage: cd my-project && /path/to/kinema
+# Usage: cd my-project && /path/to/kinema [init]
 set -euo pipefail
 
 FRAMEWORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOOP_SCRIPT="$FRAMEWORK_DIR/loop_dev.sh"
 TUI_BIN="$FRAMEWORK_DIR/kinema-tui"
+TEMPLATES_DIR="$FRAMEWORK_DIR/templates"
+
+# ── kinema init ───────────────────────────────────────────────
+if [ "${1:-}" = "init" ]; then
+  created=0
+  skipped=0
+
+  for f in AGENT.md VALIDATOR.md PRD.md; do
+    if [ -f "$f" ]; then
+      echo "⏭  $f existiert bereits — übersprungen"
+      skipped=$((skipped + 1))
+    else
+      cp "$TEMPLATES_DIR/$f" "./$f"
+      echo "✅  $f erstellt"
+      created=$((created + 1))
+    fi
+  done
+
+  echo ""
+  if [ "$created" -gt 0 ]; then
+    echo "Projekt initialisiert. Nächste Schritte:"
+    echo "  1. PRD.md anpassen — Requirements eintragen"
+    echo "  2. $(basename "$0") starten"
+  else
+    echo "Alle Dateien existierten bereits — nichts verändert."
+  fi
+  exit 0
+fi
 
 # ── Validation ────────────────────────────────────────────────
 errors=0
@@ -25,6 +53,7 @@ fi
 if [ $errors -gt 0 ]; then
   echo ""
   echo "Starte kinema in einem Projekt-Ordner mit PRD.md, AGENT.md und VALIDATOR.md."
+  echo "Noch kein Projekt? Initialisiere mit: $(basename "$0") init"
   exit 1
 fi
 
