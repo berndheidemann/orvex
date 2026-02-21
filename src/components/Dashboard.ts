@@ -5,10 +5,11 @@ import { useElapsedTime } from "../hooks/useElapsedTime.ts";
 import { useIterationsReader } from "../hooks/useIterationsReader.ts";
 import { useKeyboardControls } from "../hooks/useKeyboardControls.ts";
 import { useEventsReader } from "../hooks/useEventsReader.ts";
+import { useTerminalSize } from "../hooks/useTerminalSize.ts";
 import { ContextEditor } from "./ContextEditor.ts";
 import { STATUS_COLORS } from "../types.ts";
 import type { IterationEntry } from "../types.ts";
-import type { ToolCall } from "../events.ts";
+import type { LoopPhaseEvent, ToolCall } from "../events.ts";
 
 const { createElement: h } = React;
 
@@ -24,6 +25,25 @@ const CATEGORY_COLORS: Record<string, string> = {
   playwright: "cyan",
   mcp: "gray",
 };
+
+const PHASE_LABELS: Record<string, string> = {
+  preflight:       "⚙  preflight",
+  implementing:    "▶  implementing",
+  validating:      "✓  validating",
+  post_processing: "⟳  post-processing",
+};
+
+function ProgressBar(props: {
+  filled: number;
+  total: number;
+  width: number;
+  color?: string;
+}): React.ReactElement {
+  const { filled, total, width, color = "green" } = props;
+  const filledCount = total > 0 ? Math.round((filled / total) * width) : 0;
+  const emptyCount = Math.max(0, width - filledCount);
+  return h(Text, { color }, "█".repeat(filledCount) + "░".repeat(emptyCount));
+}
 
 function formatTimestamp(ts: string): string {
   return ts.replace("T", " ").replace(/\+.*$/, "").replace(/Z$/, "");
@@ -130,6 +150,7 @@ export function Dashboard(): React.ReactElement {
     currentReq,
     totalLiveCost,
   } = useEventsReader();
+  const { columns } = useTerminalSize();
 
   if (quitting) {
     return h(
@@ -156,6 +177,18 @@ export function Dashboard(): React.ReactElement {
   // Use whichever is larger (live cost accumulates per event, historical per completed iteration)
   const totalCost = Math.max(historicalCost, totalLiveCost);
   const costStr = `$${totalCost.toFixed(4)}`;
+
+  // Phase tracking
+  const lastPhaseEvent = [...events].reverse()
+    .find((ev): ev is LoopPhaseEvent => ev.type === "loop:phase");
+  const currentPhase = lastPhaseEvent?.phase ?? null;
+
+  // REQ progress counters
+  const totalReqs = entries.length;
+  const doneReqs = entries.filter(([, r]) => r.status === "done").length;
+
+  // Progress bar width: half the terminal width minus labels
+  const barWidth = Math.max(10, Math.floor(columns / 2) - 20);
 
   // Extract tool:call events and current model
   const toolEvents = events.filter((ev): ev is ToolCall => ev.type === "tool:call");
@@ -225,6 +258,22 @@ export function Dashboard(): React.ReactElement {
       h(Text, { color: "cyan" }, `Runtime: ${elapsed}`),
       h(Text, { dimColor: true }, "|"),
       h(Text, { color: "cyan" }, `Cost: ${costStr}`),
+      h(Text, { dimColor: true }, "|"),
+      h(Text, { dimColor: true }, `Iter ${currentIter}`),
+    ),
+    // Progress row
+    h(
+      Box,
+      { flexDirection: "row", gap: 2 },
+      h(Text, { dimColor: true }, "REQs "),
+      h(ProgressBar, { filled: doneReqs, total: totalReqs, width: barWidth }),
+      h(Text, { dimColor: true }, ` ${doneReqs}/${totalReqs}`),
+      totalReqs > 0
+        ? h(Text, { dimColor: true }, "  │")
+        : null,
+      currentPhase
+        ? h(Text, { color: "yellow" }, `  ${PHASE_LABELS[currentPhase] ?? currentPhase}`)
+        : null,
     ),
     h(Text, { dimColor: true }, "─".repeat(50)),
     // Split layout

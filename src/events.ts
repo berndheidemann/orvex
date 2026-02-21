@@ -51,10 +51,17 @@ export interface SystemEvent extends EventBase {
   message: string;
 }
 
+export interface LoopPhaseEvent extends EventBase {
+  type: "loop:phase";
+  phase: "preflight" | "implementing" | "validating" | "post_processing";
+  detail?: string;
+}
+
 export type LoopEvent =
   | IterationStart
   | IterationEnd
   | ToolCall
   | AgentOutput
   | ReqStatusChange
-  | SystemEvent;
+  | SystemEvent
+  | LoopPhaseEvent;

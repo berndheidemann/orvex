@@ -834,6 +834,10 @@ while :; do
   fi
 
   ITERATION=$((ITERATION + 1))
+  emit_event "$(jq -nc \
+    --argjson ts "$(( $(date +%s) * 1000 ))" \
+    --argjson iter "$ITERATION" \
+    '{"type":"loop:phase","ts":$ts,"iter":$iter,"phase":"preflight"}')"
 
   ITER_LABEL="$ITERATION$([ "$MAX_ITERATIONS" -gt 0 ] && echo "/$MAX_ITERATIONS" || true)"
 
@@ -912,6 +916,13 @@ while :; do
     'if $reqId == "null" then {"type":"iteration:start","ts":$ts,"iter":$iter,"reqId":null,"mode":$mode,"model":$model}
      else {"type":"iteration:start","ts":$ts,"iter":$iter,"reqId":$reqId,"mode":$mode,"model":$model}
      end')"
+  _phase_name="implementing"
+  [ "$IS_VALIDATION" -eq 1 ] && _phase_name="validating"
+  emit_event "$(jq -nc \
+    --argjson ts "$(( $(date +%s) * 1000 ))" \
+    --argjson iter "$ITERATION" \
+    --arg phase "$_phase_name" \
+    '{"type":"loop:phase","ts":$ts,"iter":$iter,"phase":$phase}')"
 
   # Run Claude agent
   set +eo pipefail
@@ -927,6 +938,10 @@ while :; do
     echo $? > "$EXIT_FILE"
   ) | tee "$ITER_LOG_FILE" | parse_progress
   set -eo pipefail
+  emit_event "$(jq -nc \
+    --argjson ts "$(( $(date +%s) * 1000 ))" \
+    --argjson iter "$ITERATION" \
+    '{"type":"loop:phase","ts":$ts,"iter":$iter,"phase":"post_processing"}')"
 
   EXIT_CODE=$(cat "$EXIT_FILE" 2>/dev/null || echo "1")
 
