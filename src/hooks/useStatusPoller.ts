@@ -3,11 +3,13 @@ import type { StatusData } from "../types.ts";
 
 const { useState, useEffect } = React;
 
-// Resolve path relative to this file: src/hooks/ → ../../.agent/status.json → dev/.agent/
-const STATUS_PATH = new URL(
-  "../../.agent/status.json",
-  import.meta.url,
-).pathname;
+// KINEMA_AGENT_DIR env var overrides the default path (enables multi-project support)
+const AGENT_DIR = (
+  Deno.env.get("KINEMA_AGENT_DIR") ??
+  new URL("../../.agent", import.meta.url).pathname
+).replace(/\/$/, "");
+
+const STATUS_PATH = `${AGENT_DIR}/status.json`;
 
 export function useStatusPoller(intervalMs: number = 2000): {
   data: StatusData;

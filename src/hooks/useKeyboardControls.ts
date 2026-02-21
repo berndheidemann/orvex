@@ -3,21 +3,15 @@ import { useInput } from "ink";
 
 const { useState, useEffect, useCallback } = React;
 
-// Paths resolved relative to this file: src/hooks/ → ../../.agent/
-const PAUSE_FLAG_PATH = new URL(
-  "../../.agent/pause.flag",
-  import.meta.url,
-).pathname;
+// KINEMA_AGENT_DIR env var overrides the default path (enables multi-project support)
+const AGENT_DIR = (
+  Deno.env.get("KINEMA_AGENT_DIR") ??
+  new URL("../../.agent", import.meta.url).pathname
+).replace(/\/$/, "");
 
-const CONTROL_FIFO_PATH = new URL(
-  "../../.agent/control.fifo",
-  import.meta.url,
-).pathname;
-
-const CONTEXT_PATH = new URL(
-  "../../.agent/context.md",
-  import.meta.url,
-).pathname;
+const PAUSE_FLAG_PATH = `${AGENT_DIR}/pause.flag`;
+const CONTROL_FIFO_PATH = `${AGENT_DIR}/control.fifo`;
+const CONTEXT_PATH = `${AGENT_DIR}/context.md`;
 
 export interface ControlState {
   paused: boolean;
