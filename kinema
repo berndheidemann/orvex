@@ -8,46 +8,204 @@ LOOP_SCRIPT="$FRAMEWORK_DIR/loop_dev.sh"
 TUI_BIN="$FRAMEWORK_DIR/kinema-tui"
 TEMPLATES_DIR="$FRAMEWORK_DIR/templates"
 
-# ── kinema init ───────────────────────────────────────────────
-if [ "${1:-}" = "init" ]; then
-  created=0
-  skipped=0
+# ── PRD-Generierung via 4-Runden Opus-Diskussion ──────────────
+generate_prd() {
+  local description="$1"
+  local t1 t2 t3
+  t1=$(mktemp); t2=$(mktemp); t3=$(mktemp)
 
-  for f in AGENT.md VALIDATOR.md PRD.md; do
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  PRD-Generierung  ·  4 Runden  ·  2 Opus-Agenten"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  # ── Runde 1: Architekt schlägt Requirements vor ──────────────
+  echo ""
+  echo "▶  Runde 1/4 — Architekt: erste Requirements"
+  echo "───────────────────────────────────────────────────────"
+  claude -p --model claude-opus-4-6 --output-format=text \
+    "Du bist ein erfahrener Software-Architekt und Product Manager.
+
+Projektbeschreibung des Nutzers:
+${description}
+
+Analysiere die Beschreibung und schlage 4–8 konkrete Requirements vor.
+Nutze exakt dieses Kinema-Format:
+
+### REQ-001: [Titel]
+
+- **Priorität:** P0|P1|P2
+- **Größe:** S|M
+- **Abhängig von:** ---
+
+#### Beschreibung
+[Was soll implementiert werden?]
+
+#### Akzeptanzkriterien
+- [ ] [Messbares, testbares Ergebnis]
+
+Regeln:
+- P0 = Kernfunktion ohne die nichts geht, P1 = wichtig, P2 = nice-to-have
+- S = kleine Iteration (wenige Stunden), M = größere Iteration (halber Tag)
+- Starte mit P0, dann P1, P2
+- Denke an: Kernfunktion, Fehlerbehandlung, Edge Cases, UX-Grundlagen" \
+    | tee "$t1"
+
+  # ── Runde 2: Product Manager ergänzt User Journeys ───────────
+  echo ""
+  echo "▶  Runde 2/4 — Product Manager: User Journeys & Kritik"
+  echo "───────────────────────────────────────────────────────"
+  claude -p --model claude-opus-4-6 --output-format=text \
+    "Du bist ein erfahrener Product Manager mit Fokus auf User Experience.
+
+Projektbeschreibung: ${description}
+
+Der Architekt hat folgende Requirements vorgeschlagen:
+$(cat "$t1")
+
+Deine Aufgaben:
+1. Kritisiere: Was fehlt für ein vollständiges MVP? Was ist unrealistisch für v1?
+2. Ergänze für alle UI-relevanten REQs einen '#### User Journey' Abschnitt:
+   1. Nutzer öffnet [Seite/Bereich]
+   2. Nutzer [konkrete Aktion]
+   3. System zeigt [sichtbares Ergebnis]
+   4. Fehlerfall: Nutzer [falsche Eingabe] → System zeigt [Fehlermeldung]
+3. Schlage fehlende REQs vor (typisch vergessen: Auth/Login, leere Zustände,
+   Ladezustände, Fehlermeldungen, Onboarding, mobile Nutzung)
+
+Gib die vollständige überarbeitete REQ-Liste aus (alle REQs, nicht nur Änderungen)." \
+    | tee "$t2"
+
+  # ── Runde 3: Architekt prüft Abhängigkeiten & Verifikation ───
+  echo ""
+  echo "▶  Runde 3/4 — Architekt: Abhängigkeiten & Verifikation"
+  echo "───────────────────────────────────────────────────────"
+  claude -p --model claude-opus-4-6 --output-format=text \
+    "Du bist Software-Architekt. Projektbeschreibung: ${description}
+
+REQ-Liste nach 2 Diskussionsrunden:
+$(cat "$t2")
+
+Deine Aufgaben:
+1. Setze korrekte Abhängigkeiten ('Abhängig von: REQ-XXX' oder '---')
+2. Stelle implementierbare Reihenfolge sicher — keine zirkulären Abhängigkeiten
+3. Prüfe Größen: S = ein Agent in einer Iteration, M = ein Agent in einer langen Iteration
+4. Ergänze wo sinnvoll technische Verifikation:
+   #### Verifikation
+   - \`[Befehl]\` → \`[erwartete Ausgabe]\`
+5. Entferne REQs die für einen realistischen ersten Release zu groß/komplex sind
+   (lieber 5 solide REQs als 12 halbgare)
+
+Gib die finale, implementierungsreife REQ-Liste aus." \
+    | tee "$t3"
+
+  # ── Runde 4: Synthese → PRD.md ───────────────────────────────
+  echo ""
+  echo "▶  Runde 4/4 — Synthese → PRD.md"
+  echo "───────────────────────────────────────────────────────"
+  claude -p --model claude-opus-4-6 --output-format=text \
+    "Du bist ein technischer Writer. Erstelle die finale PRD.md.
+
+Projektbeschreibung: ${description}
+
+Finale REQ-Liste nach 3 Diskussionsrunden:
+$(cat "$t3")
+
+Gib **nur** das fertige Markdown-Dokument aus — keinen einleitenden Text, keine Erklärungen.
+Exaktes Format:
+
+# PRD — [Projektname aus Beschreibung ableiten]
+
+> [Projektbeschreibung in einem prägnanten Satz]
+
+---
+
+### REQ-001: [Titel]
+
+- **Status:** open
+- **Priorität:** P0|P1|P2
+- **Größe:** S|M
+- **Abhängig von:** ---
+
+#### Beschreibung
+...
+
+#### Akzeptanzkriterien
+- [ ] ...
+
+#### Verifikation
+- \`[Befehl]\` → \`[Ausgabe]\`
+
+#### User Journey
+(nur bei UI-Features)
+1. ...
+2. ...
+3. Fehlerfall: ...
+
+---
+
+Regeln: Status immer 'open'. Alle REQs vollständig. Nur Markdown, nichts anderes." \
+    | tee PRD.md
+
+  rm -f "$t1" "$t2" "$t3"
+
+  local req_count
+  req_count=$(grep -c '^### REQ-' PRD.md 2>/dev/null || echo "0")
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  ✅  PRD.md erstellt — ${req_count} Requirements"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+  echo "  ⚠️   WICHTIG: Bitte PRD.md jetzt sorgfältig prüfen!"
+  echo ""
+  echo "  KI-generierte Requirements sind ein erster Aufschlag —"
+  echo "  kein Ersatz für dein Domänenwissen. Prüfe:"
+  echo "    • Sind alle wichtigen Features enthalten?"
+  echo "    • Sind die Akzeptanzkriterien präzise und testbar?"
+  echo "    • Sind die User Journeys vollständig?"
+  echo "    • Ist die Priorisierung (P0/P1/P2) richtig?"
+  echo "    • Fehlen Abhängigkeiten oder Edge Cases?"
+  echo ""
+  echo "  Wenn PRD.md bereit ist: kinema erneut starten"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+}
+
+# ── Init-Logik (shared zwischen 'kinema init' und leerem Ordner) ─
+do_init() {
+  for f in AGENT.md VALIDATOR.md; do
     if [ -f "$f" ]; then
       echo "⏭  $f existiert bereits — übersprungen"
-      skipped=$((skipped + 1))
     else
       cp "$TEMPLATES_DIR/$f" "./$f"
       echo "✅  $f erstellt"
-      created=$((created + 1))
     fi
   done
 
   echo ""
-  if [ "$created" -gt 0 ]; then
-    echo "Projekt initialisiert."
-    echo ""
-    echo "Tipp: PRD.md anpassen — Requirements eintragen, dann kinema starten."
-    echo ""
-    printf "Jetzt starten? [j/N] "
-    read -r answer
-    if [ "$answer" = "j" ] || [ "$answer" = "J" ] || [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
-      echo ""
-    else
-      exit 0
-    fi
+  printf "Kurze Projektbeschreibung (Enter für manuelles PRD): "
+  read -r description
+
+  if [ -n "$description" ]; then
+    generate_prd "$description"
+    exit 0
   else
-    echo "Alle Dateien existierten bereits — nichts verändert."
-    echo ""
-    printf "Trotzdem starten? [j/N] "
-    read -r answer
-    if [ "$answer" = "j" ] || [ "$answer" = "J" ] || [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
-      echo ""
+    if [ ! -f PRD.md ]; then
+      cp "$TEMPLATES_DIR/PRD.md" ./PRD.md
+      echo "✅  PRD.md erstellt (Vorlage)"
     else
-      exit 0
+      echo "⏭  PRD.md existiert bereits — übersprungen"
     fi
+    echo ""
+    echo "PRD.md anpassen, dann kinema erneut starten."
+    exit 0
   fi
+}
+
+# ── kinema init ───────────────────────────────────────────────
+if [ "${1:-}" = "init" ]; then
+  echo "Kinema — Projekt initialisieren"
+  echo ""
+  do_init
 fi
 
 # ── Validation ────────────────────────────────────────────────
@@ -71,17 +229,7 @@ if [ $errors -gt 0 ]; then
   read -r answer
   if [ "$answer" = "j" ] || [ "$answer" = "J" ] || [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
     echo ""
-    for f in AGENT.md VALIDATOR.md PRD.md; do
-      if [ -f "$f" ]; then
-        echo "⏭  $f existiert bereits — übersprungen"
-      else
-        cp "$TEMPLATES_DIR/$f" "./$f"
-        echo "✅  $f erstellt"
-      fi
-    done
-    echo ""
-    echo "Tipp: PRD.md anpassen — Requirements eintragen, dann kinema erneut starten."
-    exit 0
+    do_init
   else
     exit 1
   fi
