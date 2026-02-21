@@ -152,21 +152,166 @@ Regeln: Status immer 'open'. Alle REQs vollständig. Nur Markdown, nichts andere
   local req_count
   req_count=$(grep -c '^### REQ-' PRD.md 2>/dev/null || echo "0")
   echo ""
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "  ✅  PRD.md erstellt — ${req_count} Requirements"
+}
+
+# ── Architektur-Entwurf via 4-Runden Opus-Diskussion ─────────
+generate_architecture() {
+  local prd_content
+  prd_content=$(cat PRD.md 2>/dev/null || echo "(keine PRD vorhanden)")
+
+  local t1 t2 t3
+  t1=$(mktemp); t2=$(mktemp); t3=$(mktemp)
+
+  mkdir -p .agent
+
+  echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  Architektur-Entwurf  ·  4 Runden  ·  2 Opus-Agenten"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  # ── Runde 1: Tech Lead schlägt Architektur vor ───────────────
   echo ""
-  echo "  ⚠️   WICHTIG: Bitte PRD.md jetzt sorgfältig prüfen!"
+  echo "▶  Runde 1/4 — Tech Lead: Tech-Stack & Architektur"
+  echo "───────────────────────────────────────────────────────"
+  claude -p --model claude-opus-4-6 --output-format=text \
+    "Du bist ein erfahrener Tech Lead und Software-Architekt.
+
+Hier ist die PRD des Projekts das gebaut werden soll:
+${prd_content}
+
+Schlage eine konkrete Software-Architektur vor. Entscheide:
+1. **Programmiersprache & Runtime** — welche und warum?
+2. **Frameworks & Libraries** — konkrete Namen und Versionen
+3. **Architektur-Pattern** — z.B. MVC, Hexagonal, Event-Driven, Microservices vs. Monolith
+4. **Projektstruktur** — Verzeichnisbaum der wichtigsten Ordner/Dateien
+5. **Datenhaltung** — Datenbank, Cache, Dateisystem (konkrete Technologie)
+6. **Testing-Stack** — Unit, Integration, E2E (konkrete Tools)
+7. **Build & Dev-Tooling** — wie wird gebaut, gestartet, gelinted?
+
+Begründe jede Entscheidung kurz. Denke pragmatisch — lieber bewährte,
+einfache Lösungen als überengineerte Architekturen." \
+    | tee "$t1"
+
+  # ── Runde 2: Senior Dev hinterfragt und fordert heraus ───────
   echo ""
-  echo "  KI-generierte Requirements sind ein erster Aufschlag —"
-  echo "  kein Ersatz für dein Domänenwissen. Prüfe:"
-  echo "    • Sind alle wichtigen Features enthalten?"
-  echo "    • Sind die Akzeptanzkriterien präzise und testbar?"
-  echo "    • Sind die User Journeys vollständig?"
-  echo "    • Ist die Priorisierung (P0/P1/P2) richtig?"
-  echo "    • Fehlen Abhängigkeiten oder Edge Cases?"
+  echo "▶  Runde 2/4 — Senior Developer: Kritik & Alternativen"
+  echo "───────────────────────────────────────────────────────"
+  claude -p --model claude-opus-4-6 --output-format=text \
+    "Du bist ein skeptischer Senior Developer und Principal Engineer.
+
+PRD des Projekts:
+${prd_content}
+
+Der Tech Lead hat folgende Architektur vorgeschlagen:
+$(cat "$t1")
+
+Deine Aufgabe: Hinterfrage die Entscheidungen kritisch.
+1. Welche Entscheidungen sind für dieses konkrete Projekt über- oder unterdimensioniert?
+2. Gibt es einfachere Alternativen die besser passen würden?
+3. Welche praktischen Probleme siehst du (Deployment, Onboarding, Debugging, Performance)?
+4. Welche Risiken wurden nicht bedacht?
+5. Was würdest du anders machen und warum?
+
+Sei konkret und konstruktiv — nicht destruktiv." \
+    | tee "$t2"
+
+  # ── Runde 3: Tech Lead antwortet und verfeinert ───────────────
   echo ""
-  echo "  Wenn PRD.md bereit ist: kinema erneut starten"
+  echo "▶  Runde 3/4 — Tech Lead: Antwort & finale Entscheidungen"
+  echo "───────────────────────────────────────────────────────"
+  claude -p --model claude-opus-4-6 --output-format=text \
+    "Du bist Tech Lead. PRD des Projekts:
+${prd_content}
+
+Dein ursprünglicher Vorschlag:
+$(cat "$t1")
+
+Kritik des Senior Developers:
+$(cat "$t2")
+
+Reagiere auf die Kritik:
+1. Welche Punkte nimmst du an und wie passt du die Architektur an?
+2. Welche Entscheidungen verteidigst du und warum?
+3. Gib die finale, überarbeitete Architektur-Entscheidung aus —
+   vollständig, nicht nur die Änderungen." \
+    | tee "$t3"
+
+  # ── Runde 4: Synthese → architecture.md ──────────────────────
+  echo ""
+  echo "▶  Runde 4/4 — Synthese → .agent/architecture.md"
+  echo "───────────────────────────────────────────────────────"
+  claude -p --model claude-opus-4-6 --output-format=text \
+    "Du bist technischer Writer. Erstelle die finale architecture.md.
+
+PRD des Projekts:
+${prd_content}
+
+Finale Architektur-Entscheidungen nach 3 Diskussionsrunden:
+$(cat "$t3")
+
+Gib **nur** das fertige Markdown-Dokument aus. Exaktes Format:
+
+# Architektur-Entscheidungen
+
+> [Ein-Satz-Zusammenfassung des gewählten Ansatzes]
+
+## Überblick
+
+[3-5 Sätze: gewählter Stack, Pattern, Begründung in Kurzform]
+
+## Projektstruktur
+
+\`\`\`
+[Verzeichnisbaum der wichtigsten Ordner/Dateien]
+\`\`\`
+
+---
+
+## ADR-001: [Titel] ($(date +%Y-%m-%d))
+
+**Kontext:** [Warum war eine Entscheidung nötig?]
+**Entscheidung:** [Was wurde entschieden?]
+**Begründung:** [Warum diese Option?]
+**Konsequenzen:** [Was folgt daraus für den Agenten?]
+
+---
+
+[weitere ADRs für jede wesentliche Entscheidung: Sprache, Framework,
+Datenbank, Testing-Stack, Build-Tooling — je ein ADR]
+
+Regeln: Nur Markdown. Keine Einleitung. Keine Zusammenfassung am Ende." \
+    | tee .agent/architecture.md
+
+  rm -f "$t1" "$t2" "$t3"
+
+  echo ""
+  echo "  ✅  .agent/architecture.md erstellt"
+}
+
+# ── Abschluss-Message nach Init ───────────────────────────────
+show_init_done() {
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  ⚠️   Bitte vor dem ersten Start sorgfältig prüfen:"
+  echo ""
+  echo "  PRD.md"
+  echo "    • Alle wichtigen Features enthalten?"
+  echo "    • Akzeptanzkriterien präzise und testbar?"
+  echo "    • User Journeys vollständig?"
+  echo "    • Priorisierung (P0/P1/P2) korrekt?"
+  echo ""
+  if [ -f .agent/architecture.md ]; then
+    echo "  .agent/architecture.md"
+    echo "    • Tech-Stack passend für das Projekt?"
+    echo "    • Architektur-Pattern verständlich?"
+    echo "    • Projektstruktur sinnvoll?"
+    echo ""
+  fi
+  echo "  KI-Entwürfe sind ein erster Aufschlag —"
+  echo "  kein Ersatz für dein Domänenwissen."
+  echo ""
+  echo "  Wenn alles bereit ist: kinema erneut starten"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
 
@@ -187,7 +332,6 @@ do_init() {
 
   if [ -n "$description" ]; then
     generate_prd "$description"
-    exit 0
   else
     if [ ! -f PRD.md ]; then
       cp "$TEMPLATES_DIR/PRD.md" ./PRD.md
@@ -195,10 +339,18 @@ do_init() {
     else
       echo "⏭  PRD.md existiert bereits — übersprungen"
     fi
-    echo ""
-    echo "PRD.md anpassen, dann kinema erneut starten."
-    exit 0
   fi
+
+  echo ""
+  printf "Auch Software-Architektur diskutieren lassen? [j/N] "
+  read -r arch_answer
+  if [ "$arch_answer" = "j" ] || [ "$arch_answer" = "J" ] || \
+     [ "$arch_answer" = "y" ] || [ "$arch_answer" = "Y" ]; then
+    generate_architecture
+  fi
+
+  show_init_done
+  exit 0
 }
 
 # ── kinema init ───────────────────────────────────────────────
