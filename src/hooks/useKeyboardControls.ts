@@ -1,12 +1,8 @@
 import React from "react";
 import { useApp, useInput } from "ink";
+import { AGENT_DIR } from "../lib/agentDir.ts";
 
 const { useState, useEffect, useCallback } = React;
-
-const AGENT_DIR = (
-  Deno.env.get("KINEMA_AGENT_DIR") ??
-  new URL("../../.agent", import.meta.url).pathname
-).replace(/\/$/, "");
 
 const PAUSE_FLAG_PATH = `${AGENT_DIR}/pause.flag`;
 const CONTROL_FIFO_PATH = `${AGENT_DIR}/control.fifo`;

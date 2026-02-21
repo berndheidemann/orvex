@@ -1,14 +1,10 @@
 import React from "react";
 import { Box, Text, useInput } from "ink";
 import { useTerminalSize } from "../hooks/useTerminalSize.ts";
+import { AGENT_DIR } from "../lib/agentDir.ts";
 
 const { useReducer, useEffect, useState } = React;
 const { createElement: h } = React;
-
-const AGENT_DIR = (
-  Deno.env.get("KINEMA_AGENT_DIR") ??
-  new URL("../../.agent", import.meta.url).pathname
-).replace(/\/$/, "");
 
 const CONTEXT_PATH = `${AGENT_DIR}/context.md`;
 

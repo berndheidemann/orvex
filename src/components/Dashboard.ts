@@ -8,6 +8,7 @@ import { useEventsReader } from "../hooks/useEventsReader.ts";
 import { useTerminalSize } from "../hooks/useTerminalSize.ts";
 import { usePrdTitles } from "../hooks/usePrdTitles.ts";
 import { ContextEditor } from "./ContextEditor.ts";
+import { ProgressBar } from "./ProgressBar.ts";
 import { STATUS_COLORS } from "../types.ts";
 import type { IterationEntry } from "../types.ts";
 import type { LoopPhaseEvent, ToolCall } from "../events.ts";
@@ -16,6 +17,10 @@ const { createElement: h } = React;
 
 const MAX_BLOCKED_ENTRIES = 3;
 const MAX_FEED_ENTRIES = 20;
+const FEED_SUMMARY_MAX_LEN = 60;
+const REQ_TITLE_MAX_LEN = 30;
+const BAR_WIDTH_DIVISOR = 3;
+const BAR_WIDTH_MIN = 10;
 
 // Color map for tool categories
 const CATEGORY_COLORS: Record<string, string> = {
@@ -42,18 +47,6 @@ const PHASE_STEPS: Record<string, number> = {
   post_processing: 3,
 };
 const PHASE_TOTAL = 3;
-
-function ProgressBar(props: {
-  filled: number;
-  total: number;
-  width: number;
-  color?: string;
-}): React.ReactElement {
-  const { filled, total, width, color = "green" } = props;
-  const filledCount = total > 0 ? Math.round((filled / total) * width) : 0;
-  const emptyCount = Math.max(0, width - filledCount);
-  return h(Text, { color }, "█".repeat(filledCount) + "░".repeat(emptyCount));
-}
 
 function formatTimestamp(ts: string): string {
   return ts.replace("T", " ").replace(/\+.*$/, "").replace(/Z$/, "");
@@ -141,7 +134,7 @@ function ActivityFeed(props: {
                 { color: CATEGORY_COLORS[ev.category] ?? "white" },
                 `[${ev.category}]  `,
               ),
-              h(Text, { dimColor: true }, ev.summary.slice(0, 60)),
+              h(Text, { dimColor: true }, ev.summary.slice(0, FEED_SUMMARY_MAX_LEN)),
             )
           ),
         ),
@@ -200,7 +193,7 @@ export function Dashboard(): React.ReactElement {
   const doneReqs = entries.filter(([, r]) => r.status === "done").length;
 
   // Progress bar width: ~1/3 terminal width
-  const barWidth = Math.max(10, Math.floor(columns / 3));
+  const barWidth = Math.max(BAR_WIDTH_MIN, Math.floor(columns / BAR_WIDTH_DIVISOR));
 
   // Extract tool:call events and current model
   const toolEvents = events.filter((ev): ev is ToolCall => ev.type === "tool:call");
@@ -230,7 +223,7 @@ export function Dashboard(): React.ReactElement {
                 `${prefix}${id}  [${req.status}]`,
               ),
               title
-                ? h(Text, { dimColor: true }, `    ${title.slice(0, 30)}`)
+                ? h(Text, { dimColor: true }, `    ${title.slice(0, REQ_TITLE_MAX_LEN)}`)
                 : null,
             );
 
@@ -297,7 +290,7 @@ export function Dashboard(): React.ReactElement {
         ? h(Text, { color: "yellow" }, `  ${PHASE_LABELS[currentPhase]}  (${phaseStep}/${PHASE_TOTAL})`)
         : h(Text, { dimColor: true }, "  —"),
     ),
-    h(Text, { dimColor: true }, "─".repeat(50)),
+    h(Text, { dimColor: true }, "─".repeat(columns)),
     // Split layout
     h(
       Box,
@@ -305,7 +298,7 @@ export function Dashboard(): React.ReactElement {
       reqPane,
       feedPane,
     ),
-    h(Text, { dimColor: true }, "─".repeat(50)),
+    h(Text, { dimColor: true }, "─".repeat(columns)),
     // Status line
     activeReqId && !currentReq
       ? h(Text, { color: "yellow" }, `Active: ${activeReqId}`)

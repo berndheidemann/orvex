@@ -19,31 +19,12 @@ do_init() {
     fi
   done
 
-  echo ""
-  printf "Kurze Projektbeschreibung (Enter für manuelle PRD-Vorlage): "
-  read -r description
-
   mkdir -p .agent
 
-  if [ -n "$description" ]; then
-    # Launch TUI in init mode — it runs the Opus discussion and writes PRD.md + architecture.md
-    KINEMA_INIT_MODE=1 \
-    KINEMA_INIT_DESCRIPTION="$description" \
-    KINEMA_AGENT_DIR="$(pwd)/.agent" \
-    "$TUI_BIN"
-  else
-    # Manual: copy template files
-    if [ ! -f PRD.md ]; then
-      cp "$TEMPLATES_DIR/PRD.md" ./PRD.md
-      echo "✅  PRD.md erstellt (Vorlage)"
-    else
-      echo "⏭  PRD.md existiert bereits — übersprungen"
-    fi
-    if [ ! -f .agent/architecture.md ]; then
-      printf "# Architektur-Entscheidungen\n\n(noch keine — Projekt frisch gestartet)\n" \
-        > .agent/architecture.md
-    fi
-  fi
+  # Launch TUI in init mode — user enters description and round counts there
+  KINEMA_INIT_MODE=1 \
+  KINEMA_AGENT_DIR="$(pwd)/.agent" \
+  "$TUI_BIN"
 
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -53,7 +34,7 @@ do_init() {
   echo "    • Alle wichtigen Features enthalten?"
   echo "    • Akzeptanzkriterien präzise und testbar?"
   echo "    • User Journeys vollständig?"
-  echo "    • Priorisierung (P0/P1/P2) korrekt?"
+  echo "    • Priorisierung korrekt?  (P0 = MVP-Blocker · P1 = wichtig · P2 = nice-to-have)"
   echo ""
   if [ -f .agent/architecture.md ] && grep -q 'ADR-' .agent/architecture.md 2>/dev/null; then
     echo "  .agent/architecture.md"

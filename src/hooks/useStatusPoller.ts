@@ -1,13 +1,8 @@
 import React from "react";
 import type { StatusData } from "../types.ts";
+import { AGENT_DIR } from "../lib/agentDir.ts";
 
 const { useState, useEffect } = React;
-
-// KINEMA_AGENT_DIR env var overrides the default path (enables multi-project support)
-const AGENT_DIR = (
-  Deno.env.get("KINEMA_AGENT_DIR") ??
-  new URL("../../.agent", import.meta.url).pathname
-).replace(/\/$/, "");
 
 const STATUS_PATH = `${AGENT_DIR}/status.json`;
 

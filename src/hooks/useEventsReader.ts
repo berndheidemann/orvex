@@ -1,13 +1,8 @@
 import React from "react";
 import type { LoopEvent } from "../events.ts";
+import { AGENT_DIR } from "../lib/agentDir.ts";
 
 const { useState, useEffect, useRef } = React;
-
-// KINEMA_AGENT_DIR env var overrides the default path (enables multi-project support)
-const AGENT_DIR = (
-  Deno.env.get("KINEMA_AGENT_DIR") ??
-  new URL("../../.agent", import.meta.url).pathname
-).replace(/\/$/, "");
 
 const EVENTS_PATH = `${AGENT_DIR}/events.jsonl`;
 

@@ -7,7 +7,7 @@
 ### REQ-001: [Erstes Requirement]
 
 - **Status:** open
-- **Priorität:** P0
+- **Priorität:** P0  <!-- P0 = MVP-Blocker · P1 = wichtig, aber startbar ohne · P2 = nice-to-have -->
 - **Größe:** S
 - **Abhängig von:** ---
 

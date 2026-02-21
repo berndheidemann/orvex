@@ -1,11 +1,7 @@
 import React from "react";
+import { AGENT_DIR } from "../lib/agentDir.ts";
 
 const { useState, useEffect } = React;
-
-const AGENT_DIR = (
-  Deno.env.get("KINEMA_AGENT_DIR") ??
-  new URL("../../.agent", import.meta.url).pathname
-).replace(/\/$/, "");
 
 // PRD.md lives one level above .agent/
 const PRD_PATH = `${AGENT_DIR}/../PRD.md`;
