@@ -290,7 +290,7 @@ Bei blockierten REQs zeigt die TUI die letzten 3 Fehlversuche an. Datenquellen:
 
 ### REQ-008: Event-Schema TypeScript-Typen
 
-- **Status:** in_progress
+- **Status:** done
 - **Priorität:** P1
 - **Größe:** S
 - **Abhängig von:** REQ-005
@@ -302,11 +302,11 @@ Typisiertes Event-Schema als stabiles Protokoll zwischen `loop_dev.sh`-stdout un
 
 #### Akzeptanzkriterien
 
-- [ ] `src/events.ts` exportiert genau diese 6 Interfaces: `IterationStart`, `IterationEnd`, `ToolCall`, `ReqStatusChange`, `AgentOutput`, `SystemEvent`
-- [ ] Jedes Interface erbt von `EventBase` mit den Feldern `ts: number` und `iter: number`
-- [ ] Ein `LoopEvent` Union-Type ist exportiert der alle 6 Typen umfasst
-- [ ] `deno task check` läuft ohne TypeScript-Fehler
-- [ ] NEGATIV: `grep -n 'any' src/events.ts` ergibt keine Ausgabe (keine any-Types)
+- [x] `src/events.ts` exportiert genau diese 6 Interfaces: `IterationStart`, `IterationEnd`, `ToolCall`, `ReqStatusChange`, `AgentOutput`, `SystemEvent`
+- [x] Jedes Interface erbt von `EventBase` mit den Feldern `ts: number` und `iter: number`
+- [x] Ein `LoopEvent` Union-Type ist exportiert der alle 6 Typen umfasst
+- [x] `deno task check` läuft ohne TypeScript-Fehler
+- [x] NEGATIV: `grep -n 'any' src/events.ts` ergibt keine Ausgabe (keine any-Types)
 
 #### Verifikation
 
