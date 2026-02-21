@@ -8,313 +8,6 @@ LOOP_SCRIPT="$FRAMEWORK_DIR/loop_dev.sh"
 TUI_BIN="$FRAMEWORK_DIR/kinema-tui"
 TEMPLATES_DIR="$FRAMEWORK_DIR/templates"
 
-# ── PRD-Generierung via 4-Runden Opus-Diskussion ──────────────
-generate_prd() {
-  local description="$1"
-  local t1 t2 t3
-  t1=$(mktemp); t2=$(mktemp); t3=$(mktemp)
-
-  echo ""
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "  PRD-Generierung  ·  4 Runden  ·  2 Opus-Agenten"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-  # ── Runde 1: Architekt schlägt Requirements vor ──────────────
-  echo ""
-  echo "▶  Runde 1/4 — Architekt: erste Requirements"
-  echo "───────────────────────────────────────────────────────"
-  claude -p --model claude-opus-4-6 --output-format=text \
-    "Du bist ein erfahrener Software-Architekt und Product Manager.
-
-Projektbeschreibung des Nutzers:
-${description}
-
-Analysiere die Beschreibung und schlage 4–8 konkrete Requirements vor.
-Nutze exakt dieses Kinema-Format:
-
-### REQ-001: [Titel]
-
-- **Priorität:** P0|P1|P2
-- **Größe:** S|M
-- **Abhängig von:** ---
-
-#### Beschreibung
-[Was soll implementiert werden?]
-
-#### Akzeptanzkriterien
-- [ ] [Messbares, testbares Ergebnis]
-
-Regeln:
-- P0 = Kernfunktion ohne die nichts geht, P1 = wichtig, P2 = nice-to-have
-- S = kleine Iteration (wenige Stunden), M = größere Iteration (halber Tag)
-- Starte mit P0, dann P1, P2
-- Denke an: Kernfunktion, Fehlerbehandlung, Edge Cases, UX-Grundlagen" \
-    | tee "$t1"
-
-  # ── Runde 2: Product Manager ergänzt User Journeys ───────────
-  echo ""
-  echo "▶  Runde 2/4 — Product Manager: User Journeys & Kritik"
-  echo "───────────────────────────────────────────────────────"
-  claude -p --model claude-opus-4-6 --output-format=text \
-    "Du bist ein erfahrener Product Manager mit Fokus auf User Experience.
-
-Projektbeschreibung: ${description}
-
-Der Architekt hat folgende Requirements vorgeschlagen:
-$(cat "$t1")
-
-Deine Aufgaben:
-1. Kritisiere: Was fehlt für ein vollständiges MVP? Was ist unrealistisch für v1?
-2. Ergänze für alle UI-relevanten REQs einen '#### User Journey' Abschnitt:
-   1. Nutzer öffnet [Seite/Bereich]
-   2. Nutzer [konkrete Aktion]
-   3. System zeigt [sichtbares Ergebnis]
-   4. Fehlerfall: Nutzer [falsche Eingabe] → System zeigt [Fehlermeldung]
-3. Schlage fehlende REQs vor (typisch vergessen: Auth/Login, leere Zustände,
-   Ladezustände, Fehlermeldungen, Onboarding, mobile Nutzung)
-
-Gib die vollständige überarbeitete REQ-Liste aus (alle REQs, nicht nur Änderungen)." \
-    | tee "$t2"
-
-  # ── Runde 3: Architekt prüft Abhängigkeiten & Verifikation ───
-  echo ""
-  echo "▶  Runde 3/4 — Architekt: Abhängigkeiten & Verifikation"
-  echo "───────────────────────────────────────────────────────"
-  claude -p --model claude-opus-4-6 --output-format=text \
-    "Du bist Software-Architekt. Projektbeschreibung: ${description}
-
-REQ-Liste nach 2 Diskussionsrunden:
-$(cat "$t2")
-
-Deine Aufgaben:
-1. Setze korrekte Abhängigkeiten ('Abhängig von: REQ-XXX' oder '---')
-2. Stelle implementierbare Reihenfolge sicher — keine zirkulären Abhängigkeiten
-3. Prüfe Größen: S = ein Agent in einer Iteration, M = ein Agent in einer langen Iteration
-4. Ergänze wo sinnvoll technische Verifikation:
-   #### Verifikation
-   - \`[Befehl]\` → \`[erwartete Ausgabe]\`
-5. Entferne REQs die für einen realistischen ersten Release zu groß/komplex sind
-   (lieber 5 solide REQs als 12 halbgare)
-
-Gib die finale, implementierungsreife REQ-Liste aus." \
-    | tee "$t3"
-
-  # ── Runde 4: Synthese → PRD.md ───────────────────────────────
-  echo ""
-  echo "▶  Runde 4/4 — Synthese → PRD.md"
-  echo "───────────────────────────────────────────────────────"
-  claude -p --model claude-opus-4-6 --output-format=text \
-    "Du bist ein technischer Writer. Erstelle die finale PRD.md.
-
-Projektbeschreibung: ${description}
-
-Finale REQ-Liste nach 3 Diskussionsrunden:
-$(cat "$t3")
-
-Gib **nur** das fertige Markdown-Dokument aus — keinen einleitenden Text, keine Erklärungen.
-Exaktes Format:
-
-# PRD — [Projektname aus Beschreibung ableiten]
-
-> [Projektbeschreibung in einem prägnanten Satz]
-
----
-
-### REQ-001: [Titel]
-
-- **Status:** open
-- **Priorität:** P0|P1|P2
-- **Größe:** S|M
-- **Abhängig von:** ---
-
-#### Beschreibung
-...
-
-#### Akzeptanzkriterien
-- [ ] ...
-
-#### Verifikation
-- \`[Befehl]\` → \`[Ausgabe]\`
-
-#### User Journey
-(nur bei UI-Features)
-1. ...
-2. ...
-3. Fehlerfall: ...
-
----
-
-Regeln: Status immer 'open'. Alle REQs vollständig. Nur Markdown, nichts anderes." \
-    | tee PRD.md
-
-  rm -f "$t1" "$t2" "$t3"
-
-  local req_count
-  req_count=$(grep -c '^### REQ-' PRD.md 2>/dev/null || echo "0")
-  echo ""
-  echo "  ✅  PRD.md erstellt — ${req_count} Requirements"
-}
-
-# ── Architektur-Entwurf via 4-Runden Opus-Diskussion ─────────
-generate_architecture() {
-  local prd_content
-  prd_content=$(cat PRD.md 2>/dev/null || echo "(keine PRD vorhanden)")
-
-  local t1 t2 t3
-  t1=$(mktemp); t2=$(mktemp); t3=$(mktemp)
-
-  mkdir -p .agent
-
-  echo ""
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "  Architektur-Entwurf  ·  4 Runden  ·  2 Opus-Agenten"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-  # ── Runde 1: Tech Lead schlägt Architektur vor ───────────────
-  echo ""
-  echo "▶  Runde 1/4 — Tech Lead: Tech-Stack & Architektur"
-  echo "───────────────────────────────────────────────────────"
-  claude -p --model claude-opus-4-6 --output-format=text \
-    "Du bist ein erfahrener Tech Lead und Software-Architekt.
-
-Hier ist die PRD des Projekts das gebaut werden soll:
-${prd_content}
-
-Schlage eine konkrete Software-Architektur vor. Entscheide:
-1. **Programmiersprache & Runtime** — welche und warum?
-2. **Frameworks & Libraries** — konkrete Namen und Versionen
-3. **Architektur-Pattern** — z.B. MVC, Hexagonal, Event-Driven, Microservices vs. Monolith
-4. **Projektstruktur** — Verzeichnisbaum der wichtigsten Ordner/Dateien
-5. **Datenhaltung** — Datenbank, Cache, Dateisystem (konkrete Technologie)
-6. **Testing-Stack** — Unit, Integration, E2E (konkrete Tools)
-7. **Build & Dev-Tooling** — wie wird gebaut, gestartet, gelinted?
-
-Begründe jede Entscheidung kurz. Denke pragmatisch — lieber bewährte,
-einfache Lösungen als überengineerte Architekturen." \
-    | tee "$t1"
-
-  # ── Runde 2: Senior Dev hinterfragt und fordert heraus ───────
-  echo ""
-  echo "▶  Runde 2/4 — Senior Developer: Kritik & Alternativen"
-  echo "───────────────────────────────────────────────────────"
-  claude -p --model claude-opus-4-6 --output-format=text \
-    "Du bist ein skeptischer Senior Developer und Principal Engineer.
-
-PRD des Projekts:
-${prd_content}
-
-Der Tech Lead hat folgende Architektur vorgeschlagen:
-$(cat "$t1")
-
-Deine Aufgabe: Hinterfrage die Entscheidungen kritisch.
-1. Welche Entscheidungen sind für dieses konkrete Projekt über- oder unterdimensioniert?
-2. Gibt es einfachere Alternativen die besser passen würden?
-3. Welche praktischen Probleme siehst du (Deployment, Onboarding, Debugging, Performance)?
-4. Welche Risiken wurden nicht bedacht?
-5. Was würdest du anders machen und warum?
-
-Sei konkret und konstruktiv — nicht destruktiv." \
-    | tee "$t2"
-
-  # ── Runde 3: Tech Lead antwortet und verfeinert ───────────────
-  echo ""
-  echo "▶  Runde 3/4 — Tech Lead: Antwort & finale Entscheidungen"
-  echo "───────────────────────────────────────────────────────"
-  claude -p --model claude-opus-4-6 --output-format=text \
-    "Du bist Tech Lead. PRD des Projekts:
-${prd_content}
-
-Dein ursprünglicher Vorschlag:
-$(cat "$t1")
-
-Kritik des Senior Developers:
-$(cat "$t2")
-
-Reagiere auf die Kritik:
-1. Welche Punkte nimmst du an und wie passt du die Architektur an?
-2. Welche Entscheidungen verteidigst du und warum?
-3. Gib die finale, überarbeitete Architektur-Entscheidung aus —
-   vollständig, nicht nur die Änderungen." \
-    | tee "$t3"
-
-  # ── Runde 4: Synthese → architecture.md ──────────────────────
-  echo ""
-  echo "▶  Runde 4/4 — Synthese → .agent/architecture.md"
-  echo "───────────────────────────────────────────────────────"
-  claude -p --model claude-opus-4-6 --output-format=text \
-    "Du bist technischer Writer. Erstelle die finale architecture.md.
-
-PRD des Projekts:
-${prd_content}
-
-Finale Architektur-Entscheidungen nach 3 Diskussionsrunden:
-$(cat "$t3")
-
-Gib **nur** das fertige Markdown-Dokument aus. Exaktes Format:
-
-# Architektur-Entscheidungen
-
-> [Ein-Satz-Zusammenfassung des gewählten Ansatzes]
-
-## Überblick
-
-[3-5 Sätze: gewählter Stack, Pattern, Begründung in Kurzform]
-
-## Projektstruktur
-
-\`\`\`
-[Verzeichnisbaum der wichtigsten Ordner/Dateien]
-\`\`\`
-
----
-
-## ADR-001: [Titel] ($(date +%Y-%m-%d))
-
-**Kontext:** [Warum war eine Entscheidung nötig?]
-**Entscheidung:** [Was wurde entschieden?]
-**Begründung:** [Warum diese Option?]
-**Konsequenzen:** [Was folgt daraus für den Agenten?]
-
----
-
-[weitere ADRs für jede wesentliche Entscheidung: Sprache, Framework,
-Datenbank, Testing-Stack, Build-Tooling — je ein ADR]
-
-Regeln: Nur Markdown. Keine Einleitung. Keine Zusammenfassung am Ende." \
-    | tee .agent/architecture.md
-
-  rm -f "$t1" "$t2" "$t3"
-
-  echo ""
-  echo "  ✅  .agent/architecture.md erstellt"
-}
-
-# ── Abschluss-Message nach Init ───────────────────────────────
-show_init_done() {
-  echo ""
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "  ⚠️   Bitte vor dem ersten Start sorgfältig prüfen:"
-  echo ""
-  echo "  PRD.md"
-  echo "    • Alle wichtigen Features enthalten?"
-  echo "    • Akzeptanzkriterien präzise und testbar?"
-  echo "    • User Journeys vollständig?"
-  echo "    • Priorisierung (P0/P1/P2) korrekt?"
-  echo ""
-  if [ -f .agent/architecture.md ]; then
-    echo "  .agent/architecture.md"
-    echo "    • Tech-Stack passend für das Projekt?"
-    echo "    • Architektur-Pattern verständlich?"
-    echo "    • Projektstruktur sinnvoll?"
-    echo ""
-  fi
-  echo "  KI-Entwürfe sind ein erster Aufschlag —"
-  echo "  kein Ersatz für dein Domänenwissen."
-  echo ""
-  echo "  Wenn alles bereit ist: kinema erneut starten"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-}
-
 # ── Init-Logik (shared zwischen 'kinema init' und leerem Ordner) ─
 do_init() {
   for f in AGENT.md VALIDATOR.md; do
@@ -327,29 +20,53 @@ do_init() {
   done
 
   echo ""
-  printf "Kurze Projektbeschreibung (Enter für manuelles PRD): "
+  printf "Kurze Projektbeschreibung (Enter für manuelle PRD-Vorlage): "
   read -r description
 
+  mkdir -p .agent
+
   if [ -n "$description" ]; then
-    generate_prd "$description"
+    # Launch TUI in init mode — it runs the Opus discussion and writes PRD.md + architecture.md
+    KINEMA_INIT_MODE=1 \
+    KINEMA_INIT_DESCRIPTION="$description" \
+    KINEMA_AGENT_DIR="$(pwd)/.agent" \
+    "$TUI_BIN"
   else
+    # Manual: copy template files
     if [ ! -f PRD.md ]; then
       cp "$TEMPLATES_DIR/PRD.md" ./PRD.md
       echo "✅  PRD.md erstellt (Vorlage)"
     else
       echo "⏭  PRD.md existiert bereits — übersprungen"
     fi
+    if [ ! -f .agent/architecture.md ]; then
+      printf "# Architektur-Entscheidungen\n\n(noch keine — Projekt frisch gestartet)\n" \
+        > .agent/architecture.md
+    fi
   fi
 
   echo ""
-  printf "Auch Software-Architektur diskutieren lassen? [j/N] "
-  read -r arch_answer
-  if [ "$arch_answer" = "j" ] || [ "$arch_answer" = "J" ] || \
-     [ "$arch_answer" = "y" ] || [ "$arch_answer" = "Y" ]; then
-    generate_architecture
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  ⚠️   Bitte vor dem ersten Start sorgfältig prüfen:"
+  echo ""
+  echo "  PRD.md"
+  echo "    • Alle wichtigen Features enthalten?"
+  echo "    • Akzeptanzkriterien präzise und testbar?"
+  echo "    • User Journeys vollständig?"
+  echo "    • Priorisierung (P0/P1/P2) korrekt?"
+  echo ""
+  if [ -f .agent/architecture.md ] && grep -q 'ADR-' .agent/architecture.md 2>/dev/null; then
+    echo "  .agent/architecture.md"
+    echo "    • Tech-Stack passend für das Projekt?"
+    echo "    • Architektur-Pattern verständlich?"
+    echo "    • Projektstruktur sinnvoll?"
+    echo ""
   fi
-
-  show_init_done
+  echo "  KI-Entwürfe sind ein erster Aufschlag —"
+  echo "  kein Ersatz für dein Domänenwissen."
+  echo ""
+  echo "  Wenn alles bereit ist: kinema erneut starten"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   exit 0
 }
 
@@ -379,7 +96,8 @@ if [ $errors -gt 0 ]; then
   echo ""
   printf "Projekt initialisieren? [j/N] "
   read -r answer
-  if [ "$answer" = "j" ] || [ "$answer" = "J" ] || [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
+  if [ "$answer" = "j" ] || [ "$answer" = "J" ] || \
+     [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
     echo ""
     do_init
   else
@@ -390,7 +108,6 @@ fi
 # ── Setup ─────────────────────────────────────────────────────
 mkdir -p .agent/logs
 
-# status.json nur löschen wenn leer/uninitalisiert — sonst bleibt Projekt-State erhalten
 if [ -f .agent/status.json ]; then
   req_count=$(jq 'length' .agent/status.json 2>/dev/null || echo "0")
   if [ "$req_count" = "0" ]; then
@@ -412,7 +129,6 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# Loop-Absturz früh erkennen
 sleep 1
 if ! kill -0 "$LOOP_PID" 2>/dev/null; then
   echo "❌  loop_dev.sh ist sofort beendet. Ausgabe:"

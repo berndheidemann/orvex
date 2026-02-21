@@ -1,10 +1,17 @@
 import React from "react";
 import { render, Box, Text } from "ink";
 import { Dashboard } from "./components/Dashboard.ts";
+import { InitDashboard } from "./components/InitDashboard.ts";
 
 const { createElement: h } = React;
 
+const INIT_MODE = Deno.env.get("KINEMA_INIT_MODE") === "1";
+const INIT_DESCRIPTION = Deno.env.get("KINEMA_INIT_DESCRIPTION") ?? "";
+
 function App(): React.ReactElement {
+  if (INIT_MODE) {
+    return h(InitDashboard, { description: INIT_DESCRIPTION });
+  }
   return h(
     Box,
     { flexDirection: "column" },
@@ -14,7 +21,7 @@ function App(): React.ReactElement {
   );
 }
 
-// Alternate screen buffer: hide scrollback, fill full terminal
+// Alternate screen buffer
 const enc = new TextEncoder();
 Deno.stdout.writeSync(enc.encode("\x1b[?1049h\x1b[2J\x1b[H"));
 
