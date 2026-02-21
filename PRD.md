@@ -187,7 +187,7 @@ die Grenze überschreitet.
 
 ### REQ-005: Kinema-TUI Grundgerüst (Deno + Ink)
 
-- **Status:** in_progress
+- **Status:** done
 - **Priorität:** P1
 - **Größe:** M
 - **Abhängig von:** REQ-001, REQ-002, REQ-003
@@ -204,12 +204,12 @@ Das Deno-Projekt liegt direkt in `dev/` (neben loop_dev.sh).
 
 #### Akzeptanzkriterien
 
-- [ ] `deno.json` existiert mit Tasks `dev`, `build`, `check` und Ink als Dependency
-- [ ] `src/main.ts` existiert und liest stdin zeilenweise ohne Absturz
-- [ ] Ink-App rendert mindestens einen statischen Header der den Text "Kinema" enthält
-- [ ] `deno task check` (TypeScript-Check) ergibt Exit 0
-- [ ] NEGATIV: `echo "" | deno run --allow-all src/main.ts` stürzt nicht ab (leerer stdin toleriert)
-- [ ] NEGATIV: TUI bricht nicht ab wenn stdin endet (EOF wird sauber behandelt)
+- [x] `deno.json` existiert mit Tasks `dev`, `build`, `check` und Ink als Dependency
+- [x] `src/main.ts` existiert und liest stdin zeilenweise ohne Absturz
+- [x] Ink-App rendert mindestens einen statischen Header der den Text "Kinema" enthält
+- [x] `deno task check` (TypeScript-Check) ergibt Exit 0
+- [x] NEGATIV: `echo "" | deno run --allow-all src/main.ts` stürzt nicht ab (leerer stdin toleriert)
+- [x] NEGATIV: TUI bricht nicht ab wenn stdin endet (EOF wird sauber behandelt)
 
 #### Verifikation
 

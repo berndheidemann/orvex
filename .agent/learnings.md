@@ -15,3 +15,10 @@ Fix: immer `LC_NUMERIC=C awk` verwenden — analog zu bestehenden Aufrufen im Co
 
 `grep -c 'pattern' file` gibt Exit 1 zurück wenn Count=0 (keine Treffer).
 In Bash-Prüfketten mit `&&` bricht das ab. Lösung: `(grep -c ... || true)` verwenden.
+
+### 2026-02-21 — Deno + Ink: .ts statt .tsx (deno check Kompatibilität)
+
+`deno check` schlägt mit `.tsx` + `npm:react@18` fehl (TS2875: `react/jsx-runtime` nicht
+auflösbar). Lösung: `.ts` mit `React.createElement` verwenden. `strict: true` erfordert
+explizite Typen in Callbacks (z.B. `(prev: string[]) =>` statt `(prev) =>`).
+`node:readline` statt `Deno.stdin` verwenden, da Ink den Node-Compat-Layer nutzt.
