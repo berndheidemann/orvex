@@ -67,9 +67,24 @@ fi
 
 if [ $errors -gt 0 ]; then
   echo ""
-  echo "Starte kinema in einem Projekt-Ordner mit PRD.md, AGENT.md und VALIDATOR.md."
-  echo "Noch kein Projekt? Initialisiere mit: $(basename "$0") init"
-  exit 1
+  printf "Projekt initialisieren? [j/N] "
+  read -r answer
+  if [ "$answer" = "j" ] || [ "$answer" = "J" ] || [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
+    echo ""
+    for f in AGENT.md VALIDATOR.md PRD.md; do
+      if [ -f "$f" ]; then
+        echo "⏭  $f existiert bereits — übersprungen"
+      else
+        cp "$TEMPLATES_DIR/$f" "./$f"
+        echo "✅  $f erstellt"
+      fi
+    done
+    echo ""
+    echo "Tipp: PRD.md anpassen — Requirements eintragen, dann kinema erneut starten."
+    exit 0
+  else
+    exit 1
+  fi
 fi
 
 # ── Setup ─────────────────────────────────────────────────────
