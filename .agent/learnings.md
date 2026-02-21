@@ -28,3 +28,14 @@ explizite Typen in Callbacks (z.B. `(prev: string[]) =>` statt `(prev) =>`).
 `Deno.cwd()` ist abhängig vom Arbeitsverzeichnis beim Aufruf. Besser: `new URL("../relative/path", import.meta.url).pathname`.
 Dies ist unabhängig davon, wo die TUI gestartet wird. Gilt besonders für Polling-Hooks die
 auf Konfigurationsdateien außerhalb des src/-Verzeichnisses zugreifen.
+
+### 2026-02-21 — Validator: TUI terminiert nicht bei stdin EOF
+
+Die Ink-TUI (src/main.ts) terminiert nicht wenn stdin schließt. Da kein stdin-Reader mehr
+existiert (nur status.json-Polling), läuft die TUI perpetuell. Für die Pipe-Architektur
+braucht es einen Exit-Mechanismus (z.B. SIGPIPE-Handler). Kein REQ-Revert nötig.
+
+### 2026-02-21 — Validator: WIP-Commits vor Tests vermeiden
+
+In iter-001 wurde ein WIP-Checkpoint committed bevor Akzeptanzkriterien getestet wurden.
+Best Practice: WIP-Commits erst NACH mindestens `bash -n` und einem Smoke-Test.
