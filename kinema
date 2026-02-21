@@ -26,13 +26,28 @@ if [ "${1:-}" = "init" ]; then
 
   echo ""
   if [ "$created" -gt 0 ]; then
-    echo "Projekt initialisiert. Nächste Schritte:"
-    echo "  1. PRD.md anpassen — Requirements eintragen"
-    echo "  2. $(basename "$0") starten"
+    echo "Projekt initialisiert."
+    echo ""
+    echo "Tipp: PRD.md anpassen — Requirements eintragen, dann kinema starten."
+    echo ""
+    printf "Jetzt starten? [j/N] "
+    read -r answer
+    if [ "$answer" = "j" ] || [ "$answer" = "J" ] || [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
+      echo ""
+    else
+      exit 0
+    fi
   else
     echo "Alle Dateien existierten bereits — nichts verändert."
+    echo ""
+    printf "Trotzdem starten? [j/N] "
+    read -r answer
+    if [ "$answer" = "j" ] || [ "$answer" = "J" ] || [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
+      echo ""
+    else
+      exit 0
+    fi
   fi
-  exit 0
 fi
 
 # ── Validation ────────────────────────────────────────────────
