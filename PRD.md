@@ -223,7 +223,7 @@ Das Deno-Projekt liegt direkt in `dev/` (neben loop_dev.sh).
 
 ### REQ-006: Live-Status-Dashboard
 
-- **Status:** in_progress
+- **Status:** done
 - **Priorität:** P1
 - **Größe:** M
 - **Abhängig von:** REQ-005
@@ -235,12 +235,12 @@ aktuelle Phase, Laufzeit und Gesamtkosten in einem Dashboard-Layout an.
 
 #### Akzeptanzkriterien
 
-- [ ] REQ-Liste mit Status-Farben: open=grau, in_progress=gelb, done=grün, blocked=rot
-- [ ] Aktives REQ und aktuelle Phase sind sichtbar
-- [ ] Gesamtkosten ($) und Laufzeit (mm:ss) werden angezeigt
-- [ ] `.agent/status.json` wird alle 2 Sekunden gepolt
-- [ ] NEGATIV: Fehlendes `.agent/status.json` führt nicht zum TUI-Absturz (leerer Zustand angezeigt)
-- [ ] NEGATIV: Invalides JSON in `.agent/status.json` führt nicht zum TUI-Absturz
+- [x] REQ-Liste mit Status-Farben: open=grau, in_progress=gelb, done=grün, blocked=rot
+- [x] Aktives REQ und aktuelle Phase sind sichtbar
+- [x] Gesamtkosten ($) und Laufzeit (mm:ss) werden angezeigt
+- [x] `.agent/status.json` wird alle 2 Sekunden gepolt
+- [x] NEGATIV: Fehlendes `.agent/status.json` führt nicht zum TUI-Absturz (leerer Zustand angezeigt)
+- [x] NEGATIV: Invalides JSON in `.agent/status.json` führt nicht zum TUI-Absturz
 
 #### Verifikation
 

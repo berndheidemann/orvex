@@ -3,9 +3,9 @@ import type { StatusData } from "../types.ts";
 
 const { useState, useEffect } = React;
 
-// Resolve path relative to this file: src/hooks/ → ../../../.agent/status.json
+// Resolve path relative to this file: src/hooks/ → ../../.agent/status.json → dev/.agent/
 const STATUS_PATH = new URL(
-  "../../../.agent/status.json",
+  "../../.agent/status.json",
   import.meta.url,
 ).pathname;
 

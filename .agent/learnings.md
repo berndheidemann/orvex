@@ -22,3 +22,9 @@ In Bash-Prüfketten mit `&&` bricht das ab. Lösung: `(grep -c ... || true)` ver
 auflösbar). Lösung: `.ts` mit `React.createElement` verwenden. `strict: true` erfordert
 explizite Typen in Callbacks (z.B. `(prev: string[]) =>` statt `(prev) =>`).
 `node:readline` statt `Deno.stdin` verwenden, da Ink den Node-Compat-Layer nutzt.
+
+### 2026-02-21 — Deno: import.meta.url für relative Pfadauflösung
+
+`Deno.cwd()` ist abhängig vom Arbeitsverzeichnis beim Aufruf. Besser: `new URL("../relative/path", import.meta.url).pathname`.
+Dies ist unabhängig davon, wo die TUI gestartet wird. Gilt besonders für Polling-Hooks die
+auf Konfigurationsdateien außerhalb des src/-Verzeichnisses zugreifen.
