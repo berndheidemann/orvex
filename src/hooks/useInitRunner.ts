@@ -58,6 +58,7 @@ async function runClaude(
     args: [
       "-p",
       "--dangerously-skip-permissions",
+      "--verbose",
       "--output-format=stream-json",
       "--model", "claude-opus-4-6",
       "--max-turns", "1",
