@@ -51,10 +51,9 @@ async function runClaude(
   onChunk: (text: string) => void,
   signal: AbortSignal,
 ): Promise<string> {
+  // stream-json emits one JSON line per token — avoids text-mode buffering
   const cmd = new Deno.Command("claude", {
-    // Pass prompt as positional argument — avoids stdin ambiguity
-    args: ["-p", prompt, "--model", "claude-opus-4-6", "--output-format", "text",
-           "--dangerously-skip-permissions"],
+    args: ["-p", prompt, "--model", "claude-opus-4-6", "--output-format", "stream-json"],
     stdin: "null",
     stdout: "piped",
     stderr: "piped",
@@ -63,7 +62,7 @@ async function runClaude(
   const proc = cmd.spawn();
   const decoder = new TextDecoder();
 
-  // Drain stderr in background; surface as [err] lines in live output
+  // Drain stderr in background; surface as [err] lines
   const drainStderr = (async () => {
     const errReader = proc.stderr.getReader();
     try {
@@ -81,14 +80,34 @@ async function runClaude(
   })();
 
   const reader = proc.stdout.getReader();
-  let output = "";
+  let jsonBuf = "";
+  let fullText = "";
+
   try {
     while (!signal.aborted) {
       const { done, value } = await reader.read();
       if (done) break;
-      const text = decoder.decode(value, { stream: true });
-      output += text;
-      onChunk(text);
+      jsonBuf += decoder.decode(value, { stream: true });
+
+      // Process complete JSON lines
+      const lines = jsonBuf.split("\n");
+      jsonBuf = lines.pop() ?? "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+          const obj = JSON.parse(trimmed);
+          if (obj.type === "text" && typeof obj.text === "string") {
+            // Streaming token
+            fullText += obj.text;
+            onChunk(obj.text);
+          } else if (obj.type === "result" && typeof obj.result === "string") {
+            // Final synthesised result — use as definitive output
+            fullText = obj.result;
+          }
+        } catch { /* non-JSON line */ }
+      }
     }
   } finally {
     reader.releaseLock();
@@ -96,10 +115,10 @@ async function runClaude(
 
   await drainStderr;
   const status = await proc.status;
-  if (!status.success && output.trim() === "") {
+  if (!status.success && fullText.trim() === "") {
     throw new Error(`claude exited with code ${status.code}`);
   }
-  return output;
+  return fullText;
 }
 
 // ── Agent definitions ──────────────────────────────────────────
@@ -448,11 +467,19 @@ export function useInitRunner(description: string): InitRunnerState {
     lineBufferRef.current += chunk;
     const parts = lineBufferRef.current.split("\n");
     lineBufferRef.current = parts.pop() ?? "";
-    if (parts.length > 0) {
-      setLiveLines((prev: string[]) =>
-        [...prev, ...parts].slice(-MAX_LIVE_LINES)
-      );
-    }
+
+    setLiveLines((prev: string[]) => {
+      // Drop previous partial-line preview (cursor marker at end)
+      const base =
+        prev.length > 0 && prev[prev.length - 1].endsWith("▌")
+          ? prev.slice(0, -1)
+          : prev;
+      const completed = [...base, ...parts];
+      const withPreview = lineBufferRef.current
+        ? [...completed, lineBufferRef.current + "▌"]
+        : completed;
+      return withPreview.slice(-MAX_LIVE_LINES);
+    });
   }, []);
 
   async function runPhase(
