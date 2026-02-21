@@ -156,7 +156,7 @@ Aufruf keinen Fehler erzeugen. `rm -f` statt `rm` stellt das sicher.
 
 ### REQ-004: context.md-Länge in loop_dev.sh durchsetzen
 
-- **Status:** open
+- **Status:** done
 - **Priorität:** P1
 - **Größe:** S
 - **Abhängig von:** ---
@@ -171,10 +171,10 @@ die Grenze überschreitet.
 
 #### Akzeptanzkriterien
 
-- [ ] `grep -E 'head -50.*CONTEXT_FILE|head -50 "\$CONTEXT_FILE"' loop_dev.sh` ergibt mindestens eine Zeile
-- [ ] `grep 'cat.*CONTEXT_FILE' loop_dev.sh` ergibt keine Ausgabe (alter cat-Aufruf entfernt)
-- [ ] Eine `.agent/context.md` mit 60 Zeilen führt zu einer Warnung in der loop_dev.sh-Ausgabe
-- [ ] NEGATIV: Eine 80-zeilige `context.md` führt nicht dazu, dass alle 80 Zeilen in den Prompt injiziert werden
+- [x] `grep -E 'head -50.*CONTEXT_FILE|head -50 "\$CONTEXT_FILE"' loop_dev.sh` ergibt mindestens eine Zeile
+- [x] `grep 'cat.*CONTEXT_FILE' loop_dev.sh` ergibt keine Ausgabe (alter cat-Aufruf entfernt)
+- [x] Eine `.agent/context.md` mit 60 Zeilen führt zu einer Warnung in der loop_dev.sh-Ausgabe
+- [x] NEGATIV: Eine 80-zeilige `context.md` führt nicht dazu, dass alle 80 Zeilen in den Prompt injiziert werden
 
 #### Verifikation
 
