@@ -4,34 +4,31 @@
 > Enthält den aktuellen Stand für die nächste Iteration.
 
 ## Status
-- Projekt: REQ-001–REQ-008 + REQ-007 abgeschlossen
-- Nächstes REQ: REQ-009 (P2, M) — abhängig von REQ-006 ✓ + REQ-008 ✓
+- Projekt: REQ-001–REQ-009 abgeschlossen
+- Nächstes REQ: keins offen (PRD enthält REQ-001–REQ-009, alle done)
 - Blocker: keine
 
 ## Was existiert
-- loop_dev.sh — Orchestrator, macOS-kompatibel (REQ-001–004)
+- loop_dev.sh — Orchestrator + FIFO/Pause-Kontrolle (REQ-009)
 - deno.json — Tasks: dev, build, check; Dependencies: ink@5, react@18
 - src/main.ts — Ink-TUI, zeigt Kinema-Header + Dashboard
-- src/types.ts — ReqStatus, ReqEntry (mit notes?), IterationEntry, StatusData, STATUS_COLORS
+- src/types.ts — ReqStatus, ReqEntry, IterationEntry, StatusData, STATUS_COLORS
 - src/hooks/useStatusPoller.ts — Pollt .agent/status.json alle 2s
 - src/hooks/useElapsedTime.ts — Laufzeit-Hook (mm:ss)
-- src/hooks/useIterationsReader.ts — Liest .agent/iterations.jsonl, Polling alle 2s (REQ-007)
-- src/components/Dashboard.ts — StatusBar + REQ-Liste + BlockedDetail + ActiveReq + Error-Hint
+- src/hooks/useIterationsReader.ts — Liest .agent/iterations.jsonl (REQ-007)
+- src/hooks/useKeyboardControls.ts — p/s/e Tastatur-Steuerung + Filesystem-Signale (REQ-009)
+- src/components/Dashboard.ts — Dashboard mit Keyboard-Controls-UI
 - src/events.ts — 6 Event-Interfaces + LoopEvent Union-Type (REQ-008)
 
 ## Bekannte Architekturentscheidungen
 - ADR-001: .ts mit createElement statt .tsx/JSX
 - ADR-002: node:readline statt Deno.stdin
 - ADR-003: Deno.readTextFile + setInterval für Polling
-- Pfadauflösung via import.meta.url
 
-## Hinweise für REQ-009 (Event-Stream-Reader, P2, M)
-- events.ts ist fertig — LoopEvent als Union-Type verfügbar
-- main.ts importiert events.ts noch nicht — das wird REQ-009 tun
-- ReqEntry.notes ist optional (string | undefined) — bereits in types.ts
+## Erkenntnisse aus REQ-009
+- macOS-FIFOs: `read -t 0 < fifo` blockiert wegen open()-Syscall
+- Lösung: `read -t 1 <> fifo` (read-write mode öffnet FIFO ohne zu blockieren)
+- TUI schreibt via `bash -c "echo skip > fifo"` asynchron (Deno.Command.spawn())
+- Diese Schreiboperation blockiert im Hintergrund bis loop_dev.sh liest — akzeptabel
 
-## Bekannte Diskrepanzen
-- grep-Verifikationsbefehl in PRD.md für REQ-008 ergibt 12 statt "6":
-  Interface-Namen erscheinen sowohl in Deklaration als auch im LoopEvent-Union.
-  Dies ist ein Fehler im Verifikationsbefehl, nicht in der Implementierung.
-- Refactoring-Check: keine neue Schuld (3 überschaubare Dateien geändert)
+## Refactoring-Check REQ-009: keine neue Schuld

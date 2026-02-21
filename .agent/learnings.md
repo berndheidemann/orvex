@@ -39,3 +39,10 @@ braucht es einen Exit-Mechanismus (z.B. SIGPIPE-Handler). Kein REQ-Revert nötig
 
 In iter-001 wurde ein WIP-Checkpoint committed bevor Akzeptanzkriterien getestet wurden.
 Best Practice: WIP-Commits erst NACH mindestens `bash -n` und einem Smoke-Test.
+
+### 2026-02-21 — macOS FIFO: read -t 0 blockiert wegen open()-Syscall
+
+`read -t 0 cmd < fifo` blockiert auf macOS, weil `open(fifo, O_RDONLY)` den Prozess
+pausiert bis ein Schreiber erscheint. Lösung: `read -t 1 cmd <> fifo` (read-write mode)
+öffnet den FIFO ohne zu blockieren. TUI schreibt via `Deno.Command("bash", ...).spawn()`
+asynchron — der bash-Prozess blockiert im Hintergrund bis loop_dev.sh mit `<>` liest.

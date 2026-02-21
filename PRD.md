@@ -358,7 +358,7 @@ type LoopEvent = IterationStart | IterationEnd | ToolCall | AgentOutput | ReqSta
 
 ### REQ-009: Pause/Skip/Edit-Interaktivität
 
-- **Status:** in_progress
+- **Status:** done
 - **Priorität:** P2
 - **Größe:** M
 - **Abhängig von:** REQ-006, REQ-008
@@ -376,14 +376,14 @@ Dieses REQ umfasst **beide Seiten**: die TUI-Tastaturlogik und die loop_dev.sh-I
 
 #### Akzeptanzkriterien
 
-- [ ] Taste `p`: `.agent/pause.flag` existiert unmittelbar nach dem Tastendruck
-- [ ] Taste `p` nochmals (toggle): `.agent/pause.flag` wird wieder gelöscht
-- [ ] Taste `s`: `skip` wurde in `.agent/control.fifo` geschrieben
-- [ ] `loop_dev.sh` prüft am Anfang jeder Iteration ob `.agent/pause.flag` existiert und wartet ggf.
-- [ ] `loop_dev.sh` liest non-blocking aus `.agent/control.fifo` und setzt REQ auf `blocked` bei `skip`
-- [ ] Taste `e`: `$EDITOR` öffnet sich mit `.agent/context.md` als Argument (wenn `$EDITOR` gesetzt)
-- [ ] NEGATIV: Unbekannte Tasten haben keinen Effekt, kein Absturz
-- [ ] NEGATIV: Wenn `$EDITOR` nicht gesetzt ist, zeigt die TUI einen Hinweis statt Absturz
+- [x] Taste `p`: `.agent/pause.flag` existiert unmittelbar nach dem Tastendruck
+- [x] Taste `p` nochmals (toggle): `.agent/pause.flag` wird wieder gelöscht
+- [x] Taste `s`: `skip` wurde in `.agent/control.fifo` geschrieben
+- [x] `loop_dev.sh` prüft am Anfang jeder Iteration ob `.agent/pause.flag` existiert und wartet ggf.
+- [x] `loop_dev.sh` liest non-blocking aus `.agent/control.fifo` und setzt REQ auf `blocked` bei `skip`
+- [x] Taste `e`: `$EDITOR` öffnet sich mit `.agent/context.md` als Argument (wenn `$EDITOR` gesetzt)
+- [x] NEGATIV: Unbekannte Tasten haben keinen Effekt, kein Absturz
+- [x] NEGATIV: Wenn `$EDITOR` nicht gesetzt ist, zeigt die TUI einen Hinweis statt Absturz
 
 #### Verifikation
 
