@@ -20,4 +20,11 @@
 #### Verifikation
 - `[Befehl]` ergibt `[erwartete Ausgabe]`
 
+#### User Journey
+<!-- Nur bei UI-Features ausfüllen. Der Agent erstellt daraus die Playwright-Spec. -->
+1. Nutzer öffnet [URL/Seite]
+2. Nutzer [Aktion, z.B. füllt Formular aus / klickt Button]
+3. System zeigt [erwartetes Ergebnis]
+4. Fehlerfall: Nutzer [falsche Eingabe] → System zeigt [Fehlermeldung]
+
 ---
