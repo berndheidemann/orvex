@@ -1,4 +1,4 @@
-export const AGENT_TIMEOUT_MS = 5 * 60 * 1000;   // 5 min per discussion agent
+export const AGENT_TIMEOUT_MS = 10 * 60 * 1000;  // 10 min per discussion agent
 export const SYNTH_TIMEOUT_MS = 12 * 60 * 1000;  // 12 min for synthesis (full document)
 
 const DEBUG_LOG = `${Deno.cwd()}/.kinema-debug.log`;
