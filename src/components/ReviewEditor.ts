@@ -272,9 +272,11 @@ export function ReviewEditor(props: {
     }
 
     // Editing
-    if (key.return)    { dispatch({ type: "NEWLINE" });   return; }
-    if (key.backspace) { dispatch({ type: "BACKSPACE" }); return; }
-    if (key.delete)    { dispatch({ type: "DELETE" });    return; }
+    // macOS Backspace sends \x7f (ASCII DEL); Ink 5 maps it to key.delete
+    // instead of key.backspace — intercept explicitly to avoid forward-delete.
+    if (key.return)                         { dispatch({ type: "NEWLINE" });   return; }
+    if (key.backspace || input === "\x7f")  { dispatch({ type: "BACKSPACE" }); return; }
+    if (key.delete)                         { dispatch({ type: "DELETE" });    return; }
 
     // Printable characters
     if (input && input.length === 1 && !key.ctrl && !key.meta) {
