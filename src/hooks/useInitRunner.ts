@@ -31,6 +31,7 @@ import {
   replaceItemInContent,
   buildRewritePrompt,
 } from "../lib/reviewUtils.ts";
+import { applyTypingKey } from "../lib/typingLogic.ts";
 
 const { useState, useEffect, useRef, useCallback } = React;
 
@@ -488,11 +489,7 @@ export function useInitRunner(
     setPrdReviewSynced((prev) => {
       if (!prev || prev.inputMode !== "typing") return prev ?? null;
       if (key.escape) return { ...prev, inputMode: "none", typedInput: "" };
-      if (key.backspace || char === "\x7f") return { ...prev, typedInput: prev.typedInput.slice(0, -1) };
-      if (char && char !== "\x7f" && !key.ctrl && !key.meta && !key.return) {
-        return { ...prev, typedInput: prev.typedInput + char };
-      }
-      return prev;
+      return { ...prev, typedInput: applyTypingKey(prev.typedInput, char, key) };
     });
   }, [setPrdReviewSynced]);
 
@@ -574,11 +571,7 @@ export function useInitRunner(
     setArchReviewSynced((prev) => {
       if (!prev || prev.inputMode !== "typing") return prev ?? null;
       if (key.escape) return { ...prev, inputMode: "none", typedInput: "" };
-      if (key.backspace || char === "\x7f") return { ...prev, typedInput: prev.typedInput.slice(0, -1) };
-      if (char && char !== "\x7f" && !key.ctrl && !key.meta && !key.return) {
-        return { ...prev, typedInput: prev.typedInput + char };
-      }
-      return prev;
+      return { ...prev, typedInput: applyTypingKey(prev.typedInput, char, key) };
     });
   }, [setArchReviewSynced]);
 

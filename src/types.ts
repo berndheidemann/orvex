@@ -57,6 +57,7 @@ export interface InputKey {
   return?: boolean;
   escape?: boolean;
   backspace?: boolean;
+  delete?: boolean;
   ctrl?: boolean;
   meta?: boolean;
   upArrow?: boolean;

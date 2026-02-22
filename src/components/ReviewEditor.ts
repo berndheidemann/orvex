@@ -1,6 +1,7 @@
 import React from "react";
-import { Box, Text, useInput, useStdin } from "ink";
+import { Box, Text, useInput } from "ink";
 import { useTerminalSize } from "../hooks/useTerminalSize.ts";
+import { useRawBackspace } from "../hooks/useRawBackspace.ts";
 import {
   reducer,
   computeVisualRows,
@@ -11,7 +12,7 @@ import {
   type VisualRow,
 } from "./editorLogic.ts";
 
-const { useReducer, useEffect, useState, useRef } = React;
+const { useReducer, useEffect, useState } = React;
 const { createElement: h } = React;
 
 // ── Component ──────────────────────────────────────────────────
@@ -44,27 +45,11 @@ export function ReviewEditor(props: {
   }, []);
 
   // ── Backspace fix ──────────────────────────────────────────
-  // Ink 5 maps \x7f (macOS Backspace) to key.name='delete' with input=''.
-  // Real forward-delete (\x1b[3~) also produces key.delete=true, input=''.
-  // They are indistinguishable at the useInput level.
-  //
-  // Fix: listen on internal_eventEmitter (Ink's own raw-input bus) with
-  // prependListener so we fire BEFORE useInput parses the keypress.
-  // At that point the raw chunk is still '\x7f' and we can detect it.
-  const rawWasBackspace = useRef(false);
-  const { internal_eventEmitter } = useStdin() as {
-    internal_eventEmitter: {
-      prependListener: (e: string, h: (d: string) => void) => void;
-      removeListener:  (e: string, h: (d: string) => void) => void;
-    };
-  };
-  useEffect(() => {
-    const handler = (chunk: string) => {
-      rawWasBackspace.current = chunk === "\x7f";
-    };
-    internal_eventEmitter.prependListener("input", handler);
-    return () => { internal_eventEmitter.removeListener("input", handler); };
-  }, [internal_eventEmitter]);
+  // Ink 5 maps \x7f (macOS Backspace) to key.delete=true, input=''.
+  // Real Forward-Delete (\x1b[3~) also produces key.delete=true, input=''.
+  // useRawBackspace listens on Ink's internal event bus before parsing
+  // so we can distinguish the two via the raw chunk.
+  const rawWasBackspace = useRawBackspace();
 
   // ── Visual layout ──────────────────────────────────────────
   const { lines, cursor, dirty } = state;

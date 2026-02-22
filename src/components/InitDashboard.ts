@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Text, useInput, useApp } from "ink";
 import { useInitRunner } from "../hooks/useInitRunner.ts";
 import { useTerminalSize } from "../hooks/useTerminalSize.ts";
+import { useRawBackspace } from "../hooks/useRawBackspace.ts";
 import { InitSetup, type InitConfig } from "./InitSetup.ts";
 import { ReviewEditor } from "./ReviewEditor.ts";
 import type {
@@ -360,6 +361,7 @@ function InitRunner(props: {
   const { description, model, prdRounds, archRounds, skipPrd = false } = props;
   const { exit } = useApp();
   const { columns, rows } = useTerminalSize();
+  const rawWasBackspace = useRawBackspace();
   const state = useInitRunner(description, prdRounds, archRounds, model, skipPrd);
   const [elapsed, setElapsed] = React.useState(0);
   const [now, setNow] = React.useState(() => Date.now());
@@ -417,7 +419,8 @@ function InitRunner(props: {
         if (input === "r") { state.startPrdReviewTyping(); return; }
       } else if (state.prdReview.inputMode === "typing") {
         if (key.return) { state.submitPrdReviewRewrite(state.prdReview.typedInput); return; }
-        state.onPrdReviewType(input, key);
+        const fixedKey = { ...key, backspace: key.backspace || (key.delete && rawWasBackspace.current) };
+        state.onPrdReviewType(input, fixedKey);
       }
       return;
     }
@@ -447,7 +450,8 @@ function InitRunner(props: {
         if (input === "r") { state.startArchReviewTyping(); return; }
       } else if (state.archReview.inputMode === "typing") {
         if (key.return) { state.submitArchReviewRewrite(state.archReview.typedInput); return; }
-        state.onArchReviewType(input, key);
+        const fixedKey = { ...key, backspace: key.backspace || (key.delete && rawWasBackspace.current) };
+        state.onArchReviewType(input, fixedKey);
       }
       return;
     }
