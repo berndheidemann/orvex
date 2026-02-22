@@ -138,16 +138,30 @@ function computeVisualRows(lines: string[], textWidth: number): VisualRow[] {
       continue;
     }
     let startCol = 0;
+    let isFirst = true;
     while (startCol < line.length) {
-      const endCol = Math.min(startCol + tw, line.length);
+      let endCol = Math.min(startCol + tw, line.length);
+      // Wortweiser Umbruch: letzte Leeerstelle im Chunk suchen und dort umbrechen.
+      // Das Leerzeichen gehört zur aktuellen Row (endCol schließt es ein),
+      // die nächste Row startet direkt beim folgenden Wort — ohne führendes
+      // unsichtbares Leerzeichen in `before`.
+      if (endCol < line.length) {
+        const chunk = line.slice(startCol, endCol);
+        const lastSpace = chunk.lastIndexOf(" ");
+        if (lastSpace > 0) {
+          endCol = startCol + lastSpace + 1; // Leerzeichen gehört zur aktuellen Row
+        }
+        // kein Leerzeichen: harter Umbruch bei textWidth (sehr langes Wort)
+      }
       result.push({
         logicalRow: logRow,
         startCol,
         endCol,
-        isFirst: startCol === 0,
+        isFirst,
         isLast: endCol >= line.length,
       });
       startCol = endCol;
+      isFirst = false;
     }
   }
   return result;
