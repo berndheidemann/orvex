@@ -428,8 +428,11 @@ function InitRunner(props: {
 
     // Arch generation confirm
     if (state.awaitingArchConfirm) {
-      if (key.return || input === "j" || input === "y") state.startArch();
-      else if (key.escape || input === "n") state.skipArch();
+      // In archOnly mode ArchSetup handles its own input — don't intercept here
+      if (!skipPrd) {
+        if (key.return || input === "j" || input === "y") state.startArch();
+        else if (key.escape || input === "n") state.skipArch();
+      }
       return;
     }
 
