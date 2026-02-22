@@ -258,16 +258,19 @@ export function ReviewEditor(props: {
         const hScroll = cursor.col >= textWidth
           ? cursor.col - Math.floor(textWidth * 0.7)
           : 0;
+        // Manually bound both segments so their total never exceeds textWidth.
+        // This prevents Ink from wrapping any Text element.
         const displayBefore = before.slice(hScroll);
+        const displayAfter = after.slice(0, Math.max(0, textWidth - displayBefore.length - 1));
 
         return h(
           Box,
           { key: String(absRow), flexDirection: "row", overflow: "hidden" },
           h(Text, { color: "cyan", dimColor: true },
             hScroll > 0 ? `${lineNum} ‹ ` : `${lineNum} │ `),
-          h(Text, { flexShrink: 0 }, displayBefore),
-          h(Text, { inverse: true, flexShrink: 0 }, cursorChar),
-          h(Text, { wrap: "truncate" }, after || " "),
+          h(Text, {}, displayBefore),
+          h(Text, { inverse: true }, cursorChar),
+          h(Text, {}, displayAfter || " "),
         );
       }),
     ),
