@@ -23,6 +23,8 @@ import {
   makePhases,
   formatRoundSummary,
   formatSynthesisSummary,
+  injectSpikeReq,
+  injectSpikeIntoStatus,
   type Agent,
 } from "../lib/initAgents.ts";
 import {
@@ -453,6 +455,19 @@ export function useInitRunner(
           );
           setPhaseStatus("arch", "done");
         }
+
+        // Inject REQ-000 Walking Skeleton into PRD + status.json
+        const statusPath = `${AGENT_DIR}/status.json`;
+        const [prdRaw, statusRaw] = await Promise.all([
+          Deno.readTextFile(PRD_OUTPUT_PATH).catch(() => ""),
+          Deno.readTextFile(statusPath).catch(() => "{}"),
+        ]);
+        const prdWithSpike = injectSpikeReq(prdRaw);
+        const statusWithSpike = injectSpikeIntoStatus(statusRaw);
+        await Promise.all([
+          Deno.writeTextFile(PRD_OUTPUT_PATH, prdWithSpike),
+          Deno.writeTextFile(statusPath, statusWithSpike),
+        ]);
 
         setDone(true);
       } catch (e) {

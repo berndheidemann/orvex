@@ -443,3 +443,64 @@ export function formatSynthesisSummary(synthOut: string, phaseId: "prd" | "arch"
       : ["  (keine ADR-Abschnitte gefunden)"]),
   ];
 }
+
+// ── Walking Skeleton injection ──────────────────────────────────
+
+const SPIKE_BLOCK = `### REQ-000: Walking Skeleton — Technisches Grundgerüst
+
+- **Status:** open
+- **Priorität:** P0
+- **Größe:** M
+- **Abhängig von:** ---
+
+#### Beschreibung
+Baue das vollständige technische Grundgerüst entsprechend \`architecture.md\`. Kein Business-Inhalt — nur Infrastruktur: alle Abhängigkeiten installiert, Build-System, Linter, Test-Runner konfiguriert, Development-Server lauffähig, eine minimale E2E-Schicht durch alle architekturellen Schichten (z.B. ein Hello-World-Endpunkt der eine DB-Query ausführt und im Frontend angezeigt wird — ohne Businesslogik).
+
+#### Akzeptanzkriterien
+- [ ] Alle Abhängigkeiten installiert, keine Versionskonflikte
+- [ ] Build erfolgreich (keine Fehler, keine unresolved imports)
+- [ ] Linter grün (keine Fehler)
+- [ ] Test-Runner startet und läuft durch (0 failures)
+- [ ] Development-Server startet ohne Fehler
+- [ ] Minimale E2E-Schicht funktioniert: ein Request geht durch alle Schichten bis zur Antwort
+
+#### Verifikation
+Projektspezifisch aus \`architecture.md\` ableiten — Build-Befehl grün, Test-Runner grün, Dev-Server antwortet.
+
+---
+
+`;
+
+/** Prepend REQ-000 Walking Skeleton before the first REQ in PRD.md */
+export function injectSpikeReq(prdContent: string): string {
+  // Already injected?
+  if (/^### REQ-000:/m.test(prdContent)) return prdContent;
+
+  const match = prdContent.match(/^### REQ-\d+:/m);
+  if (!match || match.index === undefined) return prdContent + "\n" + SPIKE_BLOCK;
+
+  return prdContent.slice(0, match.index) + SPIKE_BLOCK + prdContent.slice(match.index);
+}
+
+/** Add REQ-000 to status.json and make all other REQs depend on it */
+export function injectSpikeIntoStatus(statusJson: string): string {
+  let status: Record<string, { status: string; priority: string; size: string; deps: string[] }>;
+  try {
+    status = JSON.parse(statusJson);
+  } catch {
+    return statusJson;
+  }
+
+  if ("REQ-000" in status) return statusJson; // already present
+
+  const updated: typeof status = {
+    "REQ-000": { status: "open", priority: "P0", size: "M", deps: [] },
+  };
+  for (const [key, val] of Object.entries(status)) {
+    updated[key] = {
+      ...val,
+      deps: val.deps.includes("REQ-000") ? val.deps : ["REQ-000", ...val.deps],
+    };
+  }
+  return JSON.stringify(updated, null, 2);
+}
