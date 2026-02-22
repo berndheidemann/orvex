@@ -61,6 +61,24 @@ Deno.test("parseReqs: header before first REQ is ignored", () => {
   assertEquals(items.every((i) => i.id.startsWith("REQ-")), true);
 });
 
+Deno.test("parseReqs: parses REQ with em dash separator", () => {
+  const prd = `### REQ-001 — Benutzer-Login\nContent\n### REQ-002 — Offline-Modus\nContent2`;
+  const items = parseReqs(prd);
+  assertEquals(items.length, 2);
+  assertEquals(items[0].id, "REQ-001");
+  assertEquals(items[0].title, "Benutzer-Login");
+  assertEquals(items[1].id, "REQ-002");
+  assertEquals(items[1].title, "Offline-Modus");
+});
+
+Deno.test("parseReqs: parses REQ with hyphen separator", () => {
+  const prd = `### REQ-001 - Login\nContent`;
+  const items = parseReqs(prd);
+  assertEquals(items.length, 1);
+  assertEquals(items[0].id, "REQ-001");
+  assertEquals(items[0].title, "Login");
+});
+
 // ── parseAdrs ──────────────────────────────────────────────────
 
 const SAMPLE_ARCH = `# Architektur-Entscheidungen

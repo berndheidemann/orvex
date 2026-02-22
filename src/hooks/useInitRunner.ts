@@ -357,14 +357,15 @@ export function useInitRunner(
             const prdContent = await Deno.readTextFile(PRD_OUTPUT_PATH).catch(() => "");
             const prdItems = parseReqs(prdContent);
 
-            if (prdItems.length > 0) {
-              setPrdSynthDone({ items: prdItems, fileContent: prdContent });
-              await new Promise<void>((resolve) => {
-                prdSynthDoneConfirmRef.current = (_doReview: boolean) => resolve();
-              });
-              setPrdSynthDone(null);
+            // Always show transition screen after synthesis
+            setPrdSynthDone({ items: prdItems, fileContent: prdContent });
+            await new Promise<void>((resolve) => {
+              prdSynthDoneConfirmRef.current = (_doReview: boolean) => resolve();
+            });
+            setPrdSynthDone(null);
 
-              // Start PRD review
+            // Start PRD review (only when requirements were parsed)
+            if (prdItems.length > 0) {
               const initialPrdReview: ReviewState = {
                 items: prdItems,
                 currentIdx: 0,

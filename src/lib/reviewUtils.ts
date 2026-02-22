@@ -1,13 +1,13 @@
 import type { ReviewItem } from "../types.ts";
 
 export function parseReqs(prdContent: string): ReviewItem[] {
-  const parts = prdContent.split(/(?=^### REQ-\d+:)/m);
+  const parts = prdContent.split(/(?=^### REQ-\d+)/m);
   return parts
-    .filter((p) => /^### REQ-\d+:/.test(p.trimStart()))
+    .filter((p) => /^### REQ-\d+/.test(p.trimStart()))
     .map((p) => {
       const trimmed = p.trimEnd();
       const firstLine = trimmed.split("\n")[0] ?? "";
-      const match = firstLine.match(/^### (REQ-\d+):\s*(.*)/);
+      const match = firstLine.match(/^### (REQ-\d+)\s*[-:—–]?\s*(.*)/);
       return {
         id: match?.[1] ?? "REQ-???",
         title: match?.[2]?.trim() ?? "",
@@ -17,13 +17,13 @@ export function parseReqs(prdContent: string): ReviewItem[] {
 }
 
 export function parseAdrs(archContent: string): ReviewItem[] {
-  const parts = archContent.split(/(?=^## ADR-\d+:)/m);
+  const parts = archContent.split(/(?=^## ADR-\d+)/m);
   return parts
-    .filter((p) => /^## ADR-\d+:/.test(p.trimStart()))
+    .filter((p) => /^## ADR-\d+/.test(p.trimStart()))
     .map((p) => {
       const trimmed = p.trimEnd();
       const firstLine = trimmed.split("\n")[0] ?? "";
-      const match = firstLine.match(/^## (ADR-\d+):\s*(.*)/);
+      const match = firstLine.match(/^## (ADR-\d+)\s*[-:—–]?\s*(.*)/);
       return {
         id: match?.[1] ?? "ADR-???",
         title: match?.[2]?.trim() ?? "",
