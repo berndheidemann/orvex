@@ -14,7 +14,7 @@ let archOnlyPrdTitle = "";
 try {
   const prdText = await Deno.readTextFile("PRD.md");
   try {
-    await Deno.readTextFile(`${Deno.cwd()}/.agent/architecture.md`);
+    await Deno.readTextFile("architecture.md");
   } catch {
     archOnly = true;
     const m = prdText.match(/^#+\s+PRD\s+[—-]\s+(.+)$/m) ?? prdText.match(/^#+\s+(.+)$/m);

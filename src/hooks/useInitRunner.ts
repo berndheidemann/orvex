@@ -275,6 +275,34 @@ export function useInitRunner(
 
     (async () => {
       try {
+        // skipPrd=true (archOnly): PRD existiert bereits — trotzdem Info-Screen + Review-Angebot
+        if (skipPrd) {
+          const existingPrdContent = await Deno.readTextFile(PRD_OUTPUT_PATH).catch(() => "");
+          const existingPrdItems = parseReqs(existingPrdContent);
+          if (existingPrdItems.length > 0) {
+            setPrdSynthDone({ items: existingPrdItems, fileContent: existingPrdContent, existing: true });
+            const doReview = await new Promise<boolean>((resolve) => {
+              prdSynthDoneConfirmRef.current = resolve;
+            });
+            setPrdSynthDone(null);
+            if (doReview) {
+              const initialPrdReview: ReviewState = {
+                items: existingPrdItems,
+                currentIdx: 0,
+                inputMode: "none",
+                typedInput: "",
+                editorOpen: false,
+                fileContent: existingPrdContent,
+              };
+              setPrdReviewSynced((_prev) => initialPrdReview);
+              await new Promise<void>((resolve) => {
+                prdReviewDoneRef.current = resolve;
+              });
+              setPrdReviewSynced((_prev) => null);
+            }
+          }
+        }
+
         if (!skipPrd) {
           // Check if PRD already exists — if so, skip generation and go straight to review
           const existingPrdContent = await Deno.readTextFile(PRD_OUTPUT_PATH).catch(() => "");
