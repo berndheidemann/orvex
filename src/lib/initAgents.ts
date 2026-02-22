@@ -144,7 +144,8 @@ Die Diskussion zwischen Product Manager, UX Researcher und Business Analyst hat 
 
 ${all}
 
-Gib NUR das fertige Markdown-Dokument aus — keine Einleitung, keine Erklärungen.
+Gib NUR das fertige Markdown-Dokument aus — keine Einleitung, keine Erklärungen, kein <k>-Block.
+Beginne direkt mit "# PRD —". Jede Anforderung MUSS als Markdown-Heading "### REQ-NNN:" beginnen.
 Priorisiere P0 und P1. P2 nur aufnehmen wenn klar differenzierend. Beschreibungen knapp halten.
 
 # PRD — [Projektname aus Beschreibung ableiten]
@@ -355,8 +356,8 @@ export function formatSynthesisSummary(synthOut: string, phaseId: "prd" | "arch"
     const reqs = synthOut
       .split("\n")
       .map((l: string) => l.trim())
-      .filter((l: string) => /^#{1,4}\s+REQ-\d+/.test(l))
-      .map((l: string) => l.replace(/^#+\s+/, "").trim());
+      .filter((l: string) => /REQ-\d+/.test(l) && !l.startsWith("<"))
+      .map((l: string) => l.replace(/^#+\s+/, "").replace(/\*\*/g, "").trim());
     return [
       "Synthese · PRD.md erstellt",
       SUMMARY_DIVIDER,
