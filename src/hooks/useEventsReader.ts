@@ -61,11 +61,16 @@ export function useEventsReader(intervalMs: number = 500): EventsState {
             return combined.slice(-MAX_EVENTS);
           });
 
-          // Derive currentIter, currentReq, totalLiveCost from new events
+          // Derive currentIter, currentReq, totalLiveCost from new events.
+          // currentIter is updated from both iteration:start AND loop:phase because
+          // loop:phase for iter N can arrive before iteration:start for iter N,
+          // causing a stale iter counter in the header during that polling window.
           for (const ev of newEvents) {
             if (ev.type === "iteration:start") {
-              setCurrentIter(ev.iter);
+              setCurrentIter((prev: number) => Math.max(prev, ev.iter));
               setCurrentReq(ev.reqId);
+            } else if (ev.type === "loop:phase") {
+              setCurrentIter((prev: number) => Math.max(prev, ev.iter));
             } else if (ev.type === "iteration:end") {
               setTotalLiveCost((prev: number) => prev + ev.costUsd);
             }
