@@ -55,3 +55,4 @@ try { Deno.addSignalListener("SIGTERM", () => { cleanup(); Deno.exit(0); }); } c
 const instance = render(h(App, null));
 await instance.waitUntilExit();
 cleanup();
+Deno.exit(0);
