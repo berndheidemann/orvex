@@ -12,7 +12,8 @@ export async function runClaude(
     args: [
       "-p",
       "--dangerously-skip-permissions",
-      "--output-format", "text",
+      "--verbose",
+      "--output-format=stream-json",
       "--model", model,
       "--max-turns", "1",
     ],
@@ -46,7 +47,9 @@ export async function runClaude(
   })();
 
   const reader = proc.stdout.getReader();
+  let jsonBuf = "";
   let fullText = "";
+  let resultFallback = "";  // from {"type":"result","result":"..."} event
 
   const timeoutId = setTimeout(() => {
     try { proc.kill(); } catch { /* ignore */ }
@@ -56,9 +59,31 @@ export async function runClaude(
     while (!signal.aborted) {
       const { done, value } = await reader.read();
       if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      fullText += chunk;
-      onChunk(chunk);
+      jsonBuf += decoder.decode(value, { stream: true });
+
+      const lines = jsonBuf.split("\n");
+      jsonBuf = lines.pop() ?? "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+          const obj = JSON.parse(trimmed);
+          if (obj.type === "assistant") {
+            // Support both {message:{content:[...]}} and {content:[...]} shapes
+            const content: Array<{ type: string; text?: string }> =
+              obj.message?.content ?? obj.content ?? [];
+            for (const item of content) {
+              if (item.type === "text" && typeof item.text === "string") {
+                fullText += item.text;
+                onChunk(item.text);
+              }
+            }
+          } else if (obj.type === "result" && typeof obj.result === "string") {
+            resultFallback = obj.result;
+          }
+        } catch { /* non-JSON line, ignore */ }
+      }
     }
   } finally {
     clearTimeout(timeoutId);
@@ -66,6 +91,13 @@ export async function runClaude(
   }
 
   await drainStderr;
+
+  // Fallback: use result event text if no assistant content was captured
+  if (!fullText.trim() && resultFallback.trim()) {
+    fullText = resultFallback;
+    onChunk(resultFallback);
+  }
+
   const status = await proc.status;
   if (!status.success && fullText.trim() === "") {
     throw new Error(`claude exited with code ${status.code}`);
