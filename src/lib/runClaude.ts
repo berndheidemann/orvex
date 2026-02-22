@@ -12,8 +12,7 @@ export async function runClaude(
     args: [
       "-p",
       "--dangerously-skip-permissions",
-      "--verbose",
-      "--output-format=stream-json",
+      "--output-format", "text",
       "--model", model,
       "--max-turns", "1",
     ],
@@ -47,7 +46,6 @@ export async function runClaude(
   })();
 
   const reader = proc.stdout.getReader();
-  let jsonBuf = "";
   let fullText = "";
 
   const timeoutId = setTimeout(() => {
@@ -58,28 +56,9 @@ export async function runClaude(
     while (!signal.aborted) {
       const { done, value } = await reader.read();
       if (done) break;
-      jsonBuf += decoder.decode(value, { stream: true });
-
-      const lines = jsonBuf.split("\n");
-      jsonBuf = lines.pop() ?? "";
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        try {
-          const obj = JSON.parse(trimmed);
-          if (obj.type === "assistant") {
-            const content: Array<{ type: string; text?: string }> =
-              obj.message?.content ?? [];
-            for (const item of content) {
-              if (item.type === "text" && typeof item.text === "string") {
-                fullText += item.text;
-                onChunk(item.text);
-              }
-            }
-          }
-        } catch { /* non-JSON line, ignore */ }
-      }
+      const chunk = decoder.decode(value, { stream: true });
+      fullText += chunk;
+      onChunk(chunk);
     }
   } finally {
     clearTimeout(timeoutId);
