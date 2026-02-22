@@ -192,6 +192,11 @@ Priorisiere P0 und P1. P2 nur aufnehmen wenn klar differenzierend.
 #### Verifikation
 \`[Befehl]\` → \`[Ausgabe]\`
 
+#### Content-Verifikation (nur bei Content-REQs — weglassen wenn nicht zutreffend)
+**Content-Typ:** text|visual|interactive
+**Re-Generierung:** \`[Befehl oder Schritt um den Content neu zu erzeugen — z.B. Seeder, API-Call, CLI-Befehl]\`
+**Korrektheitskriterium:** [Woran erkennt man dass der generierte Content inhaltlich richtig ist?]
+
 ---
 
 Falls Requirements sich widersprechen (z.B. REQ-A schreibt "kein Backend" vor, REQ-B
