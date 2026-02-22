@@ -1,183 +1,18 @@
 import React from "react";
-import { Box, Text, useInput } from "ink";
-import process from "node:process";
+import { Box, Text, useInput, useStdin } from "ink";
 import { useTerminalSize } from "../hooks/useTerminalSize.ts";
+import {
+  reducer,
+  computeVisualRows,
+  findVisualRowIdx,
+  mapKeyToAction,
+  clamp,
+  type EditorState,
+  type VisualRow,
+} from "./editorLogic.ts";
 
 const { useReducer, useEffect, useState, useRef } = React;
 const { createElement: h } = React;
-
-// ── State & Reducer ────────────────────────────────────────────
-
-type CursorPos = { row: number; col: number };
-
-type EditorState = {
-  lines: string[];
-  cursor: CursorPos;
-  dirty: boolean;
-};
-
-type Action =
-  | { type: "LOAD"; lines: string[] }
-  | { type: "INSERT_CHAR"; char: string }
-  | { type: "BACKSPACE" }
-  | { type: "DELETE" }
-  | { type: "NEWLINE" }
-  | { type: "MOVE_TO"; row: number; col: number }
-  | { type: "MOVE_LEFT" }
-  | { type: "MOVE_RIGHT" }
-  | { type: "LINE_START" }
-  | { type: "LINE_END" };
-
-function clamp(v: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, v));
-}
-
-function reducer(state: EditorState, action: Action): EditorState {
-  const { lines, cursor } = state;
-  const { row, col } = cursor;
-
-  switch (action.type) {
-    case "LOAD":
-      return { lines: action.lines, cursor: { row: 0, col: 0 }, dirty: false };
-
-    case "INSERT_CHAR": {
-      const newLines = [...lines];
-      const line = newLines[row] ?? "";
-      newLines[row] = line.slice(0, col) + action.char + line.slice(col);
-      return { ...state, lines: newLines, cursor: { row, col: col + 1 }, dirty: true };
-    }
-
-    case "BACKSPACE": {
-      const newLines = [...lines];
-      if (col > 0) {
-        const line = newLines[row] ?? "";
-        newLines[row] = line.slice(0, col - 1) + line.slice(col);
-        return { ...state, lines: newLines, cursor: { row, col: col - 1 }, dirty: true };
-      }
-      if (row > 0) {
-        const prevLine = newLines[row - 1] ?? "";
-        const curLine = newLines[row] ?? "";
-        const newCol = prevLine.length;
-        newLines.splice(row - 1, 2, prevLine + curLine);
-        return { ...state, lines: newLines, cursor: { row: row - 1, col: newCol }, dirty: true };
-      }
-      return state;
-    }
-
-    case "DELETE": {
-      const newLines = [...lines];
-      const line = newLines[row] ?? "";
-      if (col < line.length) {
-        newLines[row] = line.slice(0, col) + line.slice(col + 1);
-        return { ...state, lines: newLines, dirty: true };
-      }
-      if (row < newLines.length - 1) {
-        const nextLine = newLines[row + 1] ?? "";
-        newLines.splice(row, 2, line + nextLine);
-        return { ...state, lines: newLines, dirty: true };
-      }
-      return state;
-    }
-
-    case "NEWLINE": {
-      const newLines = [...lines];
-      const line = newLines[row] ?? "";
-      newLines.splice(row, 1, line.slice(0, col), line.slice(col));
-      return { ...state, lines: newLines, cursor: { row: row + 1, col: 0 }, dirty: true };
-    }
-
-    case "MOVE_TO": {
-      const targetRow = clamp(action.row, 0, lines.length - 1);
-      const targetCol = clamp(action.col, 0, lines[targetRow]?.length ?? 0);
-      return { ...state, cursor: { row: targetRow, col: targetCol } };
-    }
-
-    case "MOVE_LEFT": {
-      if (col > 0) return { ...state, cursor: { row, col: col - 1 } };
-      if (row > 0) {
-        const newRow = row - 1;
-        return { ...state, cursor: { row: newRow, col: lines[newRow]?.length ?? 0 } };
-      }
-      return state;
-    }
-
-    case "MOVE_RIGHT": {
-      const lineLen = lines[row]?.length ?? 0;
-      if (col < lineLen) return { ...state, cursor: { row, col: col + 1 } };
-      if (row < lines.length - 1) return { ...state, cursor: { row: row + 1, col: 0 } };
-      return state;
-    }
-
-    case "LINE_START":
-      return { ...state, cursor: { row, col: 0 } };
-
-    case "LINE_END":
-      return { ...state, cursor: { row, col: lines[row]?.length ?? 0 } };
-
-    default:
-      return state;
-  }
-}
-
-// ── Visual row helpers ─────────────────────────────────────────
-
-type VisualRow = {
-  logicalRow: number;
-  startCol: number; // inclusive start within the logical line
-  endCol: number;   // exclusive end within the logical line
-  isFirst: boolean;
-  isLast: boolean;
-};
-
-function computeVisualRows(lines: string[], textWidth: number): VisualRow[] {
-  const tw = Math.max(1, textWidth);
-  const result: VisualRow[] = [];
-  for (let logRow = 0; logRow < lines.length; logRow++) {
-    const line = lines[logRow];
-    if (line.length === 0) {
-      result.push({ logicalRow: logRow, startCol: 0, endCol: 0, isFirst: true, isLast: true });
-      continue;
-    }
-    let startCol = 0;
-    let isFirst = true;
-    while (startCol < line.length) {
-      let endCol = Math.min(startCol + tw, line.length);
-      // Wortweiser Umbruch: letzte Leeerstelle im Chunk suchen und dort umbrechen.
-      // Das Leerzeichen gehört zur aktuellen Row (endCol schließt es ein),
-      // die nächste Row startet direkt beim folgenden Wort — ohne führendes
-      // unsichtbares Leerzeichen in `before`.
-      if (endCol < line.length) {
-        const chunk = line.slice(startCol, endCol);
-        const lastSpace = chunk.lastIndexOf(" ");
-        if (lastSpace > 0) {
-          endCol = startCol + lastSpace + 1; // Leerzeichen gehört zur aktuellen Row
-        }
-        // kein Leerzeichen: harter Umbruch bei textWidth (sehr langes Wort)
-      }
-      result.push({
-        logicalRow: logRow,
-        startCol,
-        endCol,
-        isFirst,
-        isLast: endCol >= line.length,
-      });
-      startCol = endCol;
-      isFirst = false;
-    }
-  }
-  return result;
-}
-
-// Find which visual row index the cursor is on.
-function findVisualRowIdx(vrs: VisualRow[], row: number, col: number): number {
-  let best = 0;
-  for (let i = 0; i < vrs.length; i++) {
-    const vr = vrs[i];
-    if (vr.logicalRow > row) break;
-    if (vr.logicalRow === row && vr.startCol <= col) best = i;
-  }
-  return best;
-}
 
 // ── Component ──────────────────────────────────────────────────
 
@@ -194,26 +29,12 @@ export function ReviewEditor(props: {
     lines: [""],
     cursor: { row: 0, col: 0 },
     dirty: false,
-  });
+  } as EditorState);
 
   const [scrollOffset, setScrollOffset] = useState(0);
   const [statusMsg, setStatusMsg] = useState<string>("");
 
-  // Ink 5 maps \x7f (macOS Backspace) to key.delete instead of key.backspace.
-  // nonAlphanumericKeys strips input to '', so input==='\x7f' never holds either.
-  // Fix: listen to raw stdin to track whether the most recent byte was \x7f,
-  // then check this ref inside useInput when key.delete fires.
-  const rawWasBackspace = useRef(false);
-  useEffect(() => {
-    const handler = (data: { [n: number]: number; length: number }) => {
-      rawWasBackspace.current = data.length === 1 && data[0] === 0x7f;
-    };
-    // process.stdin is an EventEmitter; multiple listeners coexist with Ink's listener.
-    process.stdin.on("data", handler);
-    return () => { process.stdin.removeListener("data", handler); };
-  }, []);
-
-  // Viewport height in visual rows; header(1)+divider(1)+footer(2)+status-row(1)=5 → rows-5, min 5
+  // Viewport height in visual rows
   const viewportH = Math.max(5, rows - 5);
 
   // Load initial content on mount
@@ -222,15 +43,38 @@ export function ReviewEditor(props: {
     dispatch({ type: "LOAD", lines: ls.length > 0 ? ls : [""] });
   }, []);
 
-  // ── Visual layout (needed both in useInput and in render) ────
+  // ── Backspace fix ──────────────────────────────────────────
+  // Ink 5 maps \x7f (macOS Backspace) to key.name='delete' with input=''.
+  // Real forward-delete (\x1b[3~) also produces key.delete=true, input=''.
+  // They are indistinguishable at the useInput level.
+  //
+  // Fix: listen on internal_eventEmitter (Ink's own raw-input bus) with
+  // prependListener so we fire BEFORE useInput parses the keypress.
+  // At that point the raw chunk is still '\x7f' and we can detect it.
+  const rawWasBackspace = useRef(false);
+  const { internal_eventEmitter } = useStdin() as {
+    internal_eventEmitter: {
+      prependListener: (e: string, h: (d: string) => void) => void;
+      removeListener:  (e: string, h: (d: string) => void) => void;
+    };
+  };
+  useEffect(() => {
+    const handler = (chunk: string) => {
+      rawWasBackspace.current = chunk === "\x7f";
+    };
+    internal_eventEmitter.prependListener("input", handler);
+    return () => { internal_eventEmitter.removeListener("input", handler); };
+  }, [internal_eventEmitter]);
+
+  // ── Visual layout ──────────────────────────────────────────
   const { lines, cursor, dirty } = state;
   const maxLineNumWidth = String(lines.length).length;
-  const prefixWidth = maxLineNumWidth + 3; // "  N │ "
+  const prefixWidth = maxLineNumWidth + 3;
   const textWidth = Math.max(10, columns - prefixWidth - 1);
   const visualRows = computeVisualRows(lines, textWidth);
   const curVisualIdx = findVisualRowIdx(visualRows, cursor.row, cursor.col);
 
-  // Adjust scroll to keep cursor visible (scroll unit = visual rows)
+  // Adjust scroll to keep cursor visible
   useEffect(() => {
     setScrollOffset((prev: number) => {
       if (curVisualIdx < prev) return curVisualIdx;
@@ -241,25 +85,17 @@ export function ReviewEditor(props: {
 
   useInput((input, key) => {
     // Save & close
-    if (key.ctrl && input === "s") {
-      onSave(state.lines.join("\n"));
-      return;
-    }
-
+    if (key.ctrl && input === "s") { onSave(state.lines.join("\n")); return; }
     // Cancel
-    if (key.escape) {
-      onCancel();
-      return;
-    }
+    if (key.escape) { onCancel(); return; }
 
-    // Navigation — visual-row-aware up/down
+    // Visual-row-aware up/down navigation
     if (key.upArrow) {
       if (curVisualIdx > 0) {
         const curVR  = visualRows[curVisualIdx];
         const prevVR = visualRows[curVisualIdx - 1];
         const visualCol = cursor.col - curVR.startCol;
-        const newCol = clamp(prevVR.startCol + visualCol, 0, prevVR.endCol);
-        dispatch({ type: "MOVE_TO", row: prevVR.logicalRow, col: newCol });
+        dispatch({ type: "MOVE_TO", row: prevVR.logicalRow, col: clamp(prevVR.startCol + visualCol, 0, prevVR.endCol) });
       }
       return;
     }
@@ -268,37 +104,14 @@ export function ReviewEditor(props: {
         const curVR  = visualRows[curVisualIdx];
         const nextVR = visualRows[curVisualIdx + 1];
         const visualCol = cursor.col - curVR.startCol;
-        const newCol = clamp(nextVR.startCol + visualCol, 0, nextVR.endCol);
-        dispatch({ type: "MOVE_TO", row: nextVR.logicalRow, col: newCol });
+        dispatch({ type: "MOVE_TO", row: nextVR.logicalRow, col: clamp(nextVR.startCol + visualCol, 0, nextVR.endCol) });
       }
       return;
     }
-    if (key.leftArrow)  { dispatch({ type: "MOVE_LEFT" });  return; }
-    if (key.rightArrow) { dispatch({ type: "MOVE_RIGHT" }); return; }
 
-    // Line start/end (Ctrl+A / Ctrl+E)
-    if ((key.ctrl && input === "a") || input === "\x1b[H") {
-      dispatch({ type: "LINE_START" });
-      return;
-    }
-    if ((key.ctrl && input === "e") || input === "\x1b[F") {
-      dispatch({ type: "LINE_END" });
-      return;
-    }
-
-    // Editing
-    // Ink 5 maps \x7f (macOS Backspace) to key.delete with input=''.
-    // We distinguish it from real forward-delete via the rawWasBackspace ref.
-    if (key.return)                                     { dispatch({ type: "NEWLINE" });   return; }
-    if (key.backspace || (key.delete && rawWasBackspace.current)) {
-      dispatch({ type: "BACKSPACE" }); return;
-    }
-    if (key.delete)                                     { dispatch({ type: "DELETE" });    return; }
-
-    // Printable characters
-    if (input && input.length === 1 && !key.ctrl && !key.meta) {
-      dispatch({ type: "INSERT_CHAR", char: input });
-    }
+    // All other keys handled by pure mapKeyToAction
+    const action = mapKeyToAction(input, key, rawWasBackspace.current);
+    if (action) dispatch(action);
   }, { isActive: true });
 
   // ── Render ─────────────────────────────────────────────────
@@ -309,16 +122,13 @@ export function ReviewEditor(props: {
   return h(
     Box,
     { flexDirection: "column" },
-    // Header
     h(
       Box,
       { flexDirection: "row", justifyContent: "space-between" },
-      h(Text, { bold: true, color: "green" },
-        `✏  ${title}${dirty ? "  [modified]" : ""}`),
+      h(Text, { bold: true, color: "green" }, `✏  ${title}${dirty ? "  [modified]" : ""}`),
       h(Text, { dimColor: true }, "[Ctrl+S] speichern  [Esc] abbrechen"),
     ),
     h(Text, { dimColor: true }, divider),
-    // Editor body
     h(
       Box,
       { flexDirection: "column" },
@@ -331,50 +141,37 @@ export function ReviewEditor(props: {
         const lineText = lines[vr.logicalRow]?.slice(vr.startCol, vr.endCol) ?? "";
 
         if (!isCurrentRow) {
-          const prefix = vr.isFirst ? `${lineNumStr} │ ` : `${lineNumStr} ↳ `;
           return h(
             Box,
             { key: `${vr.logicalRow}-${vr.startCol}`, flexDirection: "row" },
-            h(Text, { dimColor: true }, prefix),
+            h(Text, { dimColor: true }, vr.isFirst ? `${lineNumStr} │ ` : `${lineNumStr} ↳ `),
             h(Text, {}, lineText || " "),
           );
         }
 
-        // Current visual row: render with cursor highlight
-        const localCol = cursor.col - vr.startCol;
-        const before     = lineText.slice(0, localCol);
-        const cursorChar = lineText[localCol] ?? " ";
-        const after      = lineText.slice(localCol + 1);
-        const prefix = vr.isFirst
-          ? h(Text, { color: "cyan", dimColor: true }, `${lineNumStr} │ `)
-          : h(Text, { color: "cyan", dimColor: true }, `${lineNumStr} ↳ `);
+        const localCol    = cursor.col - vr.startCol;
+        const before      = lineText.slice(0, localCol);
+        const cursorChar  = lineText[localCol] ?? " ";
+        const after       = lineText.slice(localCol + 1);
 
         return h(
           Box,
           { key: `${vr.logicalRow}-${vr.startCol}`, flexDirection: "row" },
-          prefix,
+          h(Text, { color: "cyan", dimColor: true }, vr.isFirst ? `${lineNumStr} │ ` : `${lineNumStr} ↳ `),
           h(Text, {}, before),
           h(Text, { inverse: true }, cursorChar),
           h(Text, {}, after),
         );
       }),
     ),
-    // Footer
     h(Text, { dimColor: true }, divider),
     h(
       Box,
       { flexDirection: "row", gap: 2 },
-      h(Text, { dimColor: true },
-        `Ln ${cursor.row + 1}/${lines.length}  Col ${cursor.col + 1}`),
-      scrollOffset > 0
-        ? h(Text, { dimColor: true }, "↑ more")
-        : null,
-      scrollOffset + viewportH < visualRows.length
-        ? h(Text, { dimColor: true }, "↓ more")
-        : null,
-      statusMsg
-        ? h(Text, { color: statusMsg.startsWith("⚠") ? "red" : "green" }, statusMsg)
-        : null,
+      h(Text, { dimColor: true }, `Ln ${cursor.row + 1}/${lines.length}  Col ${cursor.col + 1}`),
+      scrollOffset > 0 ? h(Text, { dimColor: true }, "↑ more") : null,
+      scrollOffset + viewportH < visualRows.length ? h(Text, { dimColor: true }, "↓ more") : null,
+      statusMsg ? h(Text, { color: statusMsg.startsWith("⚠") ? "red" : "green" }, statusMsg) : null,
     ),
   );
 }
