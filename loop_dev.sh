@@ -691,6 +691,7 @@ parse_progress() {
             tool_name=$(echo "$tool_json" | jq -r '.name // "?"' 2>/dev/null)
 
             local ev_category ev_summary
+            local ts; ts=$(date +%H:%M:%S)
             case "$tool_name" in
               Read|Glob|Grep)
                 local summary
@@ -698,14 +699,14 @@ parse_progress() {
                   .input | (.file_path // .pattern // .path // (tostring | .[:80]))
                 ' 2>/dev/null)
                 summary="${summary#"$PWD/"}"
-                echo -e "  ${CYAN}[$tool_count]${RESET} ${GREEN}$tool_name${RESET} ${DIM}${summary}${RESET}"
+                echo -e "  ${DIM}${ts}${RESET} ${CYAN}[$tool_count]${RESET} ${GREEN}$tool_name${RESET} ${DIM}${summary}${RESET}"
                 ev_category="read"; ev_summary="$tool_name ${summary}"
                 ;;
               Edit|Write)
                 local summary
                 summary=$(echo "$tool_json" | jq -r '.input.file_path // "?"' 2>/dev/null)
                 summary="${summary#"$PWD/"}"
-                echo -e "  ${CYAN}[$tool_count]${RESET} ${YELLOW}$tool_name${RESET} ${DIM}${summary}${RESET}"
+                echo -e "  ${DIM}${ts}${RESET} ${CYAN}[$tool_count]${RESET} ${YELLOW}$tool_name${RESET} ${DIM}${summary}${RESET}"
                 ev_category="write"; ev_summary="$tool_name ${summary}"
                 ;;
               Bash)
@@ -714,7 +715,7 @@ parse_progress() {
                 cmd="${cmd//"$PWD/"/}"
                 local display="${cmd:0:100}"
                 [ ${#cmd} -gt 100 ] && display="${display}…"
-                echo -e "  ${CYAN}[$tool_count]${RESET} ${YELLOW}Bash${RESET} ${DIM}${display}${RESET}"
+                echo -e "  ${DIM}${ts}${RESET} ${CYAN}[$tool_count]${RESET} ${YELLOW}Bash${RESET} ${DIM}${display}${RESET}"
                 ev_category="bash"; ev_summary="${display}"
                 ;;
               Task)
@@ -728,22 +729,22 @@ parse_progress() {
                   opus)   model_color="${MAGENTA}" ;;
                   *)      model_color="${DIM}" ;;
                 esac
-                echo -e "  ${CYAN}[$tool_count]${RESET} ${BOLD}Task${RESET} ${model_color}[$task_model]${RESET} ${DIM}${task_type}${RESET} → ${DIM}${task_desc}${RESET}"
+                echo -e "  ${DIM}${ts}${RESET} ${CYAN}[$tool_count]${RESET} ${BOLD}Task${RESET} ${model_color}[$task_model]${RESET} ${DIM}${task_type}${RESET} → ${DIM}${task_desc}${RESET}"
                 ev_category="task"; ev_summary="[$task_model] ${task_type}: ${task_desc}"
                 ;;
               mcp__playwright__*)
                 local action="${tool_name#mcp__playwright__}"
                 action="${action#browser_}"
-                echo -e "  ${CYAN}[$tool_count]${RESET} ${MAGENTA}Playwright${RESET} ${DIM}${action}${RESET}"
+                echo -e "  ${DIM}${ts}${RESET} ${CYAN}[$tool_count]${RESET} ${MAGENTA}Playwright${RESET} ${DIM}${action}${RESET}"
                 ev_category="playwright"; ev_summary="${action}"
                 ;;
               mcp__*)
                 local short="${tool_name#mcp__}"
-                echo -e "  ${CYAN}[$tool_count]${RESET} ${DIM}MCP:${short}${RESET}"
+                echo -e "  ${DIM}${ts}${RESET} ${CYAN}[$tool_count]${RESET} ${DIM}MCP:${short}${RESET}"
                 ev_category="mcp"; ev_summary="${short}"
                 ;;
               *)
-                echo -e "  ${CYAN}[$tool_count]${RESET} ${DIM}$tool_name${RESET}"
+                echo -e "  ${DIM}${ts}${RESET} ${CYAN}[$tool_count]${RESET} ${DIM}$tool_name${RESET}"
                 ev_category="mcp"; ev_summary="${tool_name}"
                 ;;
             esac
