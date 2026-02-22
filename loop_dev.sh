@@ -278,6 +278,10 @@ CONTEXT_FILE=".agent/context.md"
 LOG_DIR=".agent/logs"
 mkdir -p "$LOG_DIR"
 
+# events.jsonl ist ein Live-Stream der aktuellen Session — beim Start leeren
+# damit die TUI keinen Zustand aus vorherigen Runs zeigt (z.B. alte loop:phase)
+: > "${KINEMA_AGENT_DIR:-.agent}/events.jsonl"
+
 # ── Crash recovery ───────────────────────────────────────────
 # Reset any in_progress REQs from crashed previous iterations
 recover_in_progress() {
