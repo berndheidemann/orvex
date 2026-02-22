@@ -7,8 +7,8 @@ export function useElapsedTime(): string {
 
   useEffect(() => {
     const id = setInterval(() => {
-      setSeconds((s: number) => s + 1);
-    }, 1000);
+      setSeconds((s: number) => s + 5);
+    }, 5000);
     return () => clearInterval(id);
   }, []);
 

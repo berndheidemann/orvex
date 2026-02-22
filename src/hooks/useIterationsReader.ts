@@ -28,14 +28,19 @@ export function useIterationsReader(intervalMs: number = 2000): {
   const [available, setAvailable] = useState<boolean>(true);
 
   useEffect(() => {
+    // Track raw text to skip re-renders when file hasn't changed
+    let lastText = "";
+
     const load = async () => {
       try {
         const text = await Deno.readTextFile(ITERATIONS_PATH);
+        if (text === lastText) return; // Keine Änderung → kein Re-Render
+        lastText = text;
         setEntries(parseJsonl(text));
         setAvailable(true);
       } catch (e) {
         if (e instanceof Deno.errors.NotFound) {
-          setEntries([]);
+          if (lastText !== "") { lastText = ""; setEntries([]); }
           setAvailable(false);
         }
         // On other errors, keep last state
