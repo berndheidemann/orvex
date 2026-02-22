@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Text } from "ink";
+import { Box, Text, useInput } from "ink";
 import { useStatusPoller } from "../hooks/useStatusPoller.ts";
 import { useElapsedTime } from "../hooks/useElapsedTime.ts";
 import { useIterationsReader } from "../hooks/useIterationsReader.ts";
@@ -13,10 +13,15 @@ import { STATUS_COLORS } from "../types.ts";
 import type { IterationEntry } from "../types.ts";
 import type { LoopPhaseEvent, ToolCall } from "../events.ts";
 
-const { createElement: h } = React;
+const { createElement: h, useState, useEffect, useRef } = React;
 
 const MAX_BLOCKED_ENTRIES = 3;
-const MAX_FEED_ENTRIES = 20;
+
+// Fixed rows consumed outside the feed entry list:
+// main.ts: "Kinema" + divider = 2
+// Dashboard: status + REQ bar + Phase bar + 2 dividers + hint = 6
+// ActivityFeed: header + divider + iter line = 3  → total = 11
+const FEED_OVERHEAD = 11;
 const FEED_SUMMARY_MAX_LEN = 60;
 const REQ_TITLE_MAX_LEN = 30;
 const BAR_WIDTH_DIVISOR = 3;
@@ -104,9 +109,39 @@ function ActivityFeed(props: {
   currentIter: number;
   currentReq: string | null;
   model: string;
+  rows: number;
 }): React.ReactElement {
-  const { toolEvents, currentIter, currentReq, model } = props;
-  const shown = toolEvents.slice(-MAX_FEED_ENTRIES);
+  const { toolEvents, currentIter, currentReq, model, rows } = props;
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const prevLenRef = useRef(toolEvents.length);
+
+  // Auto-scroll: when new events arrive and user is at bottom, stay there
+  useEffect(() => {
+    const newLen = toolEvents.length;
+    if (prevLenRef.current !== newLen) {
+      prevLenRef.current = newLen;
+      // Only auto-scroll if already at bottom (offset 0)
+      if (scrollOffset === 0) setScrollOffset(0); // no-op but triggers recalc
+    }
+  }, [toolEvents.length, scrollOffset]);
+
+  const maxVisible = Math.max(3, rows - FEED_OVERHEAD);
+  const total = toolEvents.length;
+  const maxOffset = Math.max(0, total - maxVisible);
+  const clampedOffset = Math.min(scrollOffset, maxOffset);
+  const isAutoScroll = clampedOffset === 0;
+
+  const end = total - clampedOffset;
+  const start = Math.max(0, end - maxVisible);
+  const shown = toolEvents.slice(start, end);
+
+  useInput((_input, key) => {
+    if (key.upArrow) {
+      setScrollOffset((prev: number) => Math.min(prev + 1, maxOffset));
+    } else if (key.downArrow) {
+      setScrollOffset((prev: number) => Math.max(0, prev - 1));
+    }
+  });
 
   return h(
     Box,
@@ -128,7 +163,7 @@ function ActivityFeed(props: {
           ...shown.map((ev, idx) =>
             h(
               Box,
-              { key: String(idx) },
+              { key: String(start + idx) },
               h(
                 Text,
                 { color: CATEGORY_COLORS[ev.category] ?? "white" },
@@ -138,6 +173,10 @@ function ActivityFeed(props: {
             )
           ),
         ),
+    // Scroll indicator (only when scrolled up)
+    !isAutoScroll
+      ? h(Text, { dimColor: true }, `↑↓ scroll  (${clampedOffset} from latest)`)
+      : null,
   );
 }
 
@@ -154,7 +193,7 @@ export function Dashboard(): React.ReactElement {
     currentReq,
     totalLiveCost,
   } = useEventsReader();
-  const { columns } = useTerminalSize();
+  const { columns, rows } = useTerminalSize();
 
   if (quitting) {
     return h(
@@ -256,6 +295,7 @@ export function Dashboard(): React.ReactElement {
       currentIter,
       currentReq: currentReq ?? activeReqId,
       model: currentModel,
+      rows,
     }),
   );
 
@@ -310,6 +350,6 @@ export function Dashboard(): React.ReactElement {
       : lastAction === "editor-closed"
       ? h(Text, { color: "green" }, "✓ context.md saved")
       : null,
-    h(Text, { dimColor: true }, "[p] pause  [s] skip  [e] edit context  [q] quit"),
+    h(Text, { dimColor: true }, "[p] pause  [s] skip  [e] edit context  [q] quit  [↑↓] scroll feed"),
   );
 }
