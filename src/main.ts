@@ -8,13 +8,18 @@ const { createElement: h } = React;
 const INIT_MODE = Deno.env.get("KINEMA_INIT_MODE") === "1";
 const INIT_DESCRIPTION = Deno.env.get("KINEMA_INIT_DESCRIPTION") ?? "";
 
-// Auto-detect: PRD.md exists but architecture.md missing → arch-only init
+// Auto-detect project state from filesystem:
+//   bothExist  → PRD.md + architecture.md vorhanden → direkt zum Dashboard
+//   archOnly   → PRD.md vorhanden, architecture.md fehlt → Arch-only Init
+//   (neither)  → PRD.md fehlt → voller Init-Flow
 let archOnly = false;
+let bothExist = false;
 let archOnlyPrdTitle = "";
 try {
   const prdText = await Deno.readTextFile("PRD.md");
   try {
     await Deno.readTextFile("architecture.md");
+    bothExist = true; // Beide Dateien vorhanden — kein Init-Flow nötig
   } catch {
     archOnly = true;
     const m = prdText.match(/^#+\s+PRD\s+[—-]\s+(.+)$/m) ?? prdText.match(/^#+\s+(.+)$/m);
@@ -27,7 +32,8 @@ const { useState } = React;
 function App(): React.ReactElement {
   const [initDone, setInitDone] = useState(false);
 
-  if ((INIT_MODE || archOnly) && !initDone) {
+  // INIT_MODE wird ignoriert wenn PRD.md + architecture.md bereits existieren.
+  if ((INIT_MODE && !bothExist || archOnly) && !initDone) {
     return h(InitDashboard, {
       description: INIT_DESCRIPTION || archOnlyPrdTitle,
       archOnly,
