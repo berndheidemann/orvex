@@ -238,7 +238,8 @@ Finale Positionen aus der Architektur-Diskussion:
 
 ${all}
 
-Gib NUR das Markdown aus — keine Einleitung:
+Gib NUR das Markdown aus — keine Einleitung, kein <k>-Block.
+Beginne direkt mit "# Architektur-Entscheidungen". Jede Entscheidung MUSS als Markdown-Heading "## ADR-NNN:" beginnen.
 
 # Architektur-Entscheidungen
 
@@ -371,8 +372,8 @@ export function formatSynthesisSummary(synthOut: string, phaseId: "prd" | "arch"
   const adrs = synthOut
     .split("\n")
     .map((l: string) => l.trim())
-    .filter((l: string) => /^#{1,4}\s+ADR-\d+/.test(l))
-    .map((l: string) => l.replace(/^#+\s+/, "").trim());
+    .filter((l: string) => /ADR-\d+/.test(l) && !l.startsWith("<"))
+    .map((l: string) => l.replace(/^#+\s+/, "").replace(/\*\*/g, "").trim());
   return [
     "Synthese · architecture.md erstellt",
     SUMMARY_DIVIDER,
