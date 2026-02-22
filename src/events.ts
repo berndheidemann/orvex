@@ -8,12 +8,20 @@ export interface IterationStart extends EventBase {
   model: string;
 }
 
+export interface ModelCostEntry {
+  costUsd: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheTokens: number;
+}
+
 export interface IterationEnd extends EventBase {
   type: "iteration:end";
   durationMs: number;
   costUsd: number;
   toolCount: number;
   exitCode: number;
+  modelCosts?: Record<string, ModelCostEntry>;
 }
 
 export interface ToolCall extends EventBase {

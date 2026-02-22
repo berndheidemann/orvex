@@ -57,6 +57,19 @@ function formatTimestamp(ts: string): string {
   return ts.replace("T", " ").replace(/\+.*$/, "").replace(/Z$/, "");
 }
 
+function shortModelName(modelId: string): string {
+  if (modelId.includes("opus")) return "opus";
+  if (modelId.includes("sonnet")) return "sonnet";
+  if (modelId.includes("haiku")) return "haiku";
+  return modelId;
+}
+
+const MODEL_COLORS: Record<string, string> = {
+  opus: "magenta",
+  sonnet: "blue",
+  haiku: "green",
+};
+
 function BlockedDetail(props: {
   reqId: string;
   notes: string | undefined;
@@ -192,6 +205,7 @@ export function Dashboard(): React.ReactElement {
     currentIter,
     currentReq,
     totalLiveCost,
+    modelCosts,
   } = useEventsReader();
   const { columns, rows } = useTerminalSize();
 
@@ -309,6 +323,11 @@ export function Dashboard(): React.ReactElement {
       h(Text, { color: "cyan" }, `Runtime: ${elapsed}`),
       h(Text, { dimColor: true }, "|"),
       h(Text, { color: "cyan" }, `Cost: ${costStr}`),
+      ...Object.entries(modelCosts).map(([modelId, cost]) => {
+        const name = shortModelName(modelId);
+        const color = MODEL_COLORS[name] ?? "white";
+        return h(Text, { key: modelId, color: color as Parameters<typeof Text>[0]["color"] }, `${name} $${cost.toFixed(4)}`);
+      }),
       h(Text, { dimColor: true }, "|"),
       h(Text, { dimColor: true }, `Iter ${currentIter}`),
     ),

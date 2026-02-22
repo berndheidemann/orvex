@@ -268,6 +268,8 @@ COST_FILE=$(mktemp)
 TOOLS_FILE=$(mktemp)
 STATUS_FILE=$(mktemp)
 EXIT_FILE=$(mktemp)
+MODEL_USAGE_FILE=$(mktemp)
+echo '{}' > "$MODEL_USAGE_FILE"
 ITER_CLAUDE_PID_FILE=""   # set each iteration; holds claude subprocess PID
 ITER_TIMEOUT_FILE=""      # set each iteration; non-empty if watchdog fired
 ITER_WATCHDOG_PID=""      # background watchdog PID
@@ -556,7 +558,7 @@ cleanup() {
   kill_dev_servers
   print_summary
   return_to_original_branch
-  rm -f "$COST_FILE" "$TOOLS_FILE" "$STATUS_FILE" "$EXIT_FILE" "$LOCKFILE"
+  rm -f "$COST_FILE" "$TOOLS_FILE" "$STATUS_FILE" "$EXIT_FILE" "$LOCKFILE" "$MODEL_USAGE_FILE"
   rm -f "${ITER_CLAUDE_PID_FILE:-}" "${ITER_TIMEOUT_FILE:-}"
   rm -f ".agent/pause.flag" "$CONTROL_FIFO"
   exit 130
@@ -774,6 +776,9 @@ parse_progress() {
         echo "${cost:-0}" > "$COST_FILE"
         echo "${tool_count}" > "$TOOLS_FILE"
 
+        # Save model usage JSON for TUI per-model cost display
+        echo "$line" | jq -c '.modelUsage // {}' 2>/dev/null > "$MODEL_USAGE_FILE"
+
         # ── Per-model usage breakdown from result.modelUsage ──
         local has_usage
         has_usage=$(echo "$line" | jq -r '.modelUsage | length // 0' 2>/dev/null)
@@ -872,7 +877,7 @@ if [ "$REFACTOR" = "1" ]; then
   fi
 
   return_to_original_branch
-  rm -f "$COST_FILE" "$TOOLS_FILE" "$STATUS_FILE" "$EXIT_FILE"
+  rm -f "$COST_FILE" "$TOOLS_FILE" "$STATUS_FILE" "$EXIT_FILE" "$MODEL_USAGE_FILE"
   exit 0
 fi
 
@@ -1074,6 +1079,7 @@ while :; do
   ITER_END=$(date +%s)
   ITER_DURATION=$((ITER_END - ITER_START))
 
+  MODEL_USAGE_JSON=$(cat "$MODEL_USAGE_FILE" 2>/dev/null || echo '{}')
   emit_event "$(jq -nc \
     --argjson ts "$(( $(date +%s) * 1000 ))" \
     --argjson iter "$ITERATION" \
@@ -1081,7 +1087,8 @@ while :; do
     --argjson costUsd "${ITER_COST:-0}" \
     --argjson toolCount "${ITER_TOOLS:-0}" \
     --argjson exitCode "${EXIT_CODE:-1}" \
-    '{"type":"iteration:end","ts":$ts,"iter":$iter,"durationMs":$durationMs,"costUsd":$costUsd,"toolCount":$toolCount,"exitCode":$exitCode}')"
+    --argjson modelUsage "$MODEL_USAGE_JSON" \
+    '{"type":"iteration:end","ts":$ts,"iter":$iter,"durationMs":$durationMs,"costUsd":$costUsd,"toolCount":$toolCount,"exitCode":$exitCode,"modelCosts":($modelUsage | to_entries | map({key:.key,value:{costUsd:(.value.costUSD//0),inputTokens:(.value.inputTokens//0),outputTokens:(.value.outputTokens//0),cacheTokens:((.value.cacheReadInputTokens//0)+(.value.cacheCreationInputTokens//0))}}) | from_entries)}')"
 
   if [ "$EXIT_CODE" -eq 124 ]; then
     if [ "${TIMEOUT_REASON:-}" = "idle" ]; then
@@ -1170,5 +1177,5 @@ done
 print_summary
 return_to_original_branch
 kill_dev_servers
-rm -f "$COST_FILE" "$TOOLS_FILE" "$STATUS_FILE" "$EXIT_FILE" "$LOCKFILE"
+rm -f "$COST_FILE" "$TOOLS_FILE" "$STATUS_FILE" "$EXIT_FILE" "$LOCKFILE" "$MODEL_USAGE_FILE"
 rm -f ".agent/pause.flag" "$CONTROL_FIFO"

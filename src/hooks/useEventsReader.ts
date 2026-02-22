@@ -13,6 +13,7 @@ export interface EventsState {
   currentIter: number;
   currentReq: string | null;
   totalLiveCost: number;
+  modelCosts: Record<string, number>;
 }
 
 export function useEventsReader(intervalMs: number = 500): EventsState {
@@ -20,6 +21,7 @@ export function useEventsReader(intervalMs: number = 500): EventsState {
   const [currentIter, setCurrentIter] = useState<number>(0);
   const [currentReq, setCurrentReq] = useState<string | null>(null);
   const [totalLiveCost, setTotalLiveCost] = useState<number>(0);
+  const [modelCosts, setModelCosts] = useState<Record<string, number>>({});
   const byteOffsetRef = useRef<number>(0);
 
   useEffect(() => {
@@ -73,6 +75,16 @@ export function useEventsReader(intervalMs: number = 500): EventsState {
               setCurrentIter((prev: number) => Math.max(prev, ev.iter));
             } else if (ev.type === "iteration:end") {
               setTotalLiveCost((prev: number) => prev + ev.costUsd);
+              if (ev.modelCosts) {
+                const costs = ev.modelCosts;
+                setModelCosts((prev: Record<string, number>) => {
+                  const next = { ...prev };
+                  for (const [model, mc] of Object.entries(costs)) {
+                    next[model] = (next[model] ?? 0) + mc.costUsd;
+                  }
+                  return next;
+                });
+              }
             }
           }
         } finally {
@@ -91,5 +103,5 @@ export function useEventsReader(intervalMs: number = 500): EventsState {
     return () => clearInterval(id);
   }, []);
 
-  return { events, currentIter, currentReq, totalLiveCost };
+  return { events, currentIter, currentReq, totalLiveCost, modelCosts };
 }
