@@ -1,8 +1,9 @@
 import React from "react";
 import { Box, Text, useInput } from "ink";
+import process from "node:process";
 import { useTerminalSize } from "../hooks/useTerminalSize.ts";
 
-const { useReducer, useEffect, useState } = React;
+const { useReducer, useEffect, useState, useRef } = React;
 const { createElement: h } = React;
 
 // ── State & Reducer ────────────────────────────────────────────
@@ -198,6 +199,20 @@ export function ReviewEditor(props: {
   const [scrollOffset, setScrollOffset] = useState(0);
   const [statusMsg, setStatusMsg] = useState<string>("");
 
+  // Ink 5 maps \x7f (macOS Backspace) to key.delete instead of key.backspace.
+  // nonAlphanumericKeys strips input to '', so input==='\x7f' never holds either.
+  // Fix: listen to raw stdin to track whether the most recent byte was \x7f,
+  // then check this ref inside useInput when key.delete fires.
+  const rawWasBackspace = useRef(false);
+  useEffect(() => {
+    const handler = (data: { [n: number]: number; length: number }) => {
+      rawWasBackspace.current = data.length === 1 && data[0] === 0x7f;
+    };
+    // process.stdin is an EventEmitter; multiple listeners coexist with Ink's listener.
+    process.stdin.on("data", handler);
+    return () => { process.stdin.removeListener("data", handler); };
+  }, []);
+
   // Viewport height in visual rows; header(1)+divider(1)+footer(2)+status-row(1)=5 → rows-5, min 5
   const viewportH = Math.max(5, rows - 5);
 
@@ -272,11 +287,13 @@ export function ReviewEditor(props: {
     }
 
     // Editing
-    // macOS Backspace sends \x7f (ASCII DEL); Ink 5 maps it to key.delete
-    // instead of key.backspace — intercept explicitly to avoid forward-delete.
-    if (key.return)                         { dispatch({ type: "NEWLINE" });   return; }
-    if (key.backspace || input === "\x7f")  { dispatch({ type: "BACKSPACE" }); return; }
-    if (key.delete)                         { dispatch({ type: "DELETE" });    return; }
+    // Ink 5 maps \x7f (macOS Backspace) to key.delete with input=''.
+    // We distinguish it from real forward-delete via the rawWasBackspace ref.
+    if (key.return)                                     { dispatch({ type: "NEWLINE" });   return; }
+    if (key.backspace || (key.delete && rawWasBackspace.current)) {
+      dispatch({ type: "BACKSPACE" }); return;
+    }
+    if (key.delete)                                     { dispatch({ type: "DELETE" });    return; }
 
     // Printable characters
     if (input && input.length === 1 && !key.ctrl && !key.meta) {
