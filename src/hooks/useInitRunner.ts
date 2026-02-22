@@ -251,17 +251,30 @@ export function useInitRunner(
     lineBufferRef.current = "";
 
     const synthPrompt = buildPrompt(numRounds, 0, context, allOutputs, numRounds);
-    const synthContent = await runClaude(synthPrompt, addChunk, signal, SYNTH_MODEL, SYNTH_TIMEOUT_MS, 50);
 
-    if (!synthContent.trim()) {
+    // Record file state before synthesis — the claude CLI runs as a full agent
+    // with tool access. If it writes the file directly via Write tool, synthContent
+    // will be just a confirmation message. We detect this and use the file content
+    // instead of overwriting it with the confirmation text.
+    const contentBeforeSynth = await Deno.readTextFile(outputPath).catch(() => "");
+
+    // maxTurns=1: one shot, no room for "write file → output confirmation" pattern
+    const synthContent = await runClaude(synthPrompt, addChunk, signal, SYNTH_MODEL, SYNTH_TIMEOUT_MS, 1);
+
+    // Prefer file content if the agent wrote it during synthesis
+    const contentAfterSynth = await Deno.readTextFile(outputPath).catch(() => "");
+    const agentWroteFile = contentAfterSynth.trim() !== "" && contentAfterSynth !== contentBeforeSynth;
+    const finalContent = agentWroteFile ? contentAfterSynth : synthContent;
+
+    if (!finalContent.trim()) {
       throw new Error(`Synthese hat keinen Inhalt produziert`);
     }
-    await Deno.writeTextFile(outputPath, synthContent);
+    await Deno.writeTextFile(outputPath, finalContent);
 
     setAgentStatus(phaseId, numRounds, 0, "done");
     setRoundStatus(phaseId, numRounds, "done");
     setPhaseStatus(phaseId, "done");
-    setLiveLines(formatSynthesisSummary(synthContent, phaseId));
+    setLiveLines(formatSynthesisSummary(finalContent, phaseId));
     lineBufferRef.current = "";
     setActiveLabel("");
   }, [setAgentStatus, setRoundStatus, setPhaseStatus, setLiveLines, setActiveLabel, addChunk]);

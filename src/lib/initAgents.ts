@@ -134,16 +134,21 @@ export function buildPrdPrompt(
       `--- ${a.name} (finale Position) ---\n${lastRound[i] ?? "(keine Ausgabe)"}`
     ).join("\n\n");
 
-    return `Du bist technischer Writer. Erstelle das fertige PRD-Dokument.
+    return `AUFGABE: Synthetisiere die folgenden Diskussionsbeiträge zu einem vollständigen PRD-Dokument.
+
+AUSGABEREGELN (zwingend):
+- Deine Antwort beginnt mit dem Zeichen '#'. Kein Text davor.
+- Schreibe KEINE Dateien. Führe KEINE Befehle aus. Benutze KEINE Tools.
+- Keine Einleitung, keine Bestätigung, kein <k>-Block.
+- Deine Textantwort IST das Dokument — vollständig und direkt.
 
 Projektbeschreibung: ${description}
 
-Die Diskussion zwischen Product Manager, UX Researcher und Business Analyst hat folgende finale Positionen ergeben:
+Finale Positionen aus der PRD-Diskussion:
 
 ${all}
 
-Gib NUR das fertige Markdown-Dokument aus — keine Einleitung, keine Erklärungen, kein <k>-Block, keine Tools.
-Beginne direkt mit "# PRD —". Halte dich exakt an die folgende Dokumentstruktur.
+Halte dich exakt an die folgende Dokumentstruktur. Beginne jetzt direkt mit "# PRD —".
 
 # PRD — [Projektname aus Beschreibung ableiten]
 
@@ -256,7 +261,13 @@ export function buildArchPrompt(
       `--- ${a.name} (finale Position) ---\n${lastRound[i] ?? "(keine Ausgabe)"}`
     ).join("\n\n");
 
-    return `Du bist technischer Writer. Erstelle das fertige Architektur-Dokument.
+    return `AUFGABE: Synthetisiere die folgenden Diskussionsbeiträge zu einem vollständigen Architektur-Dokument.
+
+AUSGABEREGELN (zwingend):
+- Deine Antwort beginnt mit dem Zeichen '#'. Kein Text davor.
+- Schreibe KEINE Dateien. Führe KEINE Befehle aus. Benutze KEINE Tools.
+- Keine Einleitung, keine Bestätigung, kein <k>-Block.
+- Deine Textantwort IST das Dokument — vollständig und direkt.
 
 PRD des Projekts:
 ${prdContent}
@@ -265,8 +276,7 @@ Finale Positionen aus der Architektur-Diskussion:
 
 ${all}
 
-Gib NUR das Markdown aus — keine Einleitung, kein <k>-Block, keine Tools.
-Beginne direkt mit "# Architektur-Entscheidungen". Jede Entscheidung MUSS als Markdown-Heading "## ADR-NNN:" beginnen.
+Beginne jetzt direkt mit "# Architektur-Entscheidungen". Jede Entscheidung MUSS als Markdown-Heading "## ADR-NNN:" beginnen.
 
 WICHTIG — Typ-Klassifikation für jedes ADR:
 - Typ A (reine Implementierungsentscheidung — nur das WIE ändert sich): kein **Einschränkt:**-Feld
