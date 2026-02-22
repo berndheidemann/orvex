@@ -36,7 +36,7 @@ do_init() {
   echo "    • User Journeys vollständig?"
   echo "    • Priorisierung korrekt?  (P0 = MVP-Blocker · P1 = wichtig · P2 = nice-to-have)"
   echo ""
-  if [ -f .agent/architecture.md ] && grep -q 'ADR-' .agent/architecture.md 2>/dev/null; then
+  if [ -f architecture.md ] && grep -q 'ADR-' architecture.md 2>/dev/null; then
     echo "  .agent/architecture.md"
     echo "    • Tech-Stack passend für das Projekt?"
     echo "    • Architektur-Pattern verständlich?"

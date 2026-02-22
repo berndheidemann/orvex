@@ -112,7 +112,8 @@ export function InitSetup(props: {
 
   const tryStart = () => {
     onStart({
-      description: description.trim(),
+      description: description.trim() ||
+        "Lies die Projektidee aus vorhandenen Dateien im Projektverzeichnis.",
       model: MODELS[modelIdx].id,
       prdRounds,
       archRounds,
