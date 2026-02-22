@@ -18,7 +18,7 @@ const MODELS = [
   {
     id: "claude-opus-4-6",
     label: "Opus 4.6",
-    desc: "Höchste Qualität · langsamer · teurer",
+    desc: "Höchste Qualität · empfohlen für PRD & Architektur",
   },
   {
     id: "claude-sonnet-4-6",
@@ -34,9 +34,10 @@ const MODELS = [
 
 const ROUND_EXPLANATIONS = {
   prd: [
-    "Architekt, Product Manager und Senior Developer",
+    "Product Manager, UX Researcher und Business Analyst",
     "analysieren dein Thema unabhängig, dann reagieren sie",
     "aufeinander. Die Synthese erstellt PRD.md.",
+    "→ 3 Runden: bei komplexen oder widersprüchlichen Ideen",
   ],
   arch: [
     "Software-Architekt, Senior Developer und DevOps Engineer",
@@ -102,7 +103,7 @@ export function InitSetup(props: {
   const { columns } = useTerminalSize();
   const [description, setDescription] = useState("");
   const [modelIdx, setModelIdx] = useState(0);
-  const [prdRounds, setPrdRounds] = useState(3);
+  const [prdRounds, setPrdRounds] = useState(2);
   const [archRounds, setArchRounds] = useState(3);
   const [activeField, setActiveField] = useState<ActiveField>("description");
   const [error, setError] = useState("");
