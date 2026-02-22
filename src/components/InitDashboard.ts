@@ -13,6 +13,7 @@ import type {
   SynthDoneState,
 } from "../types.ts";
 import { SYNTH_MODEL } from "../lib/initAgents.ts";
+import { parseAdrConstraints } from "../lib/reviewUtils.ts";
 
 const { createElement: h, useEffect, useState } = React;
 
@@ -257,7 +258,9 @@ function ReviewUI(props: {
   }, [currentIdx]);
 
   const allLines = item ? item.content.split("\n") : [];
-  const HEADER_H = 4; // title bar + REQ header + divider + blank
+  const constraints = type === "arch" && item ? parseAdrConstraints(item.content) : [];
+  const hasConstraint = constraints.length > 0;
+  const HEADER_H = 4 + (hasConstraint ? 2 : 0); // title bar + REQ header + [warning] + divider
   const FOOTER_H = inputMode === "typing" ? 3 : 2; // divider + hint(s)
   const viewportH = Math.max(5, rows - HEADER_H - FOOTER_H);
   const maxScroll = Math.max(0, allLines.length - viewportH);
@@ -293,6 +296,17 @@ function ReviewUI(props: {
       h(Text, { bold: true, color: "yellow" },
         ` ${itemLabel} ${currentIdx + 1} / ${total} — ${item.id}: ${item.title}`),
     ),
+    // Scope-constraint warning (Typ-B-ADRs only)
+    hasConstraint
+      ? h(
+          Box,
+          { flexDirection: "column", paddingLeft: 1 },
+          h(Text, { color: "yellow", bold: true },
+            `⚠  Scope-Einschränkung — betrifft: ${constraints.join(", ")}`),
+          h(Text, { color: "yellow" },
+            "   Dieses ADR verändert den Produkt-Scope. PRD-Requirement prüfen."),
+        )
+      : null,
     h(Text, { dimColor: true }, divider),
     // Scrollable content
     h(

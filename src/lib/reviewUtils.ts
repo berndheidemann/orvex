@@ -40,6 +40,15 @@ export function replaceItemInContent(
   return fileContent.replace(oldContent, newContent);
 }
 
+export function parseAdrConstraints(adrContent: string): string[] {
+  const match = adrContent.match(/^\*\*Einschränkt:\*\*\s*(.+)$/m);
+  if (!match) return [];
+  return match[1]
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => /^REQ-\d+/.test(s));
+}
+
 export function buildRewritePrompt(
   item: ReviewItem,
   userPrompt: string,

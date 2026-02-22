@@ -259,6 +259,13 @@ ${all}
 Gib NUR das Markdown aus — keine Einleitung, kein <k>-Block, keine Tools.
 Beginne direkt mit "# Architektur-Entscheidungen". Jede Entscheidung MUSS als Markdown-Heading "## ADR-NNN:" beginnen.
 
+WICHTIG — Typ-Klassifikation für jedes ADR:
+- Typ A (reine Implementierungsentscheidung): kein **Einschränkt:**-Feld
+- Typ B (schränkt ein PRD-Requirement inhaltlich ein — d.h. das WAS ändert sich, nicht nur das WIE):
+  Füge **Einschränkt:** REQ-XXX, REQ-YYY als letztes Feld ein.
+  Typ-B-Beispiel: "Kein Backend" schränkt REQ-013 ein, das Cross-Device-Sync versprach.
+  Typ-A-Beispiel: "SM-2 eigenimplementiert statt Bibliothek" ändert kein Requirement.
+
 # Architektur-Entscheidungen
 
 > [Ein-Satz-Zusammenfassung des Ansatzes]
@@ -279,6 +286,7 @@ Beginne direkt mit "# Architektur-Entscheidungen". Jede Entscheidung MUSS als Ma
 **Entscheidung:** ...
 **Begründung:** ...
 **Konsequenzen:** ...
+**Einschränkt:** REQ-XXX  ← nur bei Typ B, sonst diese Zeile weglassen
 
 ---
 
