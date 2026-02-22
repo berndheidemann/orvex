@@ -7,9 +7,10 @@ import type {
   InitRunnerState,
 } from "../types.ts";
 import { AGENT_DIR } from "../lib/agentDir.ts";
-import { runClaude } from "../lib/runClaude.ts";
+import { runClaude, SYNTH_TIMEOUT_MS } from "../lib/runClaude.ts";
 import {
   DEFAULT_MODEL,
+  SYNTH_MODEL,
   PRD_AGENTS,
   ARCH_AGENTS,
   PRD_OUTPUT_PATH,
@@ -162,7 +163,7 @@ export function useInitRunner(
     lineBufferRef.current = "";
 
     const synthPrompt = buildPrompt(numRounds, 0, context, allOutputs, numRounds);
-    const synthOut = await runClaude(synthPrompt, addChunk, signal, phaseModel);
+    const synthOut = await runClaude(synthPrompt, addChunk, signal, SYNTH_MODEL, SYNTH_TIMEOUT_MS);
 
     setAgentStatus(phaseId, numRounds, 0, "done");
     setRoundStatus(phaseId, numRounds, "done");

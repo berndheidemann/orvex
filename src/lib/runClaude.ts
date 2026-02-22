@@ -1,10 +1,12 @@
-export const AGENT_TIMEOUT_MS = 5 * 60 * 1000; // 5 min per agent
+export const AGENT_TIMEOUT_MS = 5 * 60 * 1000;   // 5 min per discussion agent
+export const SYNTH_TIMEOUT_MS = 12 * 60 * 1000;  // 12 min for synthesis (full document)
 
 export async function runClaude(
   prompt: string,
   onChunk: (text: string) => void,
   signal: AbortSignal,
   model: string,
+  timeoutMs: number = AGENT_TIMEOUT_MS,
 ): Promise<string> {
   const cmd = new Deno.Command("claude", {
     args: [
@@ -50,7 +52,7 @@ export async function runClaude(
 
   const timeoutId = setTimeout(() => {
     try { proc.kill(); } catch { /* ignore */ }
-  }, AGENT_TIMEOUT_MS);
+  }, timeoutMs);
 
   try {
     while (!signal.aborted) {

@@ -4,6 +4,7 @@ import { useInitRunner } from "../hooks/useInitRunner.ts";
 import { useTerminalSize } from "../hooks/useTerminalSize.ts";
 import { InitSetup, type InitConfig } from "./InitSetup.ts";
 import type { PhaseState, RoundStatus, AgentStatus, PhaseStatus } from "../types.ts";
+import { SYNTH_MODEL } from "../lib/initAgents.ts";
 
 const { createElement: h, useEffect, useState } = React;
 
@@ -39,15 +40,25 @@ const PHASE_COLORS: Record<PhaseStatus, string> = {
   done: "green",
 };
 
+const MODEL_SHORT: Record<string, string> = {
+  "claude-opus-4-6":           "Opus",
+  "claude-sonnet-4-6":         "Sonnet",
+  "claude-haiku-4-5-20251001": "Haiku",
+};
+const modelShort = (id: string) => MODEL_SHORT[id] ?? id;
+const SYNTH_LABEL = modelShort(SYNTH_MODEL);
+
 const ROUND_SECS = 120;    // 2 min pro Diskussionsrunde
-const SYNTH_SECS = 180;    // 3 min für Synthese (vollständiges Dokument)
+const SYNTH_SECS = 720;    // 12 min für Synthese (vollständiges Dokument)
 
 function PhaseBlockCompact(props: {
   phase: PhaseState;
   barWidth: number;
   now: number;
+  model: string;
 }): React.ReactElement {
-  const { phase, barWidth, now } = props;
+  const { phase, barWidth, now, model } = props;
+  const roundModelLabel = modelShort(model);
   const totalRounds = phase.rounds.length;
   const doneRounds = phase.rounds.filter((r) => r.status === "done").length;
   const discussionRounds = totalRounds - 1; // ohne Synthese
@@ -105,8 +116,10 @@ function PhaseBlockCompact(props: {
     h(
       Box,
       { flexDirection: "column", paddingLeft: 3 },
-      ...phase.rounds.map((round, idx) =>
-        h(
+      ...phase.rounds.map((round, idx) => {
+        const isSynthesis = idx === phase.rounds.length - 1;
+        const label = isSynthesis ? SYNTH_LABEL : roundModelLabel;
+        return h(
           Box,
           { key: String(idx), flexDirection: "row", gap: 1 },
           h(Text, { color: ROUND_COLORS[round.status] },
@@ -119,8 +132,9 @@ function PhaseBlockCompact(props: {
               h(Text, { color: AGENT_COLORS[agent.status] }, AGENT_ICONS[agent.status])
             )
           ),
-        )
-      ),
+          h(Text, { dimColor: true }, ` ${label}`),
+        );
+      }),
     ),
   );
 }
@@ -241,7 +255,7 @@ function InitRunner(props: {
         Box,
         { flexDirection: "column", width: leftWidth },
         ...state.phases.map((phase) =>
-          h(PhaseBlockCompact, { key: phase.id, phase, barWidth: leftBarWidth, now })
+          h(PhaseBlockCompact, { key: phase.id, phase, barWidth: leftBarWidth, now, model })
         ),
       ),
       // Divider

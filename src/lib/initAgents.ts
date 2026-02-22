@@ -9,6 +9,7 @@ import { AGENT_DIR } from "./agentDir.ts";
 // ── Constants ──────────────────────────────────────────────────
 
 export const DEFAULT_MODEL = "claude-opus-4-6";
+export const SYNTH_MODEL = "claude-sonnet-4-6";  // Synthese: immer Sonnet (schnell + gut)
 
 export const PRD_OUTPUT_PATH = "PRD.md";
 export const ARCH_OUTPUT_PATH = `${AGENT_DIR}/architecture.md`;
