@@ -32,8 +32,24 @@ export function useInitRunner(
   prdRounds = 3,
   archRounds = 3,
   model = DEFAULT_MODEL,
+  skipPrd = false,
 ): InitRunnerState {
-  const [phases, setPhases] = useState<PhaseState[]>(() => makePhases(prdRounds, archRounds));
+  const [phases, setPhases] = useState<PhaseState[]>(() => {
+    const p = makePhases(prdRounds, archRounds);
+    if (!skipPrd) return p;
+    return p.map((phase) => {
+      if (phase.id !== "prd") return phase;
+      return {
+        ...phase,
+        status: "done" as PhaseStatus,
+        rounds: phase.rounds.map((r) => ({
+          ...r,
+          status: "done" as RoundStatus,
+          agents: r.agents.map((a) => ({ ...a, status: "done" as AgentStatus })),
+        })),
+      };
+    });
+  });
   const [liveLines, setLiveLines] = useState<string[]>([]);
   const [activeLabel, setActiveLabel] = useState<string>("");
   const [done, setDone] = useState(false);
@@ -165,14 +181,14 @@ export function useInitRunner(
     const synthPrompt = buildPrompt(numRounds, 0, context, allOutputs, numRounds);
     const synthOut = await runClaude(synthPrompt, addChunk, signal, SYNTH_MODEL, SYNTH_TIMEOUT_MS);
 
+    await Deno.writeTextFile(outputPath, synthOut); // W4: use passed outputPath
+
     setAgentStatus(phaseId, numRounds, 0, "done");
     setRoundStatus(phaseId, numRounds, "done");
     setPhaseStatus(phaseId, "done");
     setLiveLines(formatSynthesisSummary(synthOut, phaseId));
     lineBufferRef.current = "";
     setActiveLabel("");
-
-    await Deno.writeTextFile(outputPath, synthOut); // W4: use passed outputPath
   }, [setAgentStatus, setRoundStatus, setPhaseStatus, setLiveLines, setActiveLabel, addChunk]);
 
   // ── Main effect ────────────────────────────────────────────
@@ -187,7 +203,9 @@ export function useInitRunner(
 
     (async () => {
       try {
-        await runPhase("prd", PRD_OUTPUT_PATH, PRD_AGENTS, buildPrdPrompt, description, ctrl.signal, prdRounds, model);
+        if (!skipPrd) {
+          await runPhase("prd", PRD_OUTPUT_PATH, PRD_AGENTS, buildPrdPrompt, description, ctrl.signal, prdRounds, model);
+        }
 
         setAwaitingArchConfirm(true);
         const doArch = await new Promise<boolean>((resolve) => {

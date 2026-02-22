@@ -8,9 +8,26 @@ const { createElement: h } = React;
 const INIT_MODE = Deno.env.get("KINEMA_INIT_MODE") === "1";
 const INIT_DESCRIPTION = Deno.env.get("KINEMA_INIT_DESCRIPTION") ?? "";
 
+// Auto-detect: PRD.md exists but architecture.md missing → arch-only init
+let archOnly = false;
+let archOnlyPrdTitle = "";
+try {
+  const prdText = await Deno.readTextFile("PRD.md");
+  try {
+    await Deno.readTextFile(`${Deno.cwd()}/.agent/architecture.md`);
+  } catch {
+    archOnly = true;
+    const m = prdText.match(/^#+\s+PRD\s+[—-]\s+(.+)$/m) ?? prdText.match(/^#+\s+(.+)$/m);
+    archOnlyPrdTitle = m ? m[1].trim() : "PRD.md";
+  }
+} catch { /* PRD.md nicht vorhanden — normaler Dashboard-Start */ }
+
 function App(): React.ReactElement {
-  if (INIT_MODE) {
-    return h(InitDashboard, { description: INIT_DESCRIPTION });
+  if (INIT_MODE || archOnly) {
+    return h(InitDashboard, {
+      description: INIT_DESCRIPTION || archOnlyPrdTitle,
+      archOnly,
+    });
   }
   return h(
     Box,

@@ -144,11 +144,12 @@ function InitRunner(props: {
   model: string;
   prdRounds: number;
   archRounds: number;
+  skipPrd?: boolean;
 }): React.ReactElement {
-  const { description, model, prdRounds, archRounds } = props;
+  const { description, model, prdRounds, archRounds, skipPrd = false } = props;
   const { exit } = useApp();
   const { columns, rows } = useTerminalSize();
-  const state = useInitRunner(description, prdRounds, archRounds, model);
+  const state = useInitRunner(description, prdRounds, archRounds, model, skipPrd);
   const [elapsed, setElapsed] = React.useState(0);
   const [now, setNow] = React.useState(() => Date.now());
 
@@ -322,10 +323,10 @@ function InitRunner(props: {
   );
 }
 
-export function InitDashboard(props: { description: string }): React.ReactElement {
-  const { description: initialDescription } = props;
+export function InitDashboard(props: { description: string; archOnly?: boolean }): React.ReactElement {
+  const { description: initialDescription, archOnly = false } = props;
   const [config, setConfig] = useState<InitConfig | null>(
-    initialDescription
+    initialDescription || archOnly
       ? { description: initialDescription, model: "claude-opus-4-6", prdRounds: 3, archRounds: 3 }
       : null
   );
@@ -335,5 +336,6 @@ export function InitDashboard(props: { description: string }): React.ReactElemen
     model: config.model,
     prdRounds: config.prdRounds,
     archRounds: config.archRounds,
+    skipPrd: archOnly,
   });
 }
