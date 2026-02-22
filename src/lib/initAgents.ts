@@ -229,7 +229,7 @@ export function buildArchPrompt(
       `--- ${a.name} (finale Position) ---\n${lastRound[i] ?? "(keine Ausgabe)"}`
     ).join("\n\n");
 
-    return `Du bist technischer Writer. Erstelle die finale architecture.md.
+    return `Du bist technischer Writer. Schreibe das fertige Architektur-Dokument nach \`.agent/architecture.md\`.
 
 PRD des Projekts:
 ${prdContent}

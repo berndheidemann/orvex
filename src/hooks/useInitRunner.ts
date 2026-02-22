@@ -179,14 +179,21 @@ export function useInitRunner(
     lineBufferRef.current = "";
 
     const synthPrompt = buildPrompt(numRounds, 0, context, allOutputs, numRounds);
-    const synthOut = await runClaude(synthPrompt, addChunk, signal, SYNTH_MODEL, SYNTH_TIMEOUT_MS);
+    await runClaude(synthPrompt, addChunk, signal, SYNTH_MODEL, SYNTH_TIMEOUT_MS, 50);
 
-    await Deno.writeTextFile(outputPath, synthOut); // W4: use passed outputPath
+    // Claude writes the file itself via tools — read it; fall back to stdout only if missing
+    let synthContent: string;
+    try {
+      synthContent = await Deno.readTextFile(outputPath);
+    } catch {
+      // Claude didn't write the file (e.g. max-turns hit) — nothing to show
+      throw new Error(`Synthese-Datei ${outputPath} wurde nicht erstellt`);
+    }
 
     setAgentStatus(phaseId, numRounds, 0, "done");
     setRoundStatus(phaseId, numRounds, "done");
     setPhaseStatus(phaseId, "done");
-    setLiveLines(formatSynthesisSummary(synthOut, phaseId));
+    setLiveLines(formatSynthesisSummary(synthContent, phaseId));
     lineBufferRef.current = "";
     setActiveLabel("");
   }, [setAgentStatus, setRoundStatus, setPhaseStatus, setLiveLines, setActiveLabel, addChunk]);

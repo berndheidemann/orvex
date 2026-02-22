@@ -14,6 +14,7 @@ export async function runClaude(
   signal: AbortSignal,
   model: string,
   timeoutMs: number = AGENT_TIMEOUT_MS,
+  maxTurns: number = 10,
 ): Promise<string> {
   const cmd = new Deno.Command("claude", {
     args: [
@@ -22,7 +23,7 @@ export async function runClaude(
       "--verbose",
       "--output-format=stream-json",
       "--model", model,
-      "--max-turns", "5",
+      "--max-turns", String(maxTurns),
     ],
     stdin: "piped",
     stdout: "piped",
