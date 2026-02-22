@@ -11,7 +11,7 @@ import { ContextEditor } from "./ContextEditor.ts";
 import { ProgressBar } from "./ProgressBar.ts";
 import { STATUS_COLORS } from "../types.ts";
 import type { IterationEntry } from "../types.ts";
-import type { LoopPhaseEvent, ToolCall } from "../events.ts";
+import type { ToolCall } from "../events.ts";
 
 const { createElement: h, useState, useEffect, useRef } = React;
 
@@ -204,6 +204,7 @@ export function Dashboard(): React.ReactElement {
     events,
     currentIter,
     currentReq,
+    currentPhase: livePhase,
     totalLiveCost,
     modelCosts,
   } = useEventsReader();
@@ -238,13 +239,11 @@ export function Dashboard(): React.ReactElement {
   // Extract tool:call events and current model (needed for phase gate below)
   const toolEvents = events.filter((ev): ev is ToolCall => ev.type === "tool:call");
 
-  // Phase tracking — bar bleibt leer bis der erste Tool-Call läuft,
-  // damit sie nicht sofort auf Schritt 2 springt während Claude noch startet.
-  const lastPhaseEvent = [...events].reverse()
-    .find((ev): ev is LoopPhaseEvent => ev.type === "loop:phase");
-  const currentPhase = (toolEvents.length > 0 && lastPhaseEvent)
-    ? lastPhaseEvent.phase
-    : null;
+  // Phase tracking — livePhase kommt aus useEventsReader (eigener State,
+  // nicht aus dem gekürzten events-Puffer) und bleibt korrekt auch wenn
+  // loop:phase Events aus dem MAX_EVENTS-Limit herausfallen.
+  // Bar bleibt leer bis zum ersten Tool-Call (kein Vorspringen auf Schritt 2).
+  const currentPhase = toolEvents.length > 0 ? livePhase : null;
   const phaseStep = currentPhase ? (PHASE_STEPS[currentPhase] ?? 0) : 0;
 
   // REQ progress counters

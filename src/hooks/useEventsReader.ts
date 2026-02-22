@@ -12,6 +12,7 @@ export interface EventsState {
   events: LoopEvent[];
   currentIter: number;
   currentReq: string | null;
+  currentPhase: string | null;
   totalLiveCost: number;
   modelCosts: Record<string, number>;
 }
@@ -20,6 +21,7 @@ export function useEventsReader(intervalMs: number = 500): EventsState {
   const [events, setEvents] = useState<LoopEvent[]>([]);
   const [currentIter, setCurrentIter] = useState<number>(0);
   const [currentReq, setCurrentReq] = useState<string | null>(null);
+  const [currentPhase, setCurrentPhase] = useState<string | null>(null);
   const [totalLiveCost, setTotalLiveCost] = useState<number>(0);
   const [modelCosts, setModelCosts] = useState<Record<string, number>>({});
   const byteOffsetRef = useRef<number>(0);
@@ -73,6 +75,7 @@ export function useEventsReader(intervalMs: number = 500): EventsState {
               setCurrentReq(ev.reqId);
             } else if (ev.type === "loop:phase") {
               setCurrentIter((prev: number) => Math.max(prev, ev.iter));
+              setCurrentPhase(ev.phase);
             } else if (ev.type === "iteration:end") {
               setTotalLiveCost((prev: number) => prev + ev.costUsd);
               if (ev.modelCosts) {
@@ -103,5 +106,5 @@ export function useEventsReader(intervalMs: number = 500): EventsState {
     return () => clearInterval(id);
   }, []);
 
-  return { events, currentIter, currentReq, totalLiveCost, modelCosts };
+  return { events, currentIter, currentReq, currentPhase, totalLiveCost, modelCosts };
 }
