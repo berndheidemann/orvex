@@ -357,30 +357,29 @@ export function useInitRunner(
             const prdContent = await Deno.readTextFile(PRD_OUTPUT_PATH).catch(() => "");
             const prdItems = parseReqs(prdContent);
 
-            // Always show transition screen after synthesis
+            // Show transition screen
             setPrdSynthDone({ items: prdItems, fileContent: prdContent });
             await new Promise<void>((resolve) => {
               prdSynthDoneConfirmRef.current = (_doReview: boolean) => resolve();
             });
             setPrdSynthDone(null);
 
-            // Start PRD review (only when requirements were parsed)
-            if (prdItems.length > 0) {
-              const initialPrdReview: ReviewState = {
-                items: prdItems,
-                currentIdx: 0,
-                inputMode: "none",
-                typedInput: "",
-                typingCursorPos: 0,
-                editorOpen: false,
-                fileContent: prdContent,
-              };
-              setPrdReviewSynced((_prev) => initialPrdReview);
-              await new Promise<void>((resolve) => {
-                prdReviewDoneRef.current = resolve;
-              });
-              setPrdReviewSynced((_prev) => null);
-            }
+            // Always start PRD review — control flow is deterministic here,
+            // we just ran runPhase("prd"). No LLM-output-dependent branching.
+            const initialPrdReview: ReviewState = {
+              items: prdItems,
+              currentIdx: 0,
+              inputMode: "none",
+              typedInput: "",
+              typingCursorPos: 0,
+              editorOpen: false,
+              fileContent: prdContent,
+            };
+            setPrdReviewSynced((_prev) => initialPrdReview);
+            await new Promise<void>((resolve) => {
+              prdReviewDoneRef.current = resolve;
+            });
+            setPrdReviewSynced((_prev) => null);
           }
         }
 

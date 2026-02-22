@@ -280,7 +280,15 @@ function ReviewUI(props: {
   const typeLabel = type === "prd" ? "PRD Review" : "Architektur Review";
   const itemLabel = type === "prd" ? "REQ" : "ADR";
 
-  if (!item) return h(Box, {}, h(Text, {}, ""));
+  if (!item) {
+    return h(
+      Box,
+      { flexDirection: "column", paddingX: 1 },
+      h(Text, { color: "yellow", bold: true }, "⚠  Keine REQ-Abschnitte gefunden"),
+      h(Text, { dimColor: true }, "PRD.md wurde generiert, aber keine ### REQ-NNN:-Abschnitte erkannt."),
+      h(Text, { dimColor: true }, "  [Enter] Fortfahren → Architektur"),
+    );
+  }
 
   return h(
     Box,
