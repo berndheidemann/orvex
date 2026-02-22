@@ -41,6 +41,7 @@ export interface ReviewState {
   currentIdx: number;
   inputMode: "none" | "typing" | "rewriting";
   typedInput: string;
+  typingCursorPos: number; // cursor position within typedInput (0 … typedInput.length)
   editorOpen: boolean;
   fileContent: string;
 }

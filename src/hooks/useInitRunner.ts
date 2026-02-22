@@ -31,7 +31,7 @@ import {
   replaceItemInContent,
   buildRewritePrompt,
 } from "../lib/reviewUtils.ts";
-import { applyTypingKey } from "../lib/typingLogic.ts";
+import { applyTypingKey, type TypingState } from "../lib/typingLogic.ts";
 
 const { useState, useEffect, useRef, useCallback } = React;
 
@@ -292,6 +292,7 @@ export function useInitRunner(
                 currentIdx: 0,
                 inputMode: "none",
                 typedInput: "",
+                typingCursorPos: 0,
                 editorOpen: false,
                 fileContent: existingPrdContent,
               };
@@ -336,6 +337,7 @@ export function useInitRunner(
                 currentIdx: 0,
                 inputMode: "none",
                 typedInput: "",
+                typingCursorPos: 0,
                 editorOpen: false,
                 fileContent: existingPrdContent,
               };
@@ -365,6 +367,7 @@ export function useInitRunner(
                 currentIdx: 0,
                 inputMode: "none",
                 typedInput: "",
+                typingCursorPos: 0,
                 editorOpen: false,
                 fileContent: prdContent,
               };
@@ -405,6 +408,7 @@ export function useInitRunner(
               currentIdx: 0,
               inputMode: "none",
               typedInput: "",
+              typingCursorPos: 0,
               editorOpen: false,
               fileContent: archContent,
             };
@@ -473,7 +477,7 @@ export function useInitRunner(
         prdReviewDoneRef.current?.();
         return null;
       }
-      return { ...prev, currentIdx: prev.currentIdx + 1, inputMode: "none", typedInput: "" };
+      return { ...prev, currentIdx: prev.currentIdx + 1, inputMode: "none", typedInput: "", typingCursorPos: 0 };
     });
   }, [setPrdReviewSynced]);
 
@@ -482,14 +486,15 @@ export function useInitRunner(
   }, [setPrdReviewSynced]);
 
   const startPrdReviewTyping = useCallback(() => {
-    setPrdReviewSynced((prev) => prev ? { ...prev, inputMode: "typing", typedInput: "" } : null);
+    setPrdReviewSynced((prev) => prev ? { ...prev, inputMode: "typing", typedInput: "", typingCursorPos: 0 } : null);
   }, [setPrdReviewSynced]);
 
   const onPrdReviewType = useCallback((char: string, key: InputKey) => {
     setPrdReviewSynced((prev) => {
       if (!prev || prev.inputMode !== "typing") return prev ?? null;
-      if (key.escape) return { ...prev, inputMode: "none", typedInput: "" };
-      return { ...prev, typedInput: applyTypingKey(prev.typedInput, char, key) };
+      if (key.escape) return { ...prev, inputMode: "none", typedInput: "", typingCursorPos: 0 };
+      const ts: TypingState = applyTypingKey({ text: prev.typedInput, cursor: prev.typingCursorPos }, char, key);
+      return { ...prev, typedInput: ts.text, typingCursorPos: ts.cursor };
     });
   }, [setPrdReviewSynced]);
 
@@ -499,7 +504,7 @@ export function useInitRunner(
     const item = review.items[review.currentIdx];
     if (!item) return;
 
-    setPrdReviewSynced((prev) => prev ? { ...prev, inputMode: "rewriting", typedInput: "" } : null);
+    setPrdReviewSynced((prev) => prev ? { ...prev, inputMode: "rewriting", typedInput: "", typingCursorPos: 0 } : null);
 
     try {
       const newContent = await runClaude(
@@ -522,10 +527,10 @@ export function useInitRunner(
         if (!prev) return null;
         const newItems = [...prev.items];
         newItems[prev.currentIdx] = { ...newItems[prev.currentIdx], content: trimmed };
-        return { ...prev, items: newItems, fileContent: updatedFile, inputMode: "none", typedInput: "" };
+        return { ...prev, items: newItems, fileContent: updatedFile, inputMode: "none", typedInput: "", typingCursorPos: 0 };
       });
     } catch (e) {
-      setPrdReviewSynced((prev) => prev ? { ...prev, inputMode: "none", typedInput: "" } : null);
+      setPrdReviewSynced((prev) => prev ? { ...prev, inputMode: "none", typedInput: "", typingCursorPos: 0 } : null);
       if (!ctrlRef.current?.signal.aborted) setError(String(e));
     }
   }, [setPrdReviewSynced]);
@@ -555,7 +560,7 @@ export function useInitRunner(
         archReviewDoneRef.current?.();
         return null;
       }
-      return { ...prev, currentIdx: prev.currentIdx + 1, inputMode: "none", typedInput: "" };
+      return { ...prev, currentIdx: prev.currentIdx + 1, inputMode: "none", typedInput: "", typingCursorPos: 0 };
     });
   }, [setArchReviewSynced]);
 
@@ -564,14 +569,15 @@ export function useInitRunner(
   }, [setArchReviewSynced]);
 
   const startArchReviewTyping = useCallback(() => {
-    setArchReviewSynced((prev) => prev ? { ...prev, inputMode: "typing", typedInput: "" } : null);
+    setArchReviewSynced((prev) => prev ? { ...prev, inputMode: "typing", typedInput: "", typingCursorPos: 0 } : null);
   }, [setArchReviewSynced]);
 
   const onArchReviewType = useCallback((char: string, key: InputKey) => {
     setArchReviewSynced((prev) => {
       if (!prev || prev.inputMode !== "typing") return prev ?? null;
-      if (key.escape) return { ...prev, inputMode: "none", typedInput: "" };
-      return { ...prev, typedInput: applyTypingKey(prev.typedInput, char, key) };
+      if (key.escape) return { ...prev, inputMode: "none", typedInput: "", typingCursorPos: 0 };
+      const ts: TypingState = applyTypingKey({ text: prev.typedInput, cursor: prev.typingCursorPos }, char, key);
+      return { ...prev, typedInput: ts.text, typingCursorPos: ts.cursor };
     });
   }, [setArchReviewSynced]);
 
@@ -581,7 +587,7 @@ export function useInitRunner(
     const item = review.items[review.currentIdx];
     if (!item) return;
 
-    setArchReviewSynced((prev) => prev ? { ...prev, inputMode: "rewriting", typedInput: "" } : null);
+    setArchReviewSynced((prev) => prev ? { ...prev, inputMode: "rewriting", typedInput: "", typingCursorPos: 0 } : null);
 
     try {
       const newContent = await runClaude(
@@ -604,10 +610,10 @@ export function useInitRunner(
         if (!prev) return null;
         const newItems = [...prev.items];
         newItems[prev.currentIdx] = { ...newItems[prev.currentIdx], content: trimmed };
-        return { ...prev, items: newItems, fileContent: updatedFile, inputMode: "none", typedInput: "" };
+        return { ...prev, items: newItems, fileContent: updatedFile, inputMode: "none", typedInput: "", typingCursorPos: 0 };
       });
     } catch (e) {
-      setArchReviewSynced((prev) => prev ? { ...prev, inputMode: "none", typedInput: "" } : null);
+      setArchReviewSynced((prev) => prev ? { ...prev, inputMode: "none", typedInput: "", typingCursorPos: 0 } : null);
       if (!ctrlRef.current?.signal.aborted) setError(String(e));
     }
   }, [setArchReviewSynced]);

@@ -252,7 +252,7 @@ function ReviewUI(props: {
   const { columns, rows } = useTerminalSize();
   const [scrollOffset, setScrollOffset] = useState(0);
 
-  const { items, currentIdx, inputMode, typedInput } = review;
+  const { items, currentIdx, inputMode, typedInput, typingCursorPos } = review;
   const item = items[currentIdx];
   const total = items.length;
 
@@ -332,10 +332,11 @@ function ReviewUI(props: {
             Box,
             { flexDirection: "row" },
             h(Text, { color: "cyan" }, "  ⟩ "),
-            h(Text, {}, typedInput),
-            h(Text, { inverse: true }, " "),
+            h(Text, {}, typedInput.slice(0, typingCursorPos)),
+            h(Text, { inverse: true }, typedInput[typingCursorPos] ?? " "),
+            h(Text, {}, typedInput.slice(typingCursorPos + 1)),
           ),
-          h(Text, { dimColor: true }, "  [Enter] Senden  [Esc] Abbrechen"),
+          h(Text, { dimColor: true }, "  [Enter] Senden  [Esc] Abbrechen  [←/→] Cursor"),
         )
       : h(
           Box,
