@@ -252,11 +252,20 @@ export function ReviewEditor(props: {
         const cursorChar = line[cursor.col] ?? " ";
         const after = line.slice(cursor.col + 1);
 
+        // Horizontal scroll: keep cursor visible when line is longer than terminal
+        const prefixWidth = lineNum.length + 3; // "  N │ "
+        const textWidth = Math.max(10, columns - prefixWidth - 1);
+        const hScroll = cursor.col >= textWidth
+          ? cursor.col - Math.floor(textWidth * 0.7)
+          : 0;
+        const displayBefore = before.slice(hScroll);
+
         return h(
           Box,
           { key: String(absRow), flexDirection: "row", overflow: "hidden" },
-          h(Text, { color: "cyan", dimColor: true }, `${lineNum} │ `),
-          h(Text, { flexShrink: 0 }, before),
+          h(Text, { color: "cyan", dimColor: true },
+            hScroll > 0 ? `${lineNum} ‹ ` : `${lineNum} │ `),
+          h(Text, { flexShrink: 0 }, displayBefore),
           h(Text, { inverse: true, flexShrink: 0 }, cursorChar),
           h(Text, { wrap: "truncate" }, after || " "),
         );
