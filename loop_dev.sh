@@ -56,7 +56,8 @@ LOOP_START=$(date +%s)
 PRD_FILE="PRD.md"
 MODEL="sonnet"
 PROMPT_FILE="AGENT.md"
-ITER_TIMEOUT="${ITER_TIMEOUT:-1800}"  # 30 min default, override via env
+ITER_TIMEOUT="${ITER_TIMEOUT:-1800}"  # 30 min hard max, override via env
+IDLE_TIMEOUT="${IDLE_TIMEOUT:-300}"   # 5 min without output → kill (override via env)
 SAFE_BRANCH="${SAFE_BRANCH:-1}"       # Auto-create agent branch
 SANDBOX_MODE="${SANDBOX_MODE:-0}"     # Skip environment checks
 FULL_VERIFY_OVERRIDE="${FULL_VERIFY:-0}"
@@ -111,12 +112,14 @@ for arg in "$@"; do
       echo -e "${BOLD}Automatic stops:${RESET}"
       echo "  - All requirements done"
       echo "  - Max iterations reached"
-      echo "  - Iteration timeout (default: 30 min, ITER_TIMEOUT=N)"
+      echo "  - Idle timeout: no output for IDLE_TIMEOUT seconds (default: 5 min)"
+      echo "  - Hard timeout: total iteration exceeds ITER_TIMEOUT (default: 30 min)"
       echo "  - 2x low-activity (≤5 tools, not blocked) in a row"
       echo "  - Ctrl+C (shows summary)"
       echo ""
       echo -e "${BOLD}Env variables:${RESET}"
-      echo "  ITER_TIMEOUT=N      Timeout per iteration in seconds (default: 1800)"
+      echo "  IDLE_TIMEOUT=N      Seconds without output before killing (default: 300)"
+      echo "  ITER_TIMEOUT=N      Hard max per iteration in seconds (default: 1800)"
       echo "  SAFE_BRANCH=0       Disable agent branch creation"
       echo "  FULL_VERIFY=1       Force full verification"
       echo "  SANDBOX_MODE=1      Skip environment checks (project-specific)"
@@ -265,6 +268,9 @@ COST_FILE=$(mktemp)
 TOOLS_FILE=$(mktemp)
 STATUS_FILE=$(mktemp)
 EXIT_FILE=$(mktemp)
+ITER_CLAUDE_PID_FILE=""   # set each iteration; holds claude subprocess PID
+ITER_TIMEOUT_FILE=""      # set each iteration; non-empty if watchdog fired
+ITER_WATCHDOG_PID=""      # background watchdog PID
 ITER_LOG=".agent/iterations.jsonl"
 CONTEXT_FILE=".agent/context.md"
 LOG_DIR=".agent/logs"
@@ -501,8 +507,13 @@ setup_agent_branch() {
 
   if [ "$SAFE_BRANCH" = "1" ] && { [ "$ORIGINAL_BRANCH" = "main" ] || [ "$ORIGINAL_BRANCH" = "master" ]; }; then
     AGENT_BRANCH="agent/loop-$(date +%Y%m%d-%H%M)"
-    echo -e "  ${YELLOW}On $ORIGINAL_BRANCH — creating branch $AGENT_BRANCH for safe iteration${RESET}"
-    git checkout -b "$AGENT_BRANCH"
+    if git rev-parse --verify "$AGENT_BRANCH" >/dev/null 2>&1; then
+      echo -e "  ${YELLOW}Branch $AGENT_BRANCH already exists — checking out${RESET}"
+      git checkout "$AGENT_BRANCH"
+    else
+      echo -e "  ${YELLOW}On $ORIGINAL_BRANCH — creating branch $AGENT_BRANCH for safe iteration${RESET}"
+      git checkout -b "$AGENT_BRANCH"
+    fi
   else
     AGENT_BRANCH="$ORIGINAL_BRANCH"
   fi
@@ -540,15 +551,73 @@ return_to_original_branch() {
 cleanup() {
   echo ""
   echo -e "${YELLOW}Interrupted.${RESET}"
+  [ -n "$ITER_WATCHDOG_PID" ] && kill "$ITER_WATCHDOG_PID" 2>/dev/null || true
   pkill -P $$ -f "claude" 2>/dev/null || true
   kill_dev_servers
   print_summary
   return_to_original_branch
   rm -f "$COST_FILE" "$TOOLS_FILE" "$STATUS_FILE" "$EXIT_FILE" "$LOCKFILE"
+  rm -f "${ITER_CLAUDE_PID_FILE:-}" "${ITER_TIMEOUT_FILE:-}"
   rm -f ".agent/pause.flag" "$CONTROL_FIFO"
   exit 130
 }
 trap cleanup EXIT INT TERM
+
+# ── Idle-aware watchdog ─────────────────────────────────────────
+# Monitors ITER_LOG_FILE byte growth. Kills claude if:
+#   - No new bytes for IDLE_TIMEOUT seconds  → genuine hang / API freeze
+#   - Total elapsed exceeds hard_timeout     → runaway iteration safety net
+# Writes "idle" or "hard" to timeout_file when firing.
+# Args: pid_file timeout_file idle_timeout hard_timeout iter_start
+_idle_watchdog() {
+  local pid_file=$1 timeout_file=$2 idle_timeout=$3 hard_timeout=$4 iter_start=$5
+
+  # Wait up to 10 s for claude to start and write its PID
+  local i
+  for i in $(seq 1 20); do
+    [ -s "$pid_file" ] && break
+    sleep 0.5
+  done
+  local cpid
+  cpid=$(cat "$pid_file" 2>/dev/null || echo "")
+  [ -z "$cpid" ] && return
+
+  local last_size=0 last_active
+  last_active=$(date +%s)
+
+  while kill -0 "$cpid" 2>/dev/null; do
+    sleep 5
+    local now cur_size idle total
+    now=$(date +%s)
+    cur_size=$(wc -c < "$ITER_LOG_FILE" 2>/dev/null || echo 0)
+    if [ "$cur_size" -gt "$last_size" ]; then
+      last_size=$cur_size
+      last_active=$now
+    fi
+    idle=$(( now - last_active ))
+    total=$(( now - iter_start ))
+
+    if [ "$idle" -ge "$idle_timeout" ]; then
+      echo ""
+      echo -e "  ${RED}${BOLD}Idle-Timeout: keine Ausgabe seit $(format_duration $idle) — Iteration wird beendet${RESET}"
+      echo "idle" > "$timeout_file"
+      kill -TERM "$cpid" 2>/dev/null
+      sleep 10
+      kill -KILL "$cpid" 2>/dev/null
+      return
+    fi
+
+    if [ "$total" -ge "$hard_timeout" ]; then
+      echo ""
+      echo -e "  ${RED}${BOLD}Hard-Timeout: $(format_duration $total) erreicht — Iteration wird beendet${RESET}"
+      echo "hard" > "$timeout_file"
+      kill -TERM "$cpid" 2>/dev/null
+      sleep 10
+      kill -KILL "$cpid" 2>/dev/null
+      return
+    fi
+  done
+}
 
 # ── Progress parser ─────────────────────────────────────────────
 # Reads stream-json from stdin, shows compact progress.
@@ -628,18 +697,21 @@ parse_progress() {
                 summary=$(echo "$tool_json" | jq -r '
                   .input | (.file_path // .pattern // .path // (tostring | .[:80]))
                 ' 2>/dev/null)
+                summary="${summary#"$PWD/"}"
                 echo -e "  ${CYAN}[$tool_count]${RESET} ${GREEN}$tool_name${RESET} ${DIM}${summary}${RESET}"
                 ev_category="read"; ev_summary="$tool_name ${summary}"
                 ;;
               Edit|Write)
                 local summary
                 summary=$(echo "$tool_json" | jq -r '.input.file_path // "?"' 2>/dev/null)
+                summary="${summary#"$PWD/"}"
                 echo -e "  ${CYAN}[$tool_count]${RESET} ${YELLOW}$tool_name${RESET} ${DIM}${summary}${RESET}"
                 ev_category="write"; ev_summary="$tool_name ${summary}"
                 ;;
               Bash)
                 local cmd
                 cmd=$(echo "$tool_json" | jq -r '.input.command // "?"' 2>/dev/null)
+                cmd="${cmd//"$PWD/"/}"
                 local display="${cmd:0:100}"
                 [ ${#cmd} -gt 100 ] && display="${display}…"
                 echo -e "  ${CYAN}[$tool_count]${RESET} ${YELLOW}Bash${RESET} ${DIM}${display}${RESET}"
@@ -734,7 +806,7 @@ parse_progress() {
 echo ""
 SANDBOX_LABEL=""
 [ "$SANDBOX_MODE" = "1" ] && SANDBOX_LABEL="  ${YELLOW}SANDBOX${RESET}"
-echo -e "${BOLD}Kinema Agent Loop${RESET}  ${DIM}model=${MODEL}  max=$([ "$MAX_ITERATIONS" -eq 0 ] && echo '∞' || echo "$MAX_ITERATIONS")  timeout=$(format_duration "$ITER_TIMEOUT")${RESET}${SANDBOX_LABEL}"
+echo -e "${BOLD}Kinema Agent Loop${RESET}  ${DIM}model=${MODEL}  max=$([ "$MAX_ITERATIONS" -eq 0 ] && echo '∞' || echo "$MAX_ITERATIONS")  idle=$(format_duration "$IDLE_TIMEOUT")  hard=$(format_duration "$ITER_TIMEOUT")${RESET}${SANDBOX_LABEL}"
 
 # ── Pre-loop: init + recovery + branch ──────────────────────
 init_status_json
@@ -924,19 +996,35 @@ while :; do
     --arg phase "$_phase_name" \
     '{"type":"loop:phase","ts":$ts,"iter":$iter,"phase":$phase}')"
 
-  # Run Claude agent
+  # Run Claude agent with idle-aware watchdog.
+  # The watchdog kills claude after IDLE_TIMEOUT seconds without output (hang
+  # detection) or after ITER_TIMEOUT_ACTUAL seconds total (hard safety net).
+  # This prevents killing mid-synthesis as long as output keeps flowing.
+  ITER_CLAUDE_PID_FILE=$(mktemp)
+  ITER_TIMEOUT_FILE=$(mktemp)
+  _idle_watchdog "$ITER_CLAUDE_PID_FILE" "$ITER_TIMEOUT_FILE" \
+    "$IDLE_TIMEOUT" "$ITER_TIMEOUT_ACTUAL" "$ITER_START" &
+  ITER_WATCHDOG_PID=$!
+
   set +eo pipefail
   (
-    FULL_VERIFY=${FULL_VERIFY:-0} SANDBOX_MODE=$SANDBOX_MODE timeout --foreground --signal=TERM --kill-after=30 "$ITER_TIMEOUT_ACTUAL" \
+    FULL_VERIFY=${FULL_VERIFY:-0} SANDBOX_MODE=$SANDBOX_MODE \
       claude -p \
         --dangerously-skip-permissions \
         --output-format=stream-json \
         --model "$ITER_MODEL" \
         --max-turns "$ITER_MAX_TURNS" \
         --verbose \
-        <<< "$AGENT_PROMPT"
+        <<< "$AGENT_PROMPT" &
+    _claude_pid=$!
+    echo "$_claude_pid" > "$ITER_CLAUDE_PID_FILE"
+    wait "$_claude_pid"
     echo $? > "$EXIT_FILE"
   ) | tee "$ITER_LOG_FILE" | parse_progress
+
+  kill "$ITER_WATCHDOG_PID" 2>/dev/null
+  wait "$ITER_WATCHDOG_PID" 2>/dev/null || true
+  ITER_WATCHDOG_PID=""
   set -eo pipefail
   emit_event "$(jq -nc \
     --argjson ts "$(( $(date +%s) * 1000 ))" \
@@ -944,6 +1032,13 @@ while :; do
     '{"type":"loop:phase","ts":$ts,"iter":$iter,"phase":"post_processing"}')"
 
   EXIT_CODE=$(cat "$EXIT_FILE" 2>/dev/null || echo "1")
+
+  # Watchdog sets ITER_TIMEOUT_FILE when it fires; normalize exit to 124
+  TIMEOUT_REASON=$(cat "$ITER_TIMEOUT_FILE" 2>/dev/null || echo "")
+  if [ -n "$TIMEOUT_REASON" ]; then
+    EXIT_CODE=124
+  fi
+  rm -f "$ITER_CLAUDE_PID_FILE" "$ITER_TIMEOUT_FILE"
 
   # ── Non-blocking control FIFO read (TUI skip signal) ─────────
   # macOS: open FIFO in read-write mode (<>) to avoid blocking on open().
@@ -988,7 +1083,11 @@ while :; do
     '{"type":"iteration:end","ts":$ts,"iter":$iter,"durationMs":$durationMs,"costUsd":$costUsd,"toolCount":$toolCount,"exitCode":$exitCode}')"
 
   if [ "$EXIT_CODE" -eq 124 ]; then
-    echo -e "  ${RED}${BOLD}Iteration timed out after $(format_duration "$ITER_TIMEOUT")${RESET}"
+    if [ "${TIMEOUT_REASON:-}" = "idle" ]; then
+      echo -e "  ${RED}${BOLD}Idle-Timeout: keine Ausgabe für $(format_duration "$IDLE_TIMEOUT")${RESET}"
+    else
+      echo -e "  ${RED}${BOLD}Hard-Timeout nach $(format_duration "$ITER_TIMEOUT_ACTUAL")${RESET}"
+    fi
   elif [ "$EXIT_CODE" -ne 0 ]; then
     echo -e "  ${RED}Claude exited with code $EXIT_CODE${RESET}"
   fi

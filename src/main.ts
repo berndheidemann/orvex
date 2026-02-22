@@ -22,14 +22,19 @@ try {
   }
 } catch { /* PRD.md nicht vorhanden — normaler Dashboard-Start */ }
 
+const { useState } = React;
+
 function App(): React.ReactElement {
-  if (INIT_MODE || archOnly) {
+  const [initDone, setInitDone] = useState(false);
+
+  if ((INIT_MODE || archOnly) && !initDone) {
     return h(InitDashboard, {
       description: INIT_DESCRIPTION || archOnlyPrdTitle,
       archOnly,
       // Skip the setup screen only when an agent explicitly provided a description.
       // In interactive archOnly mode the user should always see ArchSetup.
       skipSetup: !!INIT_DESCRIPTION,
+      onDone: () => setInitDone(true),
     });
   }
   return h(

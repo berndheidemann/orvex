@@ -366,8 +366,9 @@ function InitRunner(props: {
   prdRounds: number;
   archRounds: number;
   skipPrd?: boolean;
+  onDone?: () => void;
 }): React.ReactElement {
-  const { description, model, prdRounds, archRounds, skipPrd = false } = props;
+  const { description, model, prdRounds, archRounds, skipPrd = false, onDone } = props;
   const { exit } = useApp();
   const { columns, rows } = useTerminalSize();
   const rawWasBackspace = useRawBackspace();
@@ -404,7 +405,7 @@ function InitRunner(props: {
 
   useEffect(() => {
     if (state.done) {
-      const t = setTimeout(() => exit(), 400);
+      const t = setTimeout(() => onDone ? onDone() : exit(), 400);
       return () => clearTimeout(t);
     }
   }, [state.done]);
@@ -687,8 +688,9 @@ export function InitDashboard(props: {
   description: string;
   archOnly?: boolean;
   skipSetup?: boolean; // true when launched by an agent with explicit description
+  onDone?: () => void;
 }): React.ReactElement {
-  const { description: initialDescription, archOnly = false, skipSetup = false } = props;
+  const { description: initialDescription, archOnly = false, skipSetup = false, onDone } = props;
 
   // archOnly: start InitRunner immediately (PRD review inside), ArchSetup appears
   // at awaitingArchConfirm step inside InitRunner.
@@ -712,5 +714,6 @@ export function InitDashboard(props: {
     prdRounds: config.prdRounds,
     archRounds: config.archRounds,
     skipPrd: archOnly,
+    onDone,
   });
 }
