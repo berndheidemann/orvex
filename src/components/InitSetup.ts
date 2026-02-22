@@ -39,9 +39,9 @@ const ROUND_EXPLANATIONS = {
     "aufeinander. Die Synthese erstellt PRD.md.",
   ],
   arch: [
-    "Tech Lead, Senior Developer und DevOps Engineer",
+    "Software-Architekt, Senior Developer und DevOps Engineer",
     "entwickeln eine Architektur auf Basis des PRD.",
-    "Die Synthese erstellt architecture.md. (Wird nach PRD abgefragt.)",
+    "Die Synthese erstellt architecture.md.",
   ],
 };
 
@@ -248,8 +248,9 @@ type ArchActiveField = "note" | "model" | "archRounds";
 export function ArchSetup(props: {
   prdTitle: string;
   onStart: (config: InitConfig) => void;
+  onSkip?: () => void;
 }): React.ReactElement {
-  const { prdTitle, onStart } = props;
+  const { prdTitle, onStart, onSkip } = props;
   const { columns } = useTerminalSize();
   const [note, setNote] = useState("");
   const [modelIdx, setModelIdx] = useState(0);
@@ -259,6 +260,8 @@ export function ArchSetup(props: {
   const divider = "─".repeat(Math.min(columns, 60));
 
   useInput((input, key) => {
+    if (key.escape && onSkip) { onSkip(); return; }
+
     if (activeField === "note") {
       if (key.tab || key.return) {
         setActiveField("model");
@@ -298,12 +301,13 @@ export function ArchSetup(props: {
     }
   });
 
+  const skipHint = onSkip ? "    [Esc] Überspringen" : "";
   const hint =
     activeField === "note"
-      ? "[Enter / Tab] Weiter    [Backspace] Löschen"
+      ? `[Enter / Tab] Weiter    [Backspace] Löschen${skipHint}`
       : activeField === "model"
-      ? "[Enter / Tab] Weiter    [← →] Modell wechseln    [1–3] direkt wählen"
-      : "[Enter] Starten    [Tab] Zum ersten Feld    [← →] Runden    [1–5] direkt eingeben";
+      ? `[Enter / Tab] Weiter    [← →] Modell wechseln    [1–3] direkt wählen${skipHint}`
+      : `[Enter] Starten    [Tab] Zum ersten Feld    [← →] Runden    [1–5] direkt eingeben${skipHint}`;
 
   return h(
     Box,

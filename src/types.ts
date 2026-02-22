@@ -77,6 +77,7 @@ export interface InitRunnerState {
   // Arch generation confirm
   awaitingArchConfirm: boolean;
   startArch: () => void;
+  startArchWithConfig: (model: string, archRounds: number, archNote: string) => void;
   skipArch: () => void;
   // PRD synthesis done transition screen
   prdSynthDone: SynthDoneState | null;

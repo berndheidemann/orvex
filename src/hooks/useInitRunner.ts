@@ -43,7 +43,6 @@ export function useInitRunner(
   archRounds = 3,
   model = DEFAULT_MODEL,
   skipPrd = false,
-  archNote = "",
 ): InitRunnerState {
   const [phases, setPhases] = useState<PhaseState[]>(() => {
     const p = makePhases(prdRounds, archRounds);
@@ -71,6 +70,9 @@ export function useInitRunner(
   const [prdReview, setPrdReview] = useState<ReviewState | null>(null);
   const [archSynthDone, setArchSynthDone] = useState<SynthDoneState | null>(null);
   const [archReview, setArchReview] = useState<ReviewState | null>(null);
+
+  // Arch runtime config — set by startArchWithConfig (archOnly) or startArch (default)
+  const archRunConfigRef = useRef({ model, archRounds, archNote: "" });
 
   // Refs for async flow control
   const archResolveRef = useRef<((v: boolean) => void) | null>(null);
@@ -390,11 +392,12 @@ export function useInitRunner(
         await Deno.mkdir(AGENT_DIR, { recursive: true });
 
         if (doArch) {
+          const { model: archModel, archRounds: numArchRounds, archNote } = archRunConfigRef.current;
           const prdContent = await Deno.readTextFile(PRD_OUTPUT_PATH).catch(() => "");
           const archContext = archNote
             ? `Zusätzlicher Kontext / Fokus:\n${archNote}\n\n---\n\n${prdContent}`
             : prdContent;
-          await runPhase("arch", ARCH_OUTPUT_PATH, ARCH_AGENTS, buildArchPrompt, archContext, ctrl.signal, archRounds, model);
+          await runPhase("arch", ARCH_OUTPUT_PATH, ARCH_AGENTS, buildArchPrompt, archContext, ctrl.signal, numArchRounds, archModel);
 
           // Arch synthesis done: show scrollable arch + confirm review
           const archContent = await Deno.readTextFile(ARCH_OUTPUT_PATH).catch(() => "");
@@ -443,6 +446,15 @@ export function useInitRunner(
   // ── Arch generation confirm ────────────────────────────────
 
   const startArch = useCallback(() => {
+    // Uses the initial archRounds/model (non-archOnly confirm flow)
+    if (archResolveRef.current) {
+      archResolveRef.current(true);
+      archResolveRef.current = null;
+    }
+  }, []);
+
+  const startArchWithConfig = useCallback((archModel: string, numRounds: number, note: string) => {
+    archRunConfigRef.current = { model: archModel, archRounds: numRounds, archNote: note };
     if (archResolveRef.current) {
       archResolveRef.current(true);
       archResolveRef.current = null;
@@ -667,6 +679,7 @@ export function useInitRunner(
     error,
     awaitingArchConfirm,
     startArch,
+    startArchWithConfig,
     skipArch,
     prdSynthDone,
     confirmPrdSynthDone,

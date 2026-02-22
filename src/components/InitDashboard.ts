@@ -358,13 +358,12 @@ function InitRunner(props: {
   prdRounds: number;
   archRounds: number;
   skipPrd?: boolean;
-  archNote?: string;
 }): React.ReactElement {
-  const { description, model, prdRounds, archRounds, skipPrd = false, archNote = "" } = props;
+  const { description, model, prdRounds, archRounds, skipPrd = false } = props;
   const { exit } = useApp();
   const { columns, rows } = useTerminalSize();
   const rawWasBackspace = useRawBackspace();
-  const state = useInitRunner(description, prdRounds, archRounds, model, skipPrd, archNote);
+  const state = useInitRunner(description, prdRounds, archRounds, model, skipPrd);
   const [elapsed, setElapsed] = React.useState(0);
   const [now, setNow] = React.useState(() => Date.now());
 
@@ -460,6 +459,17 @@ function InitRunner(props: {
   });
 
   // ── Early-return screens ───────────────────────────────────
+
+  // archOnly: show ArchSetup as a full-screen at awaitingArchConfirm
+  // (after PRD review, before arch generation)
+  if (state.awaitingArchConfirm && skipPrd) {
+    return h(ArchSetup, {
+      prdTitle: description,
+      onStart: (cfg: InitConfig) =>
+        state.startArchWithConfig(cfg.model, cfg.archRounds, cfg.archNote ?? ""),
+      onSkip: state.skipArch,
+    });
+  }
 
   if (state.done) {
     return h(
@@ -664,10 +674,11 @@ export function InitDashboard(props: {
 }): React.ReactElement {
   const { description: initialDescription, archOnly = false, skipSetup = false } = props;
 
-  // Skip setup only when an agent explicitly provided a description (skipSetup=true).
-  // In interactive archOnly mode we always show ArchSetup so the user can configure.
+  // archOnly: start InitRunner immediately (PRD review inside), ArchSetup appears
+  // at awaitingArchConfirm step inside InitRunner.
+  // skipSetup: agent provided explicit description — also skip setup.
   const [config, setConfig] = useState<InitConfig | null>(
-    skipSetup
+    (skipSetup || archOnly)
       ? {
           description: initialDescription,
           model: Deno.env.get("KINEMA_INIT_MODEL") ?? "claude-opus-4-6",
@@ -677,12 +688,7 @@ export function InitDashboard(props: {
       : null
   );
 
-  if (!config) {
-    if (archOnly) {
-      return h(ArchSetup, { prdTitle: initialDescription, onStart: setConfig });
-    }
-    return h(InitSetup, { onStart: setConfig });
-  }
+  if (!config) return h(InitSetup, { onStart: setConfig });
 
   return h(InitRunner, {
     description: config.description,
@@ -690,6 +696,5 @@ export function InitDashboard(props: {
     prdRounds: config.prdRounds,
     archRounds: config.archRounds,
     skipPrd: archOnly,
-    archNote: config.archNote,
   });
 }
