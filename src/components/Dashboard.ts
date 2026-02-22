@@ -182,7 +182,7 @@ function ActivityFeed(props: {
                 { color: CATEGORY_COLORS[ev.category] ?? "white" },
                 `[${ev.category}]  `,
               ),
-              h(Text, { dimColor: true }, ev.summary.slice(0, FEED_SUMMARY_MAX_LEN)),
+              h(Text, { dimColor: true }, ev.summary.replace(/\s*\n\s*/g, " ").slice(0, FEED_SUMMARY_MAX_LEN)),
             )
           ),
         ),
