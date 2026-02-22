@@ -235,10 +235,16 @@ export function Dashboard(): React.ReactElement {
   const totalCost = Math.max(historicalCost, totalLiveCost);
   const costStr = `$${totalCost.toFixed(4)}`;
 
-  // Phase tracking
+  // Extract tool:call events and current model (needed for phase gate below)
+  const toolEvents = events.filter((ev): ev is ToolCall => ev.type === "tool:call");
+
+  // Phase tracking — bar bleibt leer bis der erste Tool-Call läuft,
+  // damit sie nicht sofort auf Schritt 2 springt während Claude noch startet.
   const lastPhaseEvent = [...events].reverse()
     .find((ev): ev is LoopPhaseEvent => ev.type === "loop:phase");
-  const currentPhase = lastPhaseEvent?.phase ?? null;
+  const currentPhase = (toolEvents.length > 0 && lastPhaseEvent)
+    ? lastPhaseEvent.phase
+    : null;
   const phaseStep = currentPhase ? (PHASE_STEPS[currentPhase] ?? 0) : 0;
 
   // REQ progress counters
@@ -247,9 +253,6 @@ export function Dashboard(): React.ReactElement {
 
   // Progress bar width: ~1/3 terminal width
   const barWidth = Math.max(BAR_WIDTH_MIN, Math.floor(columns / BAR_WIDTH_DIVISOR));
-
-  // Extract tool:call events and current model
-  const toolEvents = events.filter((ev): ev is ToolCall => ev.type === "tool:call");
   const lastIterStart = [...events].reverse().find((ev) => ev.type === "iteration:start");
   const currentModel = lastIterStart?.type === "iteration:start" ? lastIterStart.model : "";
 
