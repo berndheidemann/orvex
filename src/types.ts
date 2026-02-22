@@ -72,6 +72,7 @@ export interface InitRunnerState {
   liveLines: string[];
   agentStreams: string[];
   activeLabel: string;
+  agentWarnLevel: null | "yellow" | "red";
   done: boolean;
   error: string | null;
   // Arch generation confirm

@@ -1,5 +1,3 @@
-export const AGENT_TIMEOUT_MS = 15 * 60 * 1000;  // 15 min per discussion agent
-export const SYNTH_TIMEOUT_MS = 12 * 60 * 1000;  // 12 min for synthesis (full document)
 
 const DEBUG_LOG = `${Deno.cwd()}/.kinema-debug.log`;
 
@@ -13,7 +11,6 @@ export async function runClaude(
   onChunk: (text: string) => void,
   signal: AbortSignal,
   model: string,
-  timeoutMs: number = AGENT_TIMEOUT_MS,
   maxTurns: number = 10,
 ): Promise<string> {
   // Unset CLAUDECODE so claude doesn't refuse nested sessions
@@ -70,10 +67,6 @@ export async function runClaude(
   let fullText = "";
   let resultFallback = "";  // from {"type":"result","result":"..."} event
 
-  const timeoutId = setTimeout(() => {
-    try { proc.kill(); } catch { /* ignore */ }
-  }, timeoutMs);
-
   try {
     while (!signal.aborted) {
       const { done, value } = await reader.read();
@@ -108,7 +101,6 @@ export async function runClaude(
       }
     }
   } finally {
-    clearTimeout(timeoutId);
     reader.releaseLock();
   }
 

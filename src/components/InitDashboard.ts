@@ -609,6 +609,11 @@ function InitRunner(props: {
         state.activeLabel
           ? h(Text, { dimColor: true }, "─".repeat(Math.max(0, rightWidth - 2)))
           : null,
+        state.agentWarnLevel === "yellow"
+          ? h(Text, { color: "yellow" }, "⚠  Dauert länger als üblich — Claude denkt noch nach…")
+          : state.agentWarnLevel === "red"
+          ? h(Text, { color: "red", bold: true }, "⚠  Sehr lange Wartezeit — Claude könnte ein Problem haben, aber ein Ergebnis kann noch kommen. [Ctrl+C] zum Abbrechen.")
+          : null,
         ...(() => {
           const result: React.ReactElement[] = [];
 

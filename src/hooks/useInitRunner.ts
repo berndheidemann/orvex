@@ -10,7 +10,7 @@ import type {
   InputKey,
 } from "../types.ts";
 import { AGENT_DIR } from "../lib/agentDir.ts";
-import { runClaude, SYNTH_TIMEOUT_MS } from "../lib/runClaude.ts";
+import { runClaude } from "../lib/runClaude.ts";
 import {
   DEFAULT_MODEL,
   SYNTH_MODEL,
@@ -65,6 +65,7 @@ export function useInitRunner(
   const [activeLabel, setActiveLabel] = useState<string>("");
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [agentWarnLevel, setAgentWarnLevel] = useState<null | "yellow" | "red">(null);
   const [awaitingArchConfirm, setAwaitingArchConfirm] = useState(false);
   const [prdSynthDone, setPrdSynthDone] = useState<SynthDoneState | null>(null);
   const [prdReview, setPrdReview] = useState<ReviewState | null>(null);
@@ -213,6 +214,9 @@ export function useInitRunner(
       const agentBufs = agents.map(() => "");
       setAgentStreams(new Array(agents.length).fill(""));
 
+      const warn5 = setTimeout(() => setAgentWarnLevel("yellow"), 5 * 60 * 1000);
+      const warn10 = setTimeout(() => setAgentWarnLevel("red"), 10 * 60 * 1000);
+
       const roundOutputs = await Promise.all(
         agents.map(async (_, agentIdx) => {
           const prompt = buildPrompt(roundIdx, agentIdx, context, allOutputs, numRounds);
@@ -235,6 +239,10 @@ export function useInitRunner(
           return out;
         })
       );
+
+      clearTimeout(warn5);
+      clearTimeout(warn10);
+      setAgentWarnLevel(null);
 
       setAgentStreams([]);
       allOutputs.push(roundOutputs);
@@ -259,7 +267,7 @@ export function useInitRunner(
     const contentBeforeSynth = await Deno.readTextFile(outputPath).catch(() => "");
 
     // maxTurns=1: one shot, no room for "write file → output confirmation" pattern
-    const synthContent = await runClaude(synthPrompt, addChunk, signal, SYNTH_MODEL, SYNTH_TIMEOUT_MS, 1);
+    const synthContent = await runClaude(synthPrompt, addChunk, signal, SYNTH_MODEL, 1);
 
     // Prefer file content if the agent wrote it during synthesis
     const contentAfterSynth = await Deno.readTextFile(outputPath).catch(() => "");
@@ -541,7 +549,6 @@ export function useInitRunner(
         () => {},
         ctrlRef.current!.signal,
         DEFAULT_MODEL,
-        120000,
         10,
       );
 
@@ -624,7 +631,6 @@ export function useInitRunner(
         () => {},
         ctrlRef.current!.signal,
         DEFAULT_MODEL,
-        120000,
         10,
       );
 
@@ -688,6 +694,7 @@ export function useInitRunner(
     liveLines,
     agentStreams,
     activeLabel,
+    agentWarnLevel,
     done,
     error,
     awaitingArchConfirm,
