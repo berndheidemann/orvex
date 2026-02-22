@@ -22,7 +22,7 @@ export async function runClaude(
       "--verbose",
       "--output-format=stream-json",
       "--model", model,
-      "--max-turns", "1",
+      "--max-turns", "5",
     ],
     stdin: "piped",
     stdout: "piped",
