@@ -21,8 +21,7 @@ type Action =
   | { type: "BACKSPACE" }
   | { type: "DELETE" }
   | { type: "NEWLINE" }
-  | { type: "MOVE_UP" }
-  | { type: "MOVE_DOWN" }
+  | { type: "MOVE_TO"; row: number; col: number }
   | { type: "MOVE_LEFT" }
   | { type: "MOVE_RIGHT" }
   | { type: "LINE_START" }
@@ -86,18 +85,10 @@ function reducer(state: EditorState, action: Action): EditorState {
       return { ...state, lines: newLines, cursor: { row: row + 1, col: 0 }, dirty: true };
     }
 
-    case "MOVE_UP": {
-      if (row === 0) return state;
-      const newRow = row - 1;
-      const newCol = clamp(col, 0, lines[newRow]?.length ?? 0);
-      return { ...state, cursor: { row: newRow, col: newCol } };
-    }
-
-    case "MOVE_DOWN": {
-      if (row >= lines.length - 1) return state;
-      const newRow = row + 1;
-      const newCol = clamp(col, 0, lines[newRow]?.length ?? 0);
-      return { ...state, cursor: { row: newRow, col: newCol } };
+    case "MOVE_TO": {
+      const targetRow = clamp(action.row, 0, lines.length - 1);
+      const targetCol = clamp(action.col, 0, lines[targetRow]?.length ?? 0);
+      return { ...state, cursor: { row: targetRow, col: targetCol } };
     }
 
     case "MOVE_LEFT": {
@@ -127,6 +118,52 @@ function reducer(state: EditorState, action: Action): EditorState {
   }
 }
 
+// ── Visual row helpers ─────────────────────────────────────────
+
+type VisualRow = {
+  logicalRow: number;
+  startCol: number; // inclusive start within the logical line
+  endCol: number;   // exclusive end within the logical line
+  isFirst: boolean;
+  isLast: boolean;
+};
+
+function computeVisualRows(lines: string[], textWidth: number): VisualRow[] {
+  const tw = Math.max(1, textWidth);
+  const result: VisualRow[] = [];
+  for (let logRow = 0; logRow < lines.length; logRow++) {
+    const line = lines[logRow];
+    if (line.length === 0) {
+      result.push({ logicalRow: logRow, startCol: 0, endCol: 0, isFirst: true, isLast: true });
+      continue;
+    }
+    let startCol = 0;
+    while (startCol < line.length) {
+      const endCol = Math.min(startCol + tw, line.length);
+      result.push({
+        logicalRow: logRow,
+        startCol,
+        endCol,
+        isFirst: startCol === 0,
+        isLast: endCol >= line.length,
+      });
+      startCol = endCol;
+    }
+  }
+  return result;
+}
+
+// Find which visual row index the cursor is on.
+function findVisualRowIdx(vrs: VisualRow[], row: number, col: number): number {
+  let best = 0;
+  for (let i = 0; i < vrs.length; i++) {
+    const vr = vrs[i];
+    if (vr.logicalRow > row) break;
+    if (vr.logicalRow === row && vr.startCol <= col) best = i;
+  }
+  return best;
+}
+
 // ── Component ──────────────────────────────────────────────────
 
 export function ReviewEditor(props: {
@@ -147,8 +184,8 @@ export function ReviewEditor(props: {
   const [scrollOffset, setScrollOffset] = useState(0);
   const [statusMsg, setStatusMsg] = useState<string>("");
 
-  // Viewport: rows minus header(1) + divider(1) + footer(2) + status(1) = 5
-  const viewportH = Math.max(5, rows - 6);
+  // Viewport height in visual rows; header(1)+divider(1)+footer(2)+status-row(1)=5 → rows-5, min 5
+  const viewportH = Math.max(5, rows - 5);
 
   // Load initial content on mount
   useEffect(() => {
@@ -156,20 +193,22 @@ export function ReviewEditor(props: {
     dispatch({ type: "LOAD", lines: ls.length > 0 ? ls : [""] });
   }, []);
 
-  // Adjust scroll to keep cursor visible
+  // ── Visual layout (needed both in useInput and in render) ────
+  const { lines, cursor, dirty } = state;
+  const maxLineNumWidth = String(lines.length).length;
+  const prefixWidth = maxLineNumWidth + 3; // "  N │ "
+  const textWidth = Math.max(10, columns - prefixWidth - 1);
+  const visualRows = computeVisualRows(lines, textWidth);
+  const curVisualIdx = findVisualRowIdx(visualRows, cursor.row, cursor.col);
+
+  // Adjust scroll to keep cursor visible (scroll unit = visual rows)
   useEffect(() => {
-    const r = state.cursor.row;
     setScrollOffset((prev: number) => {
-      if (r < prev) return r;
-      if (r >= prev + viewportH) return r - viewportH + 1;
+      if (curVisualIdx < prev) return curVisualIdx;
+      if (curVisualIdx >= prev + viewportH) return curVisualIdx - viewportH + 1;
       return prev;
     });
-  }, [state.cursor.row, viewportH]);
-
-  const showStatus = (msg: string) => {
-    setStatusMsg(msg);
-    setTimeout(() => setStatusMsg(""), 2000);
-  };
+  }, [curVisualIdx, viewportH]);
 
   useInput((input, key) => {
     // Save & close
@@ -184,9 +223,27 @@ export function ReviewEditor(props: {
       return;
     }
 
-    // Navigation
-    if (key.upArrow)    { dispatch({ type: "MOVE_UP" });    return; }
-    if (key.downArrow)  { dispatch({ type: "MOVE_DOWN" });  return; }
+    // Navigation — visual-row-aware up/down
+    if (key.upArrow) {
+      if (curVisualIdx > 0) {
+        const curVR  = visualRows[curVisualIdx];
+        const prevVR = visualRows[curVisualIdx - 1];
+        const visualCol = cursor.col - curVR.startCol;
+        const newCol = clamp(prevVR.startCol + visualCol, 0, prevVR.endCol);
+        dispatch({ type: "MOVE_TO", row: prevVR.logicalRow, col: newCol });
+      }
+      return;
+    }
+    if (key.downArrow) {
+      if (curVisualIdx < visualRows.length - 1) {
+        const curVR  = visualRows[curVisualIdx];
+        const nextVR = visualRows[curVisualIdx + 1];
+        const visualCol = cursor.col - curVR.startCol;
+        const newCol = clamp(nextVR.startCol + visualCol, 0, nextVR.endCol);
+        dispatch({ type: "MOVE_TO", row: nextVR.logicalRow, col: newCol });
+      }
+      return;
+    }
     if (key.leftArrow)  { dispatch({ type: "MOVE_LEFT" });  return; }
     if (key.rightArrow) { dispatch({ type: "MOVE_RIGHT" }); return; }
 
@@ -213,9 +270,8 @@ export function ReviewEditor(props: {
 
   // ── Render ─────────────────────────────────────────────────
 
-  const { lines, cursor, dirty } = state;
-  const visibleLines = lines.slice(scrollOffset, scrollOffset + viewportH);
   const divider = "─".repeat(columns);
+  const visibleVRs = visualRows.slice(scrollOffset, scrollOffset + viewportH);
 
   return h(
     Box,
@@ -233,44 +289,40 @@ export function ReviewEditor(props: {
     h(
       Box,
       { flexDirection: "column" },
-      ...visibleLines.map((line: string, visIdx: number) => {
-        const absRow = scrollOffset + visIdx;
-        const isCurrentRow = absRow === cursor.row;
-        const lineNum = String(absRow + 1).padStart(3, " ");
+      ...visibleVRs.map((vr: VisualRow, visIdx: number) => {
+        const absVisualIdx = scrollOffset + visIdx;
+        const isCurrentRow = absVisualIdx === curVisualIdx;
+        const lineNumStr = vr.isFirst
+          ? String(vr.logicalRow + 1).padStart(maxLineNumWidth, " ")
+          : " ".repeat(maxLineNumWidth);
+        const lineText = lines[vr.logicalRow]?.slice(vr.startCol, vr.endCol) ?? "";
 
         if (!isCurrentRow) {
+          const prefix = vr.isFirst ? `${lineNumStr} │ ` : `${lineNumStr} ↳ `;
           return h(
             Box,
-            { key: String(absRow), flexDirection: "row" },
-            h(Text, { dimColor: true }, `${lineNum} │ `),
-            h(Text, { wrap: "truncate" }, line || " "),
+            { key: `${vr.logicalRow}-${vr.startCol}`, flexDirection: "row" },
+            h(Text, { dimColor: true }, prefix),
+            h(Text, {}, lineText || " "),
           );
         }
 
-        // Current line: split at cursor and highlight cursor char
-        const before = line.slice(0, cursor.col);
-        const cursorChar = line[cursor.col] ?? " ";
-        const after = line.slice(cursor.col + 1);
-
-        // Horizontal scroll: keep cursor visible when line is longer than terminal
-        const prefixWidth = lineNum.length + 3; // "  N │ "
-        const textWidth = Math.max(10, columns - prefixWidth - 1);
-        const hScroll = cursor.col >= textWidth
-          ? cursor.col - Math.floor(textWidth * 0.7)
-          : 0;
-        // Manually bound both segments so their total never exceeds textWidth.
-        // This prevents Ink from wrapping any Text element.
-        const displayBefore = before.slice(hScroll);
-        const displayAfter = after.slice(0, Math.max(0, textWidth - displayBefore.length - 1));
+        // Current visual row: render with cursor highlight
+        const localCol = cursor.col - vr.startCol;
+        const before     = lineText.slice(0, localCol);
+        const cursorChar = lineText[localCol] ?? " ";
+        const after      = lineText.slice(localCol + 1);
+        const prefix = vr.isFirst
+          ? h(Text, { color: "cyan", dimColor: true }, `${lineNumStr} │ `)
+          : h(Text, { color: "cyan", dimColor: true }, `${lineNumStr} ↳ `);
 
         return h(
           Box,
-          { key: String(absRow), flexDirection: "row", overflow: "hidden" },
-          h(Text, { color: "cyan", dimColor: true },
-            hScroll > 0 ? `${lineNum} ‹ ` : `${lineNum} │ `),
-          h(Text, {}, displayBefore),
+          { key: `${vr.logicalRow}-${vr.startCol}`, flexDirection: "row" },
+          prefix,
+          h(Text, {}, before),
           h(Text, { inverse: true }, cursorChar),
-          h(Text, {}, displayAfter || " "),
+          h(Text, {}, after),
         );
       }),
     ),
@@ -284,7 +336,7 @@ export function ReviewEditor(props: {
       scrollOffset > 0
         ? h(Text, { dimColor: true }, "↑ more")
         : null,
-      scrollOffset + viewportH < lines.length
+      scrollOffset + viewportH < visualRows.length
         ? h(Text, { dimColor: true }, "↓ more")
         : null,
       statusMsg
