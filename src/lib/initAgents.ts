@@ -175,7 +175,7 @@ Priorisiere P0 und P1. P2 nur aufnehmen wenn klar differenzierend.
 
 - **Status:** open
 - **Priorität:** P0|P1|P2
-- **Größe:** S|M
+- **Größe:** XS|S|M|L
 - **Abhängig von:** ---
 
 #### Beschreibung
@@ -189,6 +189,14 @@ Priorisiere P0 und P1. P2 nur aufnehmen wenn klar differenzierend.
 
 ---
 
+Falls Requirements sich widersprechen (z.B. REQ-A schreibt "kein Backend" vor, REQ-B
+referenziert \`/api/...\`-Endpunkte in der Verifikation): Ergänze direkt unterhalb der
+Verifikation-Section des betroffenen REQs:
+
+> ⚠️ **Möglicher Widerspruch mit REQ-XXX:** [Ein Satz was widersprüchlich ist.]
+
+Nicht auflösen — nur sichtbar machen. Die Auflösung ist Aufgabe der Architekturphase.
+
 Nur Markdown. Status immer 'open'.`;
   }
 
@@ -197,8 +205,9 @@ Nur Markdown. Status immer 'open'.`;
 
 Projektbeschreibung: ${description}
 
+Führe zuerst \`ls\` im Projektverzeichnis aus. Lies alle \`.txt\`- und \`.md\`-Dateien die wie eine Projektbeschreibung aussehen (kurze, sprechende Namen — nicht \`PRD.md\`, \`architecture.md\`, \`AGENT.md\` o.ä.). Ist die "Projektbeschreibung" oben leer, sind diese Dateien die einzige Quelle. Berichte nicht über das Fehlen von Dateien.
+
 Analysiere das Projekt aus deiner Perspektive und schlage Requirements vor.
-Falls bereits relevanter Code oder Dokumentation im Projektordner existiert, kannst du ihn lesen — berichte aber nicht über das Fehlen von Dateien, das ist kein Thema.
 Nutze dieses Format für jedes REQ:
 
 ### REQ-NNN: [Titel]
@@ -260,11 +269,17 @@ Gib NUR das Markdown aus — keine Einleitung, kein <k>-Block, keine Tools.
 Beginne direkt mit "# Architektur-Entscheidungen". Jede Entscheidung MUSS als Markdown-Heading "## ADR-NNN:" beginnen.
 
 WICHTIG — Typ-Klassifikation für jedes ADR:
-- Typ A (reine Implementierungsentscheidung): kein **Einschränkt:**-Feld
-- Typ B (schränkt ein PRD-Requirement inhaltlich ein — d.h. das WAS ändert sich, nicht nur das WIE):
+- Typ A (reine Implementierungsentscheidung — nur das WIE ändert sich): kein **Einschränkt:**-Feld
+- Typ B (schränkt ein PRD-Requirement inhaltlich ein — das WAS ändert sich):
   Füge **Einschränkt:** REQ-XXX, REQ-YYY als letztes Feld ein.
-  Typ-B-Beispiel: "Kein Backend" schränkt REQ-013 ein, das Cross-Device-Sync versprach.
   Typ-A-Beispiel: "SM-2 eigenimplementiert statt Bibliothek" ändert kein Requirement.
+  Typ-B-Beispiel: Ein ADR "kein Laufzeit-Backend" betrifft nicht nur das offensichtlichste
+  Requirement — es betrifft JEDES REQ dessen Verifikation-Section einen API-Endpunkt nennt,
+  JEDES REQ das Sync oder Cross-Device erwähnt, und jedes REQ das serverseitige Logik impliziert.
+
+Pflicht-Scan für Typ-B-ADRs: Gehe die Anforderungen aus dem PRD systematisch durch.
+Für jedes ADR das das WAS eines Requirements berührt: liste ALLE betroffenen REQs im
+Einschränkt:-Feld — nicht nur den erstgefundenen oder offensichtlichsten.
 
 # Architektur-Entscheidungen
 
@@ -302,6 +317,8 @@ ${prdContent}
 Analysiere die Anforderungen aus deiner Perspektive und schlage eine Architektur vor.
 Falls bereits relevanter Code oder architecture.md im Projektordner existiert, kannst du ihn lesen — berichte aber nicht über das Fehlen von Dateien, das ist kein Thema.
 Sei konkret (echte Technologien, echte Versionsnummern wo relevant).
+Identifiziere auch Widersprüche im PRD (unvereinbare Anforderungen,
+implizite Konflikte) und zeige wie deine Architektur sie auflöst.
 Was ist aus deiner Fachperspektive besonders wichtig?`;
   }
 
@@ -319,8 +336,9 @@ ${context}
 Reagiere aus deiner Perspektive:
 1. Was stimmst du zu?
 2. Was widersprichst du und warum?
-3. Was fehlt aus deiner Fachsicht?
-4. Gib deine verfeinerte finale Position für diese Runde aus.`;
+3. Was fehlt aus deiner Fachsicht — auch im PRD selbst (Widersprüche, Lücken)?
+4. Gib deine verfeinerte finale Position für diese Runde aus — vollständig,
+   nicht nur als Delta. Die Synthese sieht nur diese Runde.`;
 }
 
 // ── Output utilities ───────────────────────────────────────────

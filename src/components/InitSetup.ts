@@ -110,11 +110,6 @@ export function InitSetup(props: {
   const divider = "─".repeat(Math.min(columns, 60));
 
   const tryStart = () => {
-    if (!description.trim()) {
-      setError("Bitte Projektbeschreibung eingeben.");
-      setActiveField("description");
-      return;
-    }
     onStart({
       description: description.trim(),
       model: MODELS[modelIdx].id,
@@ -128,11 +123,7 @@ export function InitSetup(props: {
       if (key.tab) {
         setActiveField("model");
       } else if (key.return) {
-        if (description.trim()) {
-          setActiveField("model");
-        } else {
-          setError("Bitte Projektbeschreibung eingeben.");
-        }
+        setActiveField("model");
       } else if (key.backspace || key.delete) {
         setDescription((d: string) => d.slice(0, -1));
         setError("");
@@ -205,6 +196,8 @@ export function InitSetup(props: {
         { bold: activeField === "description", color: activeField === "description" ? "yellow" : undefined },
         "Projektbeschreibung:",
       ),
+      h(Text, { dimColor: true }, "  Liegt die Idee bereits in einer .txt- oder .md-Datei im Projektordner,"),
+      h(Text, { dimColor: true }, "  kann dieses Feld leer bleiben — die Agenten finden sie automatisch."),
       h(
         Box,
         { flexDirection: "row" },
