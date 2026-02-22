@@ -36,31 +36,31 @@ export interface Agent {
 
 export const PRD_AGENTS: Agent[] = [
   {
-    name: "Architekt",
-    persona: "Du bist Software-Architekt. Dein Fokus: technische Machbarkeit, Systemdesign, Datenmodelle, APIs, nicht-funktionale Anforderungen.",
-  },
-  {
     name: "Product Manager",
-    persona: "Du bist Product Manager. Dein Fokus: Nutzerbedürfnisse, User Journeys, Priorisierung, MVP-Scope, messbarer Nutzen.",
+    persona: "Du bist Product Manager. Dein Fokus: Nutzerbedürfnisse, User Journeys, Priorisierung, MVP-Scope, messbarer Nutzen. Du denkst in Problemen und Zielen — nicht in Lösungen.",
   },
   {
-    name: "Senior Developer",
-    persona: "Du bist Senior Developer. Dein Fokus: Implementierbarkeit, Edge Cases, technische Schuld, realistische Größenschätzungen.",
+    name: "UX Researcher",
+    persona: "Du bist UX Researcher. Dein Fokus: echtes Nutzerverhalten, Schmerzpunkte, Fehlerszenarien, Accessibility, mentale Modelle. Du fragst immer: Was macht der Nutzer wirklich — und was nicht?",
+  },
+  {
+    name: "Business Analyst",
+    persona: "Du bist Business Analyst. Dein Fokus: Vollständigkeit der Anforderungen, Edge Cases, Widersprüche zwischen Anforderungen, klare Akzeptanzkriterien, explizite Out-of-Scope-Definitionen. Du deckst auf, was fehlt oder unklar ist.",
   },
 ];
 
 export const ARCH_AGENTS: Agent[] = [
   {
-    name: "Tech Lead",
-    persona: "Du bist Tech Lead. Dein Fokus: Architektur-Pattern, Tech-Stack, Projektstruktur, langfristige Wartbarkeit.",
+    name: "Software-Architekt",
+    persona: "Du bist Software-Architekt. Dein Fokus: Architektur-Pattern, ADRs, System- und Datenmodell, Tech-Stack-Entscheidungen, langfristige Wartbarkeit und Erweiterbarkeit.",
   },
   {
     name: "Senior Developer",
-    persona: "Du bist Senior Developer. Dein Fokus: Tooling, Testing-Stack, Build-System, praktische Umsetzbarkeit, DX.",
+    persona: "Du bist Senior Developer. Dein Fokus: Tooling, Testing-Strategie, Build-System, DX, Implementierbarkeit. Du erkennst wo Architekturpläne an der Realität scheitern.",
   },
   {
     name: "DevOps Engineer",
-    persona: "Du bist DevOps & Security Engineer. Dein Fokus: Deployment, Skalierbarkeit, Sicherheit, Monitoring, Infrastruktur.",
+    persona: "Du bist DevOps & Security Engineer. Dein Fokus: Deployment, Infrastruktur, Skalierbarkeit, Monitoring, Sicherheit. Du denkst vom Betrieb her rückwärts zur Architektur.",
   },
 ];
 
@@ -140,11 +140,12 @@ export function buildPrdPrompt(
 
 Projektbeschreibung: ${description}
 
-Die Diskussion zwischen Architekt, Product Manager und Senior Developer hat folgende finale Positionen ergeben:
+Die Diskussion zwischen Product Manager, UX Researcher und Business Analyst hat folgende finale Positionen ergeben:
 
 ${all}
 
-Gib NUR das fertige Markdown-Dokument aus — keine Einleitung, keine Erklärungen:
+Gib NUR das fertige Markdown-Dokument aus — keine Einleitung, keine Erklärungen.
+Priorisiere P0 und P1. P2 nur aufnehmen wenn klar differenzierend. Beschreibungen knapp halten.
 
 # PRD — [Projektname aus Beschreibung ableiten]
 
@@ -160,24 +161,17 @@ Gib NUR das fertige Markdown-Dokument aus — keine Einleitung, keine Erklärung
 - **Abhängig von:** ---
 
 #### Beschreibung
-...
+[2–4 Sätze]
 
 #### Akzeptanzkriterien
 - [ ] ...
 
 #### Verifikation
-- \`[Befehl]\` → \`[Ausgabe]\`
-
-#### User Journey
-(nur bei UI-Features)
-1. Nutzer öffnet [Seite]
-2. Nutzer [Aktion]
-3. System zeigt [Ergebnis]
-4. Fehlerfall: [Eingabe] → [Fehlermeldung]
+\`[Befehl]\` → \`[Ausgabe]\`
 
 ---
 
-Status immer 'open'. Alle REQs vollständig. Nur Markdown.`;
+Nur Markdown. Status immer 'open'.`;
   }
 
   if (roundIdx === 0) {

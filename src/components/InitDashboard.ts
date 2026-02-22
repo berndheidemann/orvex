@@ -285,7 +285,7 @@ function InitRunner(props: {
           if (!runningPhase || !state.activeLabel) return [];
           const intro = runningPhase.id === "prd"
             ? [
-                "Architekt, Product Manager und Senior Developer",
+                "Product Manager, UX Researcher und Business Analyst",
                 "erarbeiten ihre erste Einschätzung zum Thema.",
                 "",
                 `In ${prdRounds} Diskussionsrunden verfeinern sie ihre`,
@@ -293,7 +293,7 @@ function InitRunner(props: {
                 "Die Synthese wird als PRD.md gespeichert.",
               ]
             : [
-                "Tech Lead, Senior Developer und DevOps Engineer",
+                "Software-Architekt, Senior Developer und DevOps Engineer",
                 "analysieren die PRD und schlagen eine Architektur vor.",
                 "",
                 `In ${archRounds} Diskussionsrunden entwickeln sie`,
