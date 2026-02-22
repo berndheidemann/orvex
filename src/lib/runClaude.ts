@@ -16,6 +16,10 @@ export async function runClaude(
   timeoutMs: number = AGENT_TIMEOUT_MS,
   maxTurns: number = 10,
 ): Promise<string> {
+  // Unset CLAUDECODE so claude doesn't refuse nested sessions
+  const env: Record<string, string> = { ...Deno.env.toObject() };
+  delete env["CLAUDECODE"];
+
   const cmd = new Deno.Command("claude", {
     args: [
       "-p",
@@ -28,6 +32,8 @@ export async function runClaude(
     stdin: "piped",
     stdout: "piped",
     stderr: "piped",
+    clearEnv: true,
+    env,
   });
 
   const proc = cmd.spawn();

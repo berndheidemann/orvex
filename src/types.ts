@@ -28,15 +28,77 @@ export interface PhaseState {
   startedAt: number | null;
 }
 
+// ── Review types ───────────────────────────────────────────────
+
+export interface ReviewItem {
+  id: string;      // "REQ-003"
+  title: string;   // "Offline-Modus"
+  content: string; // vollständiger Markdown-Abschnitt
+}
+
+export interface ReviewState {
+  items: ReviewItem[];
+  currentIdx: number;
+  inputMode: "none" | "typing" | "rewriting";
+  typedInput: string;
+  editorOpen: boolean;
+  fileContent: string;
+}
+
+// Shown between synthesis completion and review start
+export interface SynthDoneState {
+  items: ReviewItem[];
+  fileContent: string;
+}
+
+// Minimal key type for review callbacks (compatible with ink's Key)
+export interface InputKey {
+  return?: boolean;
+  escape?: boolean;
+  backspace?: boolean;
+  ctrl?: boolean;
+  meta?: boolean;
+  upArrow?: boolean;
+  downArrow?: boolean;
+  leftArrow?: boolean;
+  rightArrow?: boolean;
+}
+
 export interface InitRunnerState {
   phases: PhaseState[];
   liveLines: string[];
+  agentStreams: string[];
   activeLabel: string;
   done: boolean;
   error: string | null;
+  // Arch generation confirm
   awaitingArchConfirm: boolean;
   startArch: () => void;
   skipArch: () => void;
+  // PRD synthesis done transition screen
+  prdSynthDone: SynthDoneState | null;
+  confirmPrdSynthDone: () => void;
+  // PRD Review
+  prdReview: ReviewState | null;
+  advancePrdReview: () => void;
+  openPrdReviewEditor: () => void;
+  startPrdReviewTyping: () => void;
+  submitPrdReviewRewrite: (prompt: string) => void;
+  onPrdReviewType: (char: string, key: InputKey) => void;
+  // Arch synthesis done transition screen (replaces awaitingArchReviewConfirm)
+  archSynthDone: SynthDoneState | null;
+  confirmArchSynthDone: () => void;
+  skipArchSynthDone: () => void;
+  // Arch Review
+  archReview: ReviewState | null;
+  advanceArchReview: () => void;
+  openArchReviewEditor: () => void;
+  startArchReviewTyping: () => void;
+  submitArchReviewRewrite: (prompt: string) => void;
+  onArchReviewType: (char: string, key: InputKey) => void;
+  // Shared editor callbacks
+  saveReviewEdit: (content: string) => void;
+  cancelReviewEdit: () => void;
 }
 
 export interface ReqEntry {

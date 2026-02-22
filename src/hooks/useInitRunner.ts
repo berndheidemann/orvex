@@ -5,6 +5,9 @@ import type {
   PhaseStatus,
   PhaseState,
   InitRunnerState,
+  ReviewState,
+  SynthDoneState,
+  InputKey,
 } from "../types.ts";
 import { AGENT_DIR } from "../lib/agentDir.ts";
 import { runClaude, SYNTH_TIMEOUT_MS } from "../lib/runClaude.ts";
@@ -22,6 +25,12 @@ import {
   formatSynthesisSummary,
   type Agent,
 } from "../lib/initAgents.ts";
+import {
+  parseReqs,
+  parseAdrs,
+  replaceItemInContent,
+  buildRewritePrompt,
+} from "../lib/reviewUtils.ts";
 
 const { useState, useEffect, useRef, useCallback } = React;
 
@@ -51,13 +60,55 @@ export function useInitRunner(
     });
   });
   const [liveLines, setLiveLines] = useState<string[]>([]);
+  const [agentStreams, setAgentStreams] = useState<string[]>([]);
   const [activeLabel, setActiveLabel] = useState<string>("");
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [awaitingArchConfirm, setAwaitingArchConfirm] = useState(false);
+  const [prdSynthDone, setPrdSynthDone] = useState<SynthDoneState | null>(null);
+  const [prdReview, setPrdReview] = useState<ReviewState | null>(null);
+  const [archSynthDone, setArchSynthDone] = useState<SynthDoneState | null>(null);
+  const [archReview, setArchReview] = useState<ReviewState | null>(null);
 
+  // Refs for async flow control
   const archResolveRef = useRef<((v: boolean) => void) | null>(null);
+  const prdSynthDoneConfirmRef = useRef<(() => void) | null>(null);
+  const prdReviewDoneRef = useRef<(() => void) | null>(null);
+  const archSynthDoneRef = useRef<((v: boolean) => void) | null>(null);
+  const archReviewDoneRef = useRef<(() => void) | null>(null);
+  const ctrlRef = useRef<AbortController | null>(null);
+
+  // Refs to read current review state from async callbacks
+  const prdReviewRef = useRef<ReviewState | null>(null);
+  const archReviewRef = useRef<ReviewState | null>(null);
+
   const lineBufferRef = useRef<string>("");
+
+  // Keep refs in sync with state — explicit return type for contextual typing of callers
+  type RS = ReviewState | null;
+  type RSUpdater = (prev: RS) => RS;
+
+  const setPrdReviewSynced: (update: RSUpdater) => void = useCallback(
+    (update: RSUpdater) => {
+      setPrdReview((prev: RS) => {
+        const next = update(prev);
+        prdReviewRef.current = next;
+        return next;
+      });
+    },
+    [],
+  );
+
+  const setArchReviewSynced: (update: RSUpdater) => void = useCallback(
+    (update: RSUpdater) => {
+      setArchReview((prev: RS) => {
+        const next = update(prev);
+        archReviewRef.current = next;
+        return next;
+      });
+    },
+    [],
+  );
 
   // ── State updaters ─────────────────────────────────────────
 
@@ -126,11 +177,11 @@ export function useInitRunner(
     });
   }, []);
 
-  // ── Phase runner (W1: useCallback with explicit deps) ──────
+  // ── Phase runner ───────────────────────────────────────────
 
   const runPhase = useCallback(async (
     phaseId: "prd" | "arch",
-    outputPath: string,         // W4: passed in, not hardcoded
+    outputPath: string,
     agents: Agent[],
     buildPrompt: (roundIdx: number, agentIdx: number, context: string, allOutputs: string[][], numRounds: number) => string,
     context: string,
@@ -140,7 +191,6 @@ export function useInitRunner(
   ): Promise<void> => {
     const allOutputs: string[][] = [];
 
-    // W3: single setPhases call for status + startedAt
     setPhases((prev: PhaseState[]) =>
       prev.map((p) =>
         p.id === phaseId ? { ...p, status: "running", startedAt: Date.now() } : p
@@ -156,15 +206,33 @@ export function useInitRunner(
         setAgentStatus(phaseId, roundIdx, agentIdx, "running")
       );
 
+      const agentBufs = agents.map(() => "");
+      setAgentStreams(new Array(agents.length).fill(""));
+
       const roundOutputs = await Promise.all(
         agents.map(async (_, agentIdx) => {
           const prompt = buildPrompt(roundIdx, agentIdx, context, allOutputs, numRounds);
-          const out = await runClaude(prompt, () => {}, signal, phaseModel);
+          const out = await runClaude(prompt, (chunk: string) => {
+            agentBufs[agentIdx] += chunk;
+            const lines = agentBufs[agentIdx]
+              .split("\n")
+              .map((l: string) => l.trim())
+              .filter((l: string) => l && l !== "<k>" && l !== "</k>");
+            const last = lines[lines.length - 1] ?? "";
+            if (last) {
+              setAgentStreams((prev: string[]) => {
+                const next = [...prev];
+                next[agentIdx] = last.slice(0, 120);
+                return next;
+              });
+            }
+          }, signal, phaseModel);
           setAgentStatus(phaseId, roundIdx, agentIdx, "done");
           return out;
         })
       );
 
+      setAgentStreams([]);
       allOutputs.push(roundOutputs);
       setRoundStatus(phaseId, roundIdx, "done");
       setLiveLines(formatRoundSummary(roundIdx + 1, agents, roundOutputs));
@@ -179,16 +247,12 @@ export function useInitRunner(
     lineBufferRef.current = "";
 
     const synthPrompt = buildPrompt(numRounds, 0, context, allOutputs, numRounds);
-    await runClaude(synthPrompt, addChunk, signal, SYNTH_MODEL, SYNTH_TIMEOUT_MS, 50);
+    const synthContent = await runClaude(synthPrompt, addChunk, signal, SYNTH_MODEL, SYNTH_TIMEOUT_MS, 50);
 
-    // Claude writes the file itself via tools — read it; fall back to stdout only if missing
-    let synthContent: string;
-    try {
-      synthContent = await Deno.readTextFile(outputPath);
-    } catch {
-      // Claude didn't write the file (e.g. max-turns hit) — nothing to show
-      throw new Error(`Synthese-Datei ${outputPath} wurde nicht erstellt`);
+    if (!synthContent.trim()) {
+      throw new Error(`Synthese hat keinen Inhalt produziert`);
     }
+    await Deno.writeTextFile(outputPath, synthContent);
 
     setAgentStatus(phaseId, numRounds, 0, "done");
     setRoundStatus(phaseId, numRounds, "done");
@@ -207,11 +271,39 @@ export function useInitRunner(
     }
 
     const ctrl = new AbortController();
+    ctrlRef.current = ctrl;
 
     (async () => {
       try {
         if (!skipPrd) {
           await runPhase("prd", PRD_OUTPUT_PATH, PRD_AGENTS, buildPrdPrompt, description, ctrl.signal, prdRounds, model);
+
+          // PRD synthesis done: show transition screen
+          const prdContent = await Deno.readTextFile(PRD_OUTPUT_PATH).catch(() => "");
+          const prdItems = parseReqs(prdContent);
+
+          if (prdItems.length > 0) {
+            setPrdSynthDone({ items: prdItems, fileContent: prdContent });
+            await new Promise<void>((resolve) => {
+              prdSynthDoneConfirmRef.current = resolve;
+            });
+            setPrdSynthDone(null);
+
+            // Start PRD review
+            const initialPrdReview: ReviewState = {
+              items: prdItems,
+              currentIdx: 0,
+              inputMode: "none",
+              typedInput: "",
+              editorOpen: false,
+              fileContent: prdContent,
+            };
+            setPrdReviewSynced((_prev) => initialPrdReview);
+            await new Promise<void>((resolve) => {
+              prdReviewDoneRef.current = resolve;
+            });
+            setPrdReviewSynced((_prev) => null);
+          }
         }
 
         setAwaitingArchConfirm(true);
@@ -225,6 +317,32 @@ export function useInitRunner(
         if (doArch) {
           const prdContent = await Deno.readTextFile(PRD_OUTPUT_PATH).catch(() => "");
           await runPhase("arch", ARCH_OUTPUT_PATH, ARCH_AGENTS, buildArchPrompt, prdContent, ctrl.signal, archRounds, model);
+
+          // Arch synthesis done: show scrollable arch + confirm review
+          const archContent = await Deno.readTextFile(ARCH_OUTPUT_PATH).catch(() => "");
+          const archItems = parseAdrs(archContent);
+
+          setArchSynthDone({ items: archItems, fileContent: archContent });
+          const doArchReview = await new Promise<boolean>((resolve) => {
+            archSynthDoneRef.current = resolve;
+          });
+          setArchSynthDone(null);
+
+          if (doArchReview && archItems.length > 0) {
+            const initialArchReview: ReviewState = {
+              items: archItems,
+              currentIdx: 0,
+              inputMode: "none",
+              typedInput: "",
+              editorOpen: false,
+              fileContent: archContent,
+            };
+            setArchReviewSynced((_prev) => initialArchReview);
+            await new Promise<void>((resolve) => {
+              archReviewDoneRef.current = resolve;
+            });
+            setArchReviewSynced((_prev) => null);
+          }
         } else {
           await Deno.writeTextFile(
             ARCH_OUTPUT_PATH,
@@ -240,9 +358,10 @@ export function useInitRunner(
     })();
 
     return () => ctrl.abort();
-  // prdRounds, archRounds, model are fixed at mount — intentional empty deps
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Arch generation confirm ────────────────────────────────
 
   const startArch = useCallback(() => {
     if (archResolveRef.current) {
@@ -258,5 +377,235 @@ export function useInitRunner(
     }
   }, []);
 
-  return { phases, liveLines, activeLabel, done, error, awaitingArchConfirm, startArch, skipArch };
+  // ── PRD Synth Done ─────────────────────────────────────────
+
+  const confirmPrdSynthDone = useCallback(() => {
+    if (prdSynthDoneConfirmRef.current) {
+      prdSynthDoneConfirmRef.current();
+      prdSynthDoneConfirmRef.current = null;
+    }
+  }, []);
+
+  // ── PRD Review callbacks ───────────────────────────────────
+
+  const advancePrdReview = useCallback(() => {
+    setPrdReviewSynced((prev) => {
+      if (!prev) return null;
+      if (prev.currentIdx + 1 >= prev.items.length) {
+        prdReviewDoneRef.current?.();
+        return null;
+      }
+      return { ...prev, currentIdx: prev.currentIdx + 1, inputMode: "none", typedInput: "" };
+    });
+  }, [setPrdReviewSynced]);
+
+  const openPrdReviewEditor = useCallback(() => {
+    setPrdReviewSynced((prev) => prev ? { ...prev, editorOpen: true } : null);
+  }, [setPrdReviewSynced]);
+
+  const startPrdReviewTyping = useCallback(() => {
+    setPrdReviewSynced((prev) => prev ? { ...prev, inputMode: "typing", typedInput: "" } : null);
+  }, [setPrdReviewSynced]);
+
+  const onPrdReviewType = useCallback((char: string, key: InputKey) => {
+    setPrdReviewSynced((prev) => {
+      if (!prev || prev.inputMode !== "typing") return prev ?? null;
+      if (key.escape) return { ...prev, inputMode: "none", typedInput: "" };
+      if (key.backspace) return { ...prev, typedInput: prev.typedInput.slice(0, -1) };
+      if (char && !key.ctrl && !key.meta && !key.return) {
+        return { ...prev, typedInput: prev.typedInput + char };
+      }
+      return prev;
+    });
+  }, [setPrdReviewSynced]);
+
+  const submitPrdReviewRewrite = useCallback(async (userPrompt: string) => {
+    const review = prdReviewRef.current;
+    if (!review) return;
+    const item = review.items[review.currentIdx];
+    if (!item) return;
+
+    setPrdReviewSynced((prev) => prev ? { ...prev, inputMode: "rewriting", typedInput: "" } : null);
+
+    try {
+      const newContent = await runClaude(
+        buildRewritePrompt(item, userPrompt, "req"),
+        () => {},
+        ctrlRef.current!.signal,
+        DEFAULT_MODEL,
+        120000,
+        10,
+      );
+
+      const trimmed = newContent.trim();
+      const currentReview = prdReviewRef.current;
+      if (!currentReview) return;
+
+      const updatedFile = replaceItemInContent(currentReview.fileContent, item.content, trimmed);
+      await Deno.writeTextFile(PRD_OUTPUT_PATH, updatedFile);
+
+      setPrdReviewSynced((prev) => {
+        if (!prev) return null;
+        const newItems = [...prev.items];
+        newItems[prev.currentIdx] = { ...newItems[prev.currentIdx], content: trimmed };
+        return { ...prev, items: newItems, fileContent: updatedFile, inputMode: "none", typedInput: "" };
+      });
+    } catch (e) {
+      setPrdReviewSynced((prev) => prev ? { ...prev, inputMode: "none", typedInput: "" } : null);
+      if (!ctrlRef.current?.signal.aborted) setError(String(e));
+    }
+  }, [setPrdReviewSynced]);
+
+  // ── Arch Synth Done ────────────────────────────────────────
+
+  const confirmArchSynthDone = useCallback(() => {
+    if (archSynthDoneRef.current) {
+      archSynthDoneRef.current(true);
+      archSynthDoneRef.current = null;
+    }
+  }, []);
+
+  const skipArchSynthDone = useCallback(() => {
+    if (archSynthDoneRef.current) {
+      archSynthDoneRef.current(false);
+      archSynthDoneRef.current = null;
+    }
+  }, []);
+
+  // ── Arch Review callbacks ──────────────────────────────────
+
+  const advanceArchReview = useCallback(() => {
+    setArchReviewSynced((prev) => {
+      if (!prev) return null;
+      if (prev.currentIdx + 1 >= prev.items.length) {
+        archReviewDoneRef.current?.();
+        return null;
+      }
+      return { ...prev, currentIdx: prev.currentIdx + 1, inputMode: "none", typedInput: "" };
+    });
+  }, [setArchReviewSynced]);
+
+  const openArchReviewEditor = useCallback(() => {
+    setArchReviewSynced((prev) => prev ? { ...prev, editorOpen: true } : null);
+  }, [setArchReviewSynced]);
+
+  const startArchReviewTyping = useCallback(() => {
+    setArchReviewSynced((prev) => prev ? { ...prev, inputMode: "typing", typedInput: "" } : null);
+  }, [setArchReviewSynced]);
+
+  const onArchReviewType = useCallback((char: string, key: InputKey) => {
+    setArchReviewSynced((prev) => {
+      if (!prev || prev.inputMode !== "typing") return prev ?? null;
+      if (key.escape) return { ...prev, inputMode: "none", typedInput: "" };
+      if (key.backspace) return { ...prev, typedInput: prev.typedInput.slice(0, -1) };
+      if (char && !key.ctrl && !key.meta && !key.return) {
+        return { ...prev, typedInput: prev.typedInput + char };
+      }
+      return prev;
+    });
+  }, [setArchReviewSynced]);
+
+  const submitArchReviewRewrite = useCallback(async (userPrompt: string) => {
+    const review = archReviewRef.current;
+    if (!review) return;
+    const item = review.items[review.currentIdx];
+    if (!item) return;
+
+    setArchReviewSynced((prev) => prev ? { ...prev, inputMode: "rewriting", typedInput: "" } : null);
+
+    try {
+      const newContent = await runClaude(
+        buildRewritePrompt(item, userPrompt, "adr"),
+        () => {},
+        ctrlRef.current!.signal,
+        DEFAULT_MODEL,
+        120000,
+        10,
+      );
+
+      const trimmed = newContent.trim();
+      const currentReview = archReviewRef.current;
+      if (!currentReview) return;
+
+      const updatedFile = replaceItemInContent(currentReview.fileContent, item.content, trimmed);
+      await Deno.writeTextFile(ARCH_OUTPUT_PATH, updatedFile);
+
+      setArchReviewSynced((prev) => {
+        if (!prev) return null;
+        const newItems = [...prev.items];
+        newItems[prev.currentIdx] = { ...newItems[prev.currentIdx], content: trimmed };
+        return { ...prev, items: newItems, fileContent: updatedFile, inputMode: "none", typedInput: "" };
+      });
+    } catch (e) {
+      setArchReviewSynced((prev) => prev ? { ...prev, inputMode: "none", typedInput: "" } : null);
+      if (!ctrlRef.current?.signal.aborted) setError(String(e));
+    }
+  }, [setArchReviewSynced]);
+
+  // ── Shared editor callbacks ────────────────────────────────
+
+  const saveReviewEdit = useCallback(async (newContent: string) => {
+    const prd = prdReviewRef.current;
+    const arch = archReviewRef.current;
+
+    if (prd?.editorOpen) {
+      const item = prd.items[prd.currentIdx];
+      if (!item) return;
+      const updatedFile = replaceItemInContent(prd.fileContent, item.content, newContent);
+      await Deno.writeTextFile(PRD_OUTPUT_PATH, updatedFile);
+      setPrdReviewSynced((prev) => {
+        if (!prev) return null;
+        const newItems = [...prev.items];
+        newItems[prev.currentIdx] = { ...newItems[prev.currentIdx], content: newContent };
+        return { ...prev, items: newItems, fileContent: updatedFile, editorOpen: false };
+      });
+    } else if (arch?.editorOpen) {
+      const item = arch.items[arch.currentIdx];
+      if (!item) return;
+      const updatedFile = replaceItemInContent(arch.fileContent, item.content, newContent);
+      await Deno.writeTextFile(ARCH_OUTPUT_PATH, updatedFile);
+      setArchReviewSynced((prev) => {
+        if (!prev) return null;
+        const newItems = [...prev.items];
+        newItems[prev.currentIdx] = { ...newItems[prev.currentIdx], content: newContent };
+        return { ...prev, items: newItems, fileContent: updatedFile, editorOpen: false };
+      });
+    }
+  }, [setPrdReviewSynced, setArchReviewSynced]);
+
+  const cancelReviewEdit = useCallback(() => {
+    setPrdReviewSynced((prev) => prev ? { ...prev, editorOpen: false } : null);
+    setArchReviewSynced((prev) => prev ? { ...prev, editorOpen: false } : null);
+  }, [setPrdReviewSynced, setArchReviewSynced]);
+
+  return {
+    phases,
+    liveLines,
+    agentStreams,
+    activeLabel,
+    done,
+    error,
+    awaitingArchConfirm,
+    startArch,
+    skipArch,
+    prdSynthDone,
+    confirmPrdSynthDone,
+    prdReview,
+    advancePrdReview,
+    openPrdReviewEditor,
+    startPrdReviewTyping,
+    submitPrdReviewRewrite,
+    onPrdReviewType,
+    archSynthDone,
+    confirmArchSynthDone,
+    skipArchSynthDone,
+    archReview,
+    advanceArchReview,
+    openArchReviewEditor,
+    startArchReviewTyping,
+    submitArchReviewRewrite,
+    onArchReviewType,
+    saveReviewEdit,
+    cancelReviewEdit,
+  };
 }

@@ -4,15 +4,13 @@ import type {
   PhaseState,
   RoundState,
 } from "../types.ts";
-import { AGENT_DIR } from "./agentDir.ts";
-
 // ── Constants ──────────────────────────────────────────────────
 
 export const DEFAULT_MODEL = "claude-opus-4-6";
 export const SYNTH_MODEL = "claude-sonnet-4-6";  // Synthese: immer Sonnet (schnell + gut)
 
 export const PRD_OUTPUT_PATH = "PRD.md";
-export const ARCH_OUTPUT_PATH = `${AGENT_DIR}/architecture.md`;
+export const ARCH_OUTPUT_PATH = "architecture.md";
 
 const K_HEADER = `AUSGABEFORMAT: Deine Antwort beginnt zwingend mit:
 <k>
@@ -136,8 +134,7 @@ export function buildPrdPrompt(
       `--- ${a.name} (finale Position) ---\n${lastRound[i] ?? "(keine Ausgabe)"}`
     ).join("\n\n");
 
-    return `Du bist technischer Writer. Schreibe das fertige PRD-Dokument nach \`PRD.md\`.
-Lies KEINE bestehenden Dateien — alle nötigen Informationen sind im folgenden Prompt enthalten.
+    return `Du bist technischer Writer. Erstelle das fertige PRD-Dokument.
 
 Projektbeschreibung: ${description}
 
@@ -145,15 +142,34 @@ Die Diskussion zwischen Product Manager, UX Researcher und Business Analyst hat 
 
 ${all}
 
-Gib NUR das fertige Markdown-Dokument aus — keine Einleitung, keine Erklärungen, kein <k>-Block.
-Beginne direkt mit "# PRD —". Jede Anforderung MUSS als Markdown-Heading "### REQ-NNN:" beginnen.
-Priorisiere P0 und P1. P2 nur aufnehmen wenn klar differenzierend. Beschreibungen knapp halten.
+Gib NUR das fertige Markdown-Dokument aus — keine Einleitung, keine Erklärungen, kein <k>-Block, keine Tools.
+Beginne direkt mit "# PRD —". Halte dich exakt an die folgende Dokumentstruktur.
 
 # PRD — [Projektname aus Beschreibung ableiten]
 
 > [Ein-Satz-Beschreibung]
 
 ---
+
+## User Journeys
+
+Beschreibe 2–4 zentrale Nutzerflüsse als nummerierte Schritte. Fokus auf den Hauptpfad + wichtigsten Fehlerfall.
+
+### UJ-001: [Journey-Name]
+**Ziel:** [Was will der Nutzer erreichen?]
+
+1. [Schritt]
+2. [Schritt]
+3. [Schritt]
+
+**Fehlerfall:** [Was passiert wenn es schiefläuft?]
+
+---
+
+## Requirements
+
+Jede Anforderung MUSS als Markdown-Heading "### REQ-NNN:" beginnen.
+Priorisiere P0 und P1. P2 nur aufnehmen wenn klar differenzierend.
 
 ### REQ-001: [Titel]
 
@@ -182,6 +198,7 @@ Nur Markdown. Status immer 'open'.`;
 Projektbeschreibung: ${description}
 
 Analysiere das Projekt aus deiner Perspektive und schlage Requirements vor.
+Falls bereits relevanter Code oder Dokumentation im Projektordner existiert, kannst du ihn lesen — berichte aber nicht über das Fehlen von Dateien, das ist kein Thema.
 Nutze dieses Format für jedes REQ:
 
 ### REQ-NNN: [Titel]
@@ -230,8 +247,7 @@ export function buildArchPrompt(
       `--- ${a.name} (finale Position) ---\n${lastRound[i] ?? "(keine Ausgabe)"}`
     ).join("\n\n");
 
-    return `Du bist technischer Writer. Schreibe das fertige Architektur-Dokument nach \`.agent/architecture.md\`.
-Lies KEINE bestehenden Dateien — alle nötigen Informationen sind im folgenden Prompt enthalten.
+    return `Du bist technischer Writer. Erstelle das fertige Architektur-Dokument.
 
 PRD des Projekts:
 ${prdContent}
@@ -240,7 +256,7 @@ Finale Positionen aus der Architektur-Diskussion:
 
 ${all}
 
-Gib NUR das Markdown aus — keine Einleitung, kein <k>-Block.
+Gib NUR das Markdown aus — keine Einleitung, kein <k>-Block, keine Tools.
 Beginne direkt mit "# Architektur-Entscheidungen". Jede Entscheidung MUSS als Markdown-Heading "## ADR-NNN:" beginnen.
 
 # Architektur-Entscheidungen
@@ -276,6 +292,7 @@ PRD des Projekts:
 ${prdContent}
 
 Analysiere die Anforderungen aus deiner Perspektive und schlage eine Architektur vor.
+Falls bereits relevanter Code oder architecture.md im Projektordner existiert, kannst du ihn lesen — berichte aber nicht über das Fehlen von Dateien, das ist kein Thema.
 Sei konkret (echte Technologien, echte Versionsnummern wo relevant).
 Was ist aus deiner Fachperspektive besonders wichtig?`;
   }
