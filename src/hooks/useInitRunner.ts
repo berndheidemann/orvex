@@ -72,7 +72,7 @@ export function useInitRunner(
 
   // Refs for async flow control
   const archResolveRef = useRef<((v: boolean) => void) | null>(null);
-  const prdSynthDoneConfirmRef = useRef<(() => void) | null>(null);
+  const prdSynthDoneConfirmRef = useRef<((doReview: boolean) => void) | null>(null);
   const prdReviewDoneRef = useRef<(() => void) | null>(null);
   const archSynthDoneRef = useRef<((v: boolean) => void) | null>(null);
   const archReviewDoneRef = useRef<(() => void) | null>(null);
@@ -296,24 +296,26 @@ export function useInitRunner(
             }));
 
             setPrdSynthDone({ items: existingPrdItems, fileContent: existingPrdContent, existing: true });
-            await new Promise<void>((resolve) => {
+            const doReview = await new Promise<boolean>((resolve) => {
               prdSynthDoneConfirmRef.current = resolve;
             });
             setPrdSynthDone(null);
 
-            const initialPrdReview: ReviewState = {
-              items: existingPrdItems,
-              currentIdx: 0,
-              inputMode: "none",
-              typedInput: "",
-              editorOpen: false,
-              fileContent: existingPrdContent,
-            };
-            setPrdReviewSynced((_prev) => initialPrdReview);
-            await new Promise<void>((resolve) => {
-              prdReviewDoneRef.current = resolve;
-            });
-            setPrdReviewSynced((_prev) => null);
+            if (doReview) {
+              const initialPrdReview: ReviewState = {
+                items: existingPrdItems,
+                currentIdx: 0,
+                inputMode: "none",
+                typedInput: "",
+                editorOpen: false,
+                fileContent: existingPrdContent,
+              };
+              setPrdReviewSynced((_prev) => initialPrdReview);
+              await new Promise<void>((resolve) => {
+                prdReviewDoneRef.current = resolve;
+              });
+              setPrdReviewSynced((_prev) => null);
+            }
           } else {
             await runPhase("prd", PRD_OUTPUT_PATH, PRD_AGENTS, buildPrdPrompt, description, ctrl.signal, prdRounds, model);
 
@@ -324,7 +326,7 @@ export function useInitRunner(
             if (prdItems.length > 0) {
               setPrdSynthDone({ items: prdItems, fileContent: prdContent });
               await new Promise<void>((resolve) => {
-                prdSynthDoneConfirmRef.current = resolve;
+                prdSynthDoneConfirmRef.current = (_doReview: boolean) => resolve();
               });
               setPrdSynthDone(null);
 
@@ -421,7 +423,14 @@ export function useInitRunner(
 
   const confirmPrdSynthDone = useCallback(() => {
     if (prdSynthDoneConfirmRef.current) {
-      prdSynthDoneConfirmRef.current();
+      prdSynthDoneConfirmRef.current(true);
+      prdSynthDoneConfirmRef.current = null;
+    }
+  }, []);
+
+  const skipPrdReview = useCallback(() => {
+    if (prdSynthDoneConfirmRef.current) {
+      prdSynthDoneConfirmRef.current(false);
       prdSynthDoneConfirmRef.current = null;
     }
   }, []);
@@ -630,6 +639,7 @@ export function useInitRunner(
     skipArch,
     prdSynthDone,
     confirmPrdSynthDone,
+    skipPrdReview,
     prdReview,
     advancePrdReview,
     openPrdReviewEditor,

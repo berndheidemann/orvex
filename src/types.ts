@@ -79,6 +79,7 @@ export interface InitRunnerState {
   // PRD synthesis done transition screen
   prdSynthDone: SynthDoneState | null;
   confirmPrdSynthDone: () => void;
+  skipPrdReview: () => void;
   // PRD Review
   prdReview: ReviewState | null;
   advancePrdReview: () => void;

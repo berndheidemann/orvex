@@ -163,15 +163,15 @@ function SynthDoneUI(props: {
 
   let lines: string[];
   if (type === "prd") {
+    const prdTitleMatch = state.fileContent.match(/^#\s+PRD\s+[—-]+\s*(.+)$/m);
+    const prdTitle = prdTitleMatch ? prdTitleMatch[1].trim() : "";
     const statusLine = state.existing
       ? `○  PRD.md gefunden — ${state.items.length} Requirements`
       : `✓  PRD.md erstellt — ${state.items.length} Requirements gefunden`;
     const introLines = state.existing
       ? [
-          "Eine bestehende PRD wurde erkannt. Im folgenden Review",
-          "kannst du jedes Requirement einzeln prüfen, anpassen",
-          "oder von Opus umschreiben lassen.",
-          "Änderungen werden direkt in PRD.md gespeichert.",
+          "Möchtest du die Requirements einzeln reviewen,",
+          "oder direkt zur Architektur-Erstellung weitergehen?",
         ]
       : [
           "Das Review gibt dir die Möglichkeit, jedes Requirement",
@@ -180,6 +180,7 @@ function SynthDoneUI(props: {
         ];
     lines = [
       statusLine,
+      ...(prdTitle ? [`   ${prdTitle}`] : []),
       "",
       ...state.items.map((item) => `  ${item.id}: ${item.title}`),
       "",
@@ -232,7 +233,9 @@ function SynthDoneUI(props: {
         : null,
     ),
     type === "prd"
-      ? h(Text, { dimColor: true }, "  [Enter] Review starten")
+      ? (state.existing
+          ? h(Text, { dimColor: true }, "  [Enter / j] Review starten    [Esc / n] Überspringen → direkt zur Architektur")
+          : h(Text, { dimColor: true }, "  [Enter] Review starten"))
       : h(Text, { dimColor: true }, "  [Enter / j] Review starten    [Esc / n] Überspringen"),
   );
 }
@@ -401,7 +404,8 @@ function InitRunner(props: {
 
     // PRD synth done transition
     if (state.prdSynthDone) {
-      if (key.return) state.confirmPrdSynthDone();
+      if (key.return || input === "j" || input === "y") state.confirmPrdSynthDone();
+      else if (state.prdSynthDone.existing && (key.escape || input === "n")) state.skipPrdReview();
       return;
     }
 
