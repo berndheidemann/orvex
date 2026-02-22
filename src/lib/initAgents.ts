@@ -136,7 +136,8 @@ export function buildPrdPrompt(
       `--- ${a.name} (finale Position) ---\n${lastRound[i] ?? "(keine Ausgabe)"}`
     ).join("\n\n");
 
-    return `Du bist technischer Writer. Erstelle die finale PRD.md.
+    return `Du bist technischer Writer. Schreibe das fertige PRD-Dokument nach \`PRD.md\`.
+Lies KEINE bestehenden Dateien — alle nötigen Informationen sind im folgenden Prompt enthalten.
 
 Projektbeschreibung: ${description}
 
@@ -230,6 +231,7 @@ export function buildArchPrompt(
     ).join("\n\n");
 
     return `Du bist technischer Writer. Schreibe das fertige Architektur-Dokument nach \`.agent/architecture.md\`.
+Lies KEINE bestehenden Dateien — alle nötigen Informationen sind im folgenden Prompt enthalten.
 
 PRD des Projekts:
 ${prdContent}
