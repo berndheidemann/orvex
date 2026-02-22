@@ -43,6 +43,7 @@ export function useInitRunner(
   archRounds = 3,
   model = DEFAULT_MODEL,
   skipPrd = false,
+  archNote = "",
 ): InitRunnerState {
   const [phases, setPhases] = useState<PhaseState[]>(() => {
     const p = makePhases(prdRounds, archRounds);
@@ -390,7 +391,10 @@ export function useInitRunner(
 
         if (doArch) {
           const prdContent = await Deno.readTextFile(PRD_OUTPUT_PATH).catch(() => "");
-          await runPhase("arch", ARCH_OUTPUT_PATH, ARCH_AGENTS, buildArchPrompt, prdContent, ctrl.signal, archRounds, model);
+          const archContext = archNote
+            ? `Zusätzlicher Kontext / Fokus:\n${archNote}\n\n---\n\n${prdContent}`
+            : prdContent;
+          await runPhase("arch", ARCH_OUTPUT_PATH, ARCH_AGENTS, buildArchPrompt, archContext, ctrl.signal, archRounds, model);
 
           // Arch synthesis done: show scrollable arch + confirm review
           const archContent = await Deno.readTextFile(ARCH_OUTPUT_PATH).catch(() => "");

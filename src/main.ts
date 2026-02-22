@@ -27,6 +27,9 @@ function App(): React.ReactElement {
     return h(InitDashboard, {
       description: INIT_DESCRIPTION || archOnlyPrdTitle,
       archOnly,
+      // Skip the setup screen only when an agent explicitly provided a description.
+      // In interactive archOnly mode the user should always see ArchSetup.
+      skipSetup: !!INIT_DESCRIPTION,
     });
   }
   return h(

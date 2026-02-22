@@ -11,6 +11,7 @@ export interface InitConfig {
   model: string;
   prdRounds: number;
   archRounds: number;
+  archNote?: string; // optional focus/context for arch agents (archOnly mode)
 }
 
 const MODELS = [
@@ -229,6 +230,126 @@ export function InitSetup(props: {
     // Arch rounds
     h(RoundsSelector, {
       label: "Architektur-Diskussionsrunden:",
+      value: archRounds,
+      active: activeField === "archRounds",
+      explanation: ROUND_EXPLANATIONS.arch,
+    }),
+    h(Text, { dimColor: true }, divider),
+    h(Text, { dimColor: true }, hint),
+  );
+}
+
+// ── ArchSetup ──────────────────────────────────────────────────
+// Shown when an existing PRD.md is found but architecture.md is missing.
+// Lets the user configure model, rounds, and optional focus note.
+
+type ArchActiveField = "note" | "model" | "archRounds";
+
+export function ArchSetup(props: {
+  prdTitle: string;
+  onStart: (config: InitConfig) => void;
+}): React.ReactElement {
+  const { prdTitle, onStart } = props;
+  const { columns } = useTerminalSize();
+  const [note, setNote] = useState("");
+  const [modelIdx, setModelIdx] = useState(0);
+  const [archRounds, setArchRounds] = useState(3);
+  const [activeField, setActiveField] = useState<ArchActiveField>("note");
+
+  const divider = "─".repeat(Math.min(columns, 60));
+
+  useInput((input, key) => {
+    if (activeField === "note") {
+      if (key.tab || key.return) {
+        setActiveField("model");
+      } else if (key.backspace || key.delete) {
+        setNote((n: string) => n.slice(0, -1));
+      } else if (input && !key.ctrl && !key.meta) {
+        setNote((n: string) => n + input);
+      }
+    } else if (activeField === "model") {
+      if (key.tab || key.return) {
+        setActiveField("archRounds");
+      } else if (key.leftArrow || input === "-") {
+        setModelIdx((i: number) => (i - 1 + MODELS.length) % MODELS.length);
+      } else if (key.rightArrow || input === "+") {
+        setModelIdx((i: number) => (i + 1) % MODELS.length);
+      } else if (input === "1") setModelIdx(0);
+      else if (input === "2") setModelIdx(1);
+      else if (input === "3") setModelIdx(2);
+    } else if (activeField === "archRounds") {
+      if (key.tab) {
+        setActiveField("note");
+      } else if (key.return) {
+        onStart({
+          description: prdTitle,
+          model: MODELS[modelIdx].id,
+          prdRounds: 0,
+          archRounds,
+          archNote: note.trim() || undefined,
+        });
+      } else if (key.leftArrow || input === "-") {
+        setArchRounds((r: number) => Math.max(1, r - 1));
+      } else if (key.rightArrow || input === "+") {
+        setArchRounds((r: number) => Math.min(5, r + 1));
+      } else if (/^[1-5]$/.test(input)) {
+        setArchRounds(Number(input));
+      }
+    }
+  });
+
+  const hint =
+    activeField === "note"
+      ? "[Enter / Tab] Weiter    [Backspace] Löschen"
+      : activeField === "model"
+      ? "[Enter / Tab] Weiter    [← →] Modell wechseln    [1–3] direkt wählen"
+      : "[Enter] Starten    [Tab] Zum ersten Feld    [← →] Runden    [1–5] direkt eingeben";
+
+  return h(
+    Box,
+    { flexDirection: "column", padding: 1 },
+    // Header
+    h(
+      Box,
+      { flexDirection: "row", gap: 2 },
+      h(Text, { bold: true, color: "cyan" }, "Kinema"),
+      h(Text, { dimColor: true }, "—"),
+      h(Text, { dimColor: true }, "Architektur generieren"),
+    ),
+    h(Text, { dimColor: true }, divider),
+    // PRD info
+    h(
+      Box,
+      { flexDirection: "column", marginTop: 1, marginBottom: 1 },
+      h(Text, {}, `PRD.md gefunden: ${prdTitle}`),
+      h(Text, { dimColor: true },
+        "Software-Architekt, Senior Developer und DevOps Engineer"),
+      h(Text, { dimColor: true },
+        "analysieren das PRD und entwerfen eine Architektur."),
+    ),
+    // Note / focus field
+    h(
+      Box,
+      { flexDirection: "column", marginBottom: 1 },
+      h(
+        Text,
+        { bold: activeField === "note", color: activeField === "note" ? "yellow" : undefined },
+        "Hinweis / Fokus:  (optional)",
+      ),
+      h(
+        Box,
+        { flexDirection: "row" },
+        h(Text, { color: "yellow" }, activeField === "note" ? "▶ " : "  "),
+        h(Text, {}, note + (activeField === "note" ? "█" : "")),
+      ),
+    ),
+    h(Text, { dimColor: true }, divider),
+    h(Text, { dimColor: true }, ""),
+    // Model selector
+    h(ModelSelector, { modelIdx, active: activeField === "model" }),
+    // Arch rounds
+    h(RoundsSelector, {
+      label: "Diskussionsrunden:",
       value: archRounds,
       active: activeField === "archRounds",
       explanation: ROUND_EXPLANATIONS.arch,
