@@ -49,6 +49,7 @@ export interface ReviewState {
 export interface SynthDoneState {
   items: ReviewItem[];
   fileContent: string;
+  existing?: boolean; // true = PRD/Arch already existed, skipped generation
 }
 
 // Minimal key type for review callbacks (compatible with ink's Key)

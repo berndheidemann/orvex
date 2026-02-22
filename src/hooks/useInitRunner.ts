@@ -276,33 +276,73 @@ export function useInitRunner(
     (async () => {
       try {
         if (!skipPrd) {
-          await runPhase("prd", PRD_OUTPUT_PATH, PRD_AGENTS, buildPrdPrompt, description, ctrl.signal, prdRounds, model);
+          // Check if PRD already exists — if so, skip generation and go straight to review
+          const existingPrdContent = await Deno.readTextFile(PRD_OUTPUT_PATH).catch(() => "");
+          const existingPrdItems = parseReqs(existingPrdContent);
 
-          // PRD synthesis done: show transition screen
-          const prdContent = await Deno.readTextFile(PRD_OUTPUT_PATH).catch(() => "");
-          const prdItems = parseReqs(prdContent);
+          if (existingPrdItems.length > 0) {
+            // Mark PRD phase as done without running agents
+            setPhases((prev: PhaseState[]) => prev.map((p) => {
+              if (p.id !== "prd") return p;
+              return {
+                ...p,
+                status: "done" as PhaseStatus,
+                rounds: p.rounds.map((r) => ({
+                  ...r,
+                  status: "done" as RoundStatus,
+                  agents: r.agents.map((a) => ({ ...a, status: "done" as AgentStatus })),
+                })),
+              };
+            }));
 
-          if (prdItems.length > 0) {
-            setPrdSynthDone({ items: prdItems, fileContent: prdContent });
+            setPrdSynthDone({ items: existingPrdItems, fileContent: existingPrdContent, existing: true });
             await new Promise<void>((resolve) => {
               prdSynthDoneConfirmRef.current = resolve;
             });
             setPrdSynthDone(null);
 
-            // Start PRD review
             const initialPrdReview: ReviewState = {
-              items: prdItems,
+              items: existingPrdItems,
               currentIdx: 0,
               inputMode: "none",
               typedInput: "",
               editorOpen: false,
-              fileContent: prdContent,
+              fileContent: existingPrdContent,
             };
             setPrdReviewSynced((_prev) => initialPrdReview);
             await new Promise<void>((resolve) => {
               prdReviewDoneRef.current = resolve;
             });
             setPrdReviewSynced((_prev) => null);
+          } else {
+            await runPhase("prd", PRD_OUTPUT_PATH, PRD_AGENTS, buildPrdPrompt, description, ctrl.signal, prdRounds, model);
+
+            // PRD synthesis done: show transition screen
+            const prdContent = await Deno.readTextFile(PRD_OUTPUT_PATH).catch(() => "");
+            const prdItems = parseReqs(prdContent);
+
+            if (prdItems.length > 0) {
+              setPrdSynthDone({ items: prdItems, fileContent: prdContent });
+              await new Promise<void>((resolve) => {
+                prdSynthDoneConfirmRef.current = resolve;
+              });
+              setPrdSynthDone(null);
+
+              // Start PRD review
+              const initialPrdReview: ReviewState = {
+                items: prdItems,
+                currentIdx: 0,
+                inputMode: "none",
+                typedInput: "",
+                editorOpen: false,
+                fileContent: prdContent,
+              };
+              setPrdReviewSynced((_prev) => initialPrdReview);
+              await new Promise<void>((resolve) => {
+                prdReviewDoneRef.current = resolve;
+              });
+              setPrdReviewSynced((_prev) => null);
+            }
           }
         }
 
@@ -411,8 +451,8 @@ export function useInitRunner(
     setPrdReviewSynced((prev) => {
       if (!prev || prev.inputMode !== "typing") return prev ?? null;
       if (key.escape) return { ...prev, inputMode: "none", typedInput: "" };
-      if (key.backspace) return { ...prev, typedInput: prev.typedInput.slice(0, -1) };
-      if (char && !key.ctrl && !key.meta && !key.return) {
+      if (key.backspace || char === "\x7f") return { ...prev, typedInput: prev.typedInput.slice(0, -1) };
+      if (char && char !== "\x7f" && !key.ctrl && !key.meta && !key.return) {
         return { ...prev, typedInput: prev.typedInput + char };
       }
       return prev;
@@ -497,8 +537,8 @@ export function useInitRunner(
     setArchReviewSynced((prev) => {
       if (!prev || prev.inputMode !== "typing") return prev ?? null;
       if (key.escape) return { ...prev, inputMode: "none", typedInput: "" };
-      if (key.backspace) return { ...prev, typedInput: prev.typedInput.slice(0, -1) };
-      if (char && !key.ctrl && !key.meta && !key.return) {
+      if (key.backspace || char === "\x7f") return { ...prev, typedInput: prev.typedInput.slice(0, -1) };
+      if (char && char !== "\x7f" && !key.ctrl && !key.meta && !key.return) {
         return { ...prev, typedInput: prev.typedInput + char };
       }
       return prev;

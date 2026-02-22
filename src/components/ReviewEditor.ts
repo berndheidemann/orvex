@@ -241,9 +241,9 @@ export function ReviewEditor(props: {
         if (!isCurrentRow) {
           return h(
             Box,
-            { key: String(absRow) },
+            { key: String(absRow), flexDirection: "row" },
             h(Text, { dimColor: true }, `${lineNum} │ `),
-            h(Text, {}, line),
+            h(Text, { wrap: "truncate" }, line || " "),
           );
         }
 
@@ -254,11 +254,11 @@ export function ReviewEditor(props: {
 
         return h(
           Box,
-          { key: String(absRow) },
+          { key: String(absRow), flexDirection: "row", overflow: "hidden" },
           h(Text, { color: "cyan", dimColor: true }, `${lineNum} │ `),
-          h(Text, {}, before),
-          h(Text, { inverse: true }, cursorChar),
-          h(Text, {}, after),
+          h(Text, { flexShrink: 0 }, before),
+          h(Text, { inverse: true, flexShrink: 0 }, cursorChar),
+          h(Text, { wrap: "truncate" }, after || " "),
         );
       }),
     ),

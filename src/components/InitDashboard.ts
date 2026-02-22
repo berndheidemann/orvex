@@ -162,14 +162,27 @@ function SynthDoneUI(props: {
 
   let lines: string[];
   if (type === "prd") {
+    const statusLine = state.existing
+      ? `○  PRD.md gefunden — ${state.items.length} Requirements`
+      : `✓  PRD.md erstellt — ${state.items.length} Requirements gefunden`;
+    const introLines = state.existing
+      ? [
+          "Eine bestehende PRD wurde erkannt. Im folgenden Review",
+          "kannst du jedes Requirement einzeln prüfen, anpassen",
+          "oder von Opus umschreiben lassen.",
+          "Änderungen werden direkt in PRD.md gespeichert.",
+        ]
+      : [
+          "Das Review gibt dir die Möglichkeit, jedes Requirement",
+          "einzeln zu prüfen, anzupassen oder von Opus umschreiben",
+          "zu lassen. Änderungen werden direkt in PRD.md gespeichert.",
+        ];
     lines = [
-      `✓  PRD.md erstellt — ${state.items.length} Requirements gefunden`,
+      statusLine,
       "",
       ...state.items.map((item) => `  ${item.id}: ${item.title}`),
       "",
-      "Das Review gibt dir die Möglichkeit, jedes Requirement",
-      "einzeln zu prüfen, anzupassen oder von Opus umschreiben",
-      "zu lassen. Änderungen werden direkt in PRD.md gespeichert.",
+      ...introLines,
     ];
   } else {
     lines = state.fileContent.split("\n");
@@ -184,7 +197,9 @@ function SynthDoneUI(props: {
   });
 
   const visibleLines = lines.slice(scrollOffset, scrollOffset + viewportH);
-  const title = type === "prd" ? "PRD.md erstellt" : "architecture.md erstellt";
+  const title = type === "prd"
+    ? (state.existing ? "PRD.md — Review" : "PRD.md erstellt")
+    : "architecture.md erstellt";
 
   return h(
     Box,
