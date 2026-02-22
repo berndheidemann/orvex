@@ -903,6 +903,10 @@ while :; do
 
   if [ "$MAX_ITERATIONS" -gt 0 ] && [ "$ITERATION" -ge "$MAX_ITERATIONS" ]; then
     echo -e "${YELLOW}Reached max iterations ($MAX_ITERATIONS). Stopping.${RESET}"
+    emit_event "$(jq -nc \
+      --argjson ts "$(( $(date +%s) * 1000 ))" \
+      --argjson iter "$ITERATION" \
+      '{"type":"system:event","ts":$ts,"iter":$iter,"kind":"max_iterations","message":"Reached max iterations"}')"
     break
   fi
 
@@ -936,8 +940,20 @@ while :; do
     NEXT_REQ_HINT=$(get_next_req_hint)
 
     if [ -z "$NEXT_REQ_HINT" ] && [ "$local_open" -gt 0 ]; then
-      echo -e "${YELLOW}${BOLD}No actionable REQ: $local_open open but all have unmet dependencies. Stopping.${RESET}"
-      break
+      # in_progress REQs can block their dependents — reset them once and retry
+      if [ "$(count_in_progress_reqs)" -gt 0 ]; then
+        echo -e "${YELLOW}No actionable REQ — in_progress REQs detected, resetting and retrying${RESET}"
+        recover_in_progress
+        NEXT_REQ_HINT=$(get_next_req_hint)
+      fi
+      if [ -z "$NEXT_REQ_HINT" ]; then
+        echo -e "${YELLOW}${BOLD}No actionable REQ: $local_open open but all have unmet dependencies. Stopping.${RESET}"
+        emit_event "$(jq -nc \
+          --argjson ts "$(( $(date +%s) * 1000 ))" \
+          --argjson iter "$ITERATION" \
+          '{"type":"system:event","ts":$ts,"iter":$iter,"kind":"no_actionable_req","message":"No actionable REQ — all open have unmet dependencies"}')"
+        break
+      fi
     fi
   fi
 

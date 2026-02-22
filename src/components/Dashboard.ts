@@ -6,6 +6,7 @@ import { useIterationsReader } from "../hooks/useIterationsReader.ts";
 import { useKeyboardControls } from "../hooks/useKeyboardControls.ts";
 import { useEventsReader } from "../hooks/useEventsReader.ts";
 import { useTerminalSize } from "../hooks/useTerminalSize.ts";
+import { useLoopRunning } from "../hooks/useLoopRunning.ts";
 import { usePrdTitles } from "../hooks/usePrdTitles.ts";
 import { ContextEditor } from "./ContextEditor.ts";
 import { ProgressBar } from "./ProgressBar.ts";
@@ -209,6 +210,7 @@ export function Dashboard(): React.ReactElement {
     modelCosts,
   } = useEventsReader();
   const { columns, rows } = useTerminalSize();
+  const loopRunning = useLoopRunning();
 
   if (quitting) {
     return h(
@@ -365,6 +367,9 @@ export function Dashboard(): React.ReactElement {
       ? h(Text, { color: "yellow" }, `Active: ${activeReqId}`)
       : null,
     error !== null ? h(Text, { color: "red" }, `⚠  ${error}`) : null,
+    loopRunning === false && currentIter > 0
+      ? h(Text, { color: "red", bold: true }, "⛔  Loop gestoppt")
+      : null,
     paused ? h(Text, { color: "yellow", bold: true }, "⏸  PAUSED") : null,
     lastAction === "skip-sent"
       ? h(Text, { color: "green" }, "✓ Skip sent")

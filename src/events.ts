@@ -55,7 +55,9 @@ export interface SystemEvent extends EventBase {
     | "crash_recovery"
     | "blocker_detected"
     | "auto_blocked"
-    | "all_done";
+    | "all_done"
+    | "max_iterations"
+    | "no_actionable_req";
   message: string;
 }
 
