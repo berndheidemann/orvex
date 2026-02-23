@@ -13,9 +13,21 @@ orvex             # start the loop
 
 ## How it works
 
-1. **Init** — You describe your project. Orvex calls Claude to synthesize a structured `PRD.md` (requirements) and `architecture.md`. You review and edit both before the loop starts.
-2. **Loop** — `loop_dev.sh` picks the next open requirement, calls Claude Sonnet to implement it, verifies the result (build + tests + linter), and commits. Every 5 iterations Claude Opus validates all completed requirements.
-3. **TUI** — `orvex-tui` renders a live dashboard with progress bars, a cost-tracked activity feed, and keyboard controls (pause / skip / edit context / quit).
+### `orvex init`
+
+You describe your project. Three specialized agents (Product Manager, UX Researcher, Business Analyst) debate requirements across multiple rounds, then a synthesis model distills the discussion into a structured `PRD.md`. The same debate-and-synthesize pattern produces `architecture.md` via a second panel of agents (Software Architect, Senior Developer, DevOps Engineer). You review and edit both interactively before anything gets built. A **Walking Skeleton** REQ is automatically prepended — it sets up the full tech stack first and every other REQ depends on it.
+
+![orvex init flow](orvex-init-concept.svg)
+
+### `orvex` (loop)
+
+`loop_dev.sh` picks the next open requirement in priority order, calls Claude Sonnet to implement it, verifies the result (build + tests + linter), and commits. Every N iterations Claude Opus independently audits all completed requirements and can revert them if they fail. Built-in safeguards prevent the loop from getting stuck or producing phantom progress.
+
+![orvex agent loop](orvex-agent-loop-concept.svg)
+
+### TUI
+
+`orvex-tui` renders a live dashboard with progress bars, a cost-tracked activity feed, and keyboard controls (pause / skip / edit context / quit).
 
 ```
 orvex
@@ -42,14 +54,23 @@ orvex
 ## Install
 
 ```bash
-# Clone
+curl -fsSL https://raw.githubusercontent.com/berndheidemann/orvex/main/get.sh | bash
+```
+
+Clones the repo to `~/.local/share/orvex`, builds the TUI binary, and symlinks `orvex` into `~/.local/bin`.
+
+```bash
+# Optional: custom locations
+ORVEX_HOME=~/tools/orvex PREFIX=~/.local \
+  curl -fsSL https://raw.githubusercontent.com/berndheidemann/orvex/main/get.sh | bash
+```
+
+**Manual install**
+
+```bash
 git clone https://github.com/berndheidemann/orvex.git
 cd orvex
-
-# Build the TUI binary
 deno task build
-
-# System-wide (symlink → repo, stays up to date with git pull)
 ./install.sh                    # → /usr/local/bin/orvex  (needs sudo)
 ./install.sh --prefix ~/.local  # → ~/.local/bin/orvex
 ```
