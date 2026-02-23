@@ -58,6 +58,16 @@ function formatTimestamp(ts: string): string {
   return ts.replace("T", " ").replace(/\+.*$/, "").replace(/Z$/, "");
 }
 
+function formatDuration(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}h${m.toString().padStart(2, "0")}m`;
+  if (m > 0) return `${m}m${s.toString().padStart(2, "0")}s`;
+  return `${s}s`;
+}
+
 function shortModelName(modelId: string): string {
   if (modelId.includes("opus")) return "opus";
   if (modelId.includes("sonnet")) return "sonnet";
@@ -196,7 +206,8 @@ function ActivityFeed(props: {
 
 export function Dashboard(): React.ReactElement {
   const { data, error } = useStatusPoller();
-  const elapsed = useElapsedTime();
+  const loopRunning = useLoopRunning();
+  const elapsed = useElapsedTime(loopRunning);
   const { entries: iterEntries, available: iterAvailable } =
     useIterationsReader();
   const prdTitles = usePrdTitles();
@@ -208,9 +219,9 @@ export function Dashboard(): React.ReactElement {
     currentPhase: livePhase,
     totalLiveCost,
     modelCosts,
+    reqStats,
   } = useEventsReader();
   const { columns, rows } = useTerminalSize();
-  const loopRunning = useLoopRunning();
 
   if (quitting) {
     return h(
@@ -271,6 +282,10 @@ export function Dashboard(): React.ReactElement {
           ...entries.flatMap(([id, req]) => {
             const prefix = req.status === "in_progress" ? "▶ " : "  ";
             const title = prdTitles[id];
+            const stats = req.status === "done" ? reqStats[id] : undefined;
+            const statsStr = stats
+              ? `$${stats.totalCostUsd.toFixed(2)} · ${formatDuration(stats.totalDurationMs)}`
+              : null;
             const row = h(
               Box,
               { key: id, flexDirection: "column" },
@@ -281,6 +296,9 @@ export function Dashboard(): React.ReactElement {
               ),
               title
                 ? h(Text, { dimColor: true }, `    ${title.slice(0, REQ_TITLE_MAX_LEN)}`)
+                : null,
+              statsStr
+                ? h(Text, { dimColor: true }, `    ${statsStr}`)
                 : null,
             );
 

@@ -137,6 +137,14 @@ Bevor ein REQ als `done` markiert wird, prüfe **jedes** Akzeptanzkriterium mit 
 
 ### 4.3 Funktionale Verifikation
 
+**Prerequisite: Frischer Build vor E2E-Tests**
+Nach Codeänderungen zwingend vor jedem E2E-Run:
+1. Build ausführen (`npm run build`, `deno task build` o.ä.)
+2. Laufenden App-Server neustarten (pkill alter Prozess + frisch starten)
+3. Erst dann E2E-Tests starten
+
+Kein Rebuild nötig NUR wenn seit dem letzten Build keine Codeänderungen gemacht wurden.
+
 **KARDINALREGEL:** Teste wie ein echter Nutzer — ohne internes Wissen, das der Nutzer nicht hätte.
 
 **Bei UI-Projekten: Playwright-Pflicht**

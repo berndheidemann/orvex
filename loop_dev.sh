@@ -301,7 +301,16 @@ recover_in_progress() {
 # Uses status.json for status + dependency checks, PRD.md only for display text
 
 get_next_req_id() {
-  # Find next open REQ where all deps are done, sorted by priority then ID
+  # Prio 0: in_progress REQ fortsetzen (Iteration endete vor Completion)
+  local continuing
+  continuing=$(jq -r '
+    to_entries
+    | map(select(.value.status == "in_progress"))
+    | first | .key // empty
+  ' "$STATUS_JSON" 2>/dev/null)
+  [ -n "$continuing" ] && echo "$continuing" && return
+
+  # Prio 1: nächstes open REQ nach Priorität und Dependencies (wie bisher)
   jq -r '
     . as $all |
     to_entries |
@@ -367,6 +376,21 @@ build_agent_prompt() {
       head -50 "$CONTEXT_FILE"
       echo ""
     fi
+
+    if [ -f ".agent/status.json" ]; then
+      echo "### Current REQ Status (.agent/status.json):"
+      echo ""
+      cat ".agent/status.json"
+      echo ""
+    fi
+
+    if [ -f ".agent/learnings.md" ]; then
+      echo "### Project Learnings (.agent/learnings.md):"
+      echo ""
+      head -80 ".agent/learnings.md"
+      echo ""
+    fi
+
     local backlog_p0
     backlog_p0=$(extract_backlog_p0)
     if [ -n "$backlog_p0" ]; then
@@ -380,7 +404,8 @@ build_agent_prompt() {
       echo "$backlog_p0"
       echo ""
     fi
-    echo "Still read .agent/context.md and PRD.md yourself — this pre-selection is a hint, not a guarantee."
+    echo "context.md, status.json und learnings.md sind oben injiziert — lies sie nicht nochmal via Tool."
+    echo "PRD.md und architecture.md bei Bedarf on-demand lesen."
   fi
 }
 
@@ -399,6 +424,18 @@ summarize_log() {
   echo "**Iter ${iter_num}**: ${tool_count:-0} tools, \$${cost_fmt}, exit=${exit_code:-1}"
   echo "  Top tools: ${top_tools:-none}"
   [ -n "$edits" ] && echo "  Files changed: ${edits}"
+  # Neu: Fehler-Outputs (is_error tool results, erste 200 Zeichen)
+  local error_outputs
+  error_outputs=$(jq -r '
+    select(.type=="user") |
+    .message.content[]? |
+    select(.type=="tool_result") |
+    select(.is_error == true) |
+    (.content // "") |
+    if type == "array" then (.[0].text // "") else . end |
+    .[:200]
+  ' "$logfile" 2>/dev/null | head -3 | tr '\n' '|')
+  [ -n "$error_outputs" ] && echo "  Errors: ${error_outputs}"
 }
 
 # ── Validator prompt builder ──────────────────────────────────
@@ -408,6 +445,9 @@ build_validator_prompt() {
   echo "---"
   echo ""
   echo "## Injected Context (from loop.sh)"
+  echo ""
+  echo "HINWEIS: Wenn eine Datei zu groß für einen Read ist, nutze den offset-Parameter"
+  echo "(z.B. offset=2000, limit=2000). Lies NIEMALS dieselbe Datei ohne veränderten Offset erneut."
   echo ""
   echo "### Last $ITERS_SINCE_VALIDATION iterations — log summaries"
   echo ""
@@ -1169,6 +1209,8 @@ while :; do
   append_iteration_log "$ITERATION" "$ITER_DURATION" "$iter_cost_fmt" "${ITER_TOOLS:-0}" "$EXIT_CODE"
 
   # Repeat detection: same REQ 3 consecutive times → auto-blocked
+  # Funktioniert auch für Continuation-First (in_progress REQ): req_hint enthält REQ-ID,
+  # nach 3× wird auf blocked gesetzt → Continuation-First greift nicht mehr.
   if [ "$IS_VALIDATION" -eq 0 ] && [ -f "$ITER_LOG" ] && [ -n "$NEXT_REQ_HINT" ]; then
     REPEAT_REQ=$(echo "$NEXT_REQ_HINT" | grep -Eo 'REQ-[0-9]+[a-z]?' | head -1 || true)
     if [ -n "$REPEAT_REQ" ]; then

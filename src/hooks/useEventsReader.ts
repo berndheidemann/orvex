@@ -8,6 +8,11 @@ const EVENTS_PATH = `${AGENT_DIR}/events.jsonl`;
 
 const MAX_EVENTS = 200;
 
+export interface ReqStat {
+  totalCostUsd: number;
+  totalDurationMs: number;
+}
+
 export interface EventsState {
   events: LoopEvent[];
   currentIter: number;
@@ -15,6 +20,7 @@ export interface EventsState {
   currentPhase: string | null;
   totalLiveCost: number;
   modelCosts: Record<string, number>;
+  reqStats: Record<string, ReqStat>;
 }
 
 export function useEventsReader(intervalMs: number = 500): EventsState {
@@ -24,7 +30,10 @@ export function useEventsReader(intervalMs: number = 500): EventsState {
   const [currentPhase, setCurrentPhase] = useState<string | null>(null);
   const [totalLiveCost, setTotalLiveCost] = useState<number>(0);
   const [modelCosts, setModelCosts] = useState<Record<string, number>>({});
+  const [reqStats, setReqStats] = useState<Record<string, ReqStat>>({});
   const byteOffsetRef = useRef<number>(0);
+  // Persists across polls: maps iter number → reqId that started that iteration
+  const iterToReqRef = useRef<Record<number, string>>({});
 
   useEffect(() => {
     const load = async () => {
@@ -73,6 +82,9 @@ export function useEventsReader(intervalMs: number = 500): EventsState {
             if (ev.type === "iteration:start") {
               setCurrentIter((prev: number) => Math.max(prev, ev.iter));
               setCurrentReq(ev.reqId);
+              if (ev.reqId) {
+                iterToReqRef.current[ev.iter] = ev.reqId;
+              }
             } else if (ev.type === "loop:phase") {
               setCurrentIter((prev: number) => Math.max(prev, ev.iter));
               setCurrentPhase(ev.phase);
@@ -86,6 +98,21 @@ export function useEventsReader(intervalMs: number = 500): EventsState {
                     next[model] = (next[model] ?? 0) + mc.costUsd;
                   }
                   return next;
+                });
+              }
+              // Accumulate cost + duration per REQ
+              const reqId = iterToReqRef.current[ev.iter];
+              if (reqId) {
+                const { costUsd, durationMs } = ev;
+                setReqStats((prev: Record<string, ReqStat>) => {
+                  const existing = prev[reqId] ?? { totalCostUsd: 0, totalDurationMs: 0 };
+                  return {
+                    ...prev,
+                    [reqId]: {
+                      totalCostUsd: existing.totalCostUsd + costUsd,
+                      totalDurationMs: existing.totalDurationMs + durationMs,
+                    },
+                  };
                 });
               }
             }
@@ -106,5 +133,5 @@ export function useEventsReader(intervalMs: number = 500): EventsState {
     return () => clearInterval(id);
   }, []);
 
-  return { events, currentIter, currentReq, currentPhase, totalLiveCost, modelCosts };
+  return { events, currentIter, currentReq, currentPhase, totalLiveCost, modelCosts, reqStats };
 }
