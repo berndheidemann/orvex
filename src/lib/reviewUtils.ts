@@ -41,7 +41,7 @@ export function replaceItemInContent(
 }
 
 export function parseAdrConstraints(adrContent: string): string[] {
-  const match = adrContent.match(/^\*\*Einschränkt:\*\*\s*(.+)$/m);
+  const match = adrContent.match(/^\*\*Restricts:\*\*\s*(.+)$/m);
   if (!match) return [];
   return match[1]
     .split(",")
@@ -56,13 +56,13 @@ export function buildRewritePrompt(
 ): string {
   const typeLabel = type === "req"
     ? "Requirement"
-    : "Architekturentscheidung (ADR)";
-  return `Überarbeite folgendes ${typeLabel} gemäß der Anweisung des Users.
+    : "Architecture Decision (ADR)";
+  return `Rewrite the following ${typeLabel} according to the user's instruction.
 
-Anweisung: ${userPrompt}
+Instruction: ${userPrompt}
 
-Aktueller Inhalt:
+Current content:
 ${item.content}
 
-Gib NUR den überarbeiteten Markdown-Abschnitt aus — keine Erklärungen, keine Einleitung, kein sonstiger Text. Behalte die Struktur bei und passe den Inhalt entsprechend der Anweisung an.`;
+Output ONLY the revised Markdown section — no explanations, no introduction, no other text. Preserve the structure and adjust the content according to the instruction.`;
 }

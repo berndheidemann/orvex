@@ -7,18 +7,18 @@ import type {
 // ── Constants ──────────────────────────────────────────────────
 
 export const DEFAULT_MODEL = "claude-opus-4-6";
-export const SYNTH_MODEL = "claude-sonnet-4-6";  // Synthese: immer Sonnet (schnell + gut)
+export const SYNTH_MODEL = "claude-sonnet-4-6";  // Synthesis: always Sonnet (fast + good)
 
 export const PRD_OUTPUT_PATH = "PRD.md";
 export const ARCH_OUTPUT_PATH = "architecture.md";
 
-const K_HEADER = `AUSGABEFORMAT: Deine Antwort beginnt zwingend mit:
+const K_HEADER = `OUTPUT FORMAT: Your response must begin with:
 <k>
-• Stichwort: Kernaussage (max. 8 Wörter)
-• Stichwort: Kernaussage (max. 8 Wörter)
-• Stichwort: Kernaussage (max. 8 Wörter)
+• Keyword: Core statement (max. 8 words)
+• Keyword: Core statement (max. 8 words)
+• Keyword: Core statement (max. 8 words)
 </k>
-Danach folgt deine Analyse. Kein Text vor dem <k>-Block.
+Your analysis follows after. No text before the <k> block.
 
 ---
 `;
@@ -35,30 +35,30 @@ export interface Agent {
 export const PRD_AGENTS: Agent[] = [
   {
     name: "Product Manager",
-    persona: "Du bist Product Manager. Dein Fokus: Nutzerbedürfnisse, User Journeys, Priorisierung, MVP-Scope, messbarer Nutzen. Du denkst in Problemen und Zielen — nicht in Lösungen.",
+    persona: "You are a Product Manager. Your focus: user needs, user journeys, prioritization, MVP scope, measurable value. You think in problems and goals — not solutions.",
   },
   {
     name: "UX Researcher",
-    persona: "Du bist UX Researcher. Dein Fokus: echtes Nutzerverhalten, Schmerzpunkte, Fehlerszenarien, Accessibility, mentale Modelle. Du fragst immer: Was macht der Nutzer wirklich — und was nicht?",
+    persona: "You are a UX Researcher. Your focus: real user behavior, pain points, error scenarios, accessibility, mental models. You always ask: what does the user actually do — and what don't they do?",
   },
   {
     name: "Business Analyst",
-    persona: "Du bist Business Analyst. Dein Fokus: Vollständigkeit der Anforderungen, Edge Cases, Widersprüche zwischen Anforderungen, klare Akzeptanzkriterien, explizite Out-of-Scope-Definitionen. Du deckst auf, was fehlt oder unklar ist.",
+    persona: "You are a Business Analyst. Your focus: completeness of requirements, edge cases, contradictions between requirements, clear acceptance criteria, explicit out-of-scope definitions. You surface what is missing or unclear.",
   },
 ];
 
 export const ARCH_AGENTS: Agent[] = [
   {
-    name: "Software-Architekt",
-    persona: "Du bist Software-Architekt. Dein Fokus: Architektur-Pattern, ADRs, System- und Datenmodell, Tech-Stack-Entscheidungen, langfristige Wartbarkeit und Erweiterbarkeit.",
+    name: "Software Architect",
+    persona: "You are a Software Architect. Your focus: architecture patterns, ADRs, system and data models, tech stack decisions, long-term maintainability and extensibility.",
   },
   {
     name: "Senior Developer",
-    persona: "Du bist Senior Developer. Dein Fokus: Tooling, Testing-Strategie, Build-System, DX, Implementierbarkeit. Du erkennst wo Architekturpläne an der Realität scheitern.",
+    persona: "You are a Senior Developer. Your focus: tooling, testing strategy, build system, DX, implementability. You spot where architecture plans fail against reality.",
   },
   {
     name: "DevOps Engineer",
-    persona: "Du bist DevOps & Security Engineer. Dein Fokus: Deployment, Infrastruktur, Skalierbarkeit, Monitoring, Sicherheit. Du denkst vom Betrieb her rückwärts zur Architektur.",
+    persona: "You are a DevOps & Security Engineer. Your focus: deployment, infrastructure, scalability, monitoring, security. You reason backwards from operations to architecture.",
   },
 ];
 
@@ -67,12 +67,12 @@ export const ARCH_AGENTS: Agent[] = [
 export function makePhases(prdRounds: number, archRounds: number): PhaseState[] {
   const makeRounds = (agents: Agent[], numRounds: number): RoundState[] => [
     ...Array.from({ length: numRounds }, (_, i) => ({
-      label: `Runde ${i + 1}`,
+      label: `Round ${i + 1}`,
       status: "pending" as RoundStatus,
       agents: agents.map((a) => ({ name: a.name, status: "pending" as AgentStatus })),
     })),
     {
-      label: "Synthese",
+      label: "Synthesis",
       status: "pending" as RoundStatus,
       agents: [{ name: "Writer", status: "pending" as AgentStatus }],
     },
@@ -81,7 +81,7 @@ export function makePhases(prdRounds: number, archRounds: number): PhaseState[] 
   return [
     {
       id: "prd",
-      label: "PRD-Generierung",
+      label: "PRD Generation",
       outputPath: PRD_OUTPUT_PATH,
       status: "running",
       rounds: makeRounds(PRD_AGENTS, prdRounds),
@@ -89,7 +89,7 @@ export function makePhases(prdRounds: number, archRounds: number): PhaseState[] 
     },
     {
       id: "arch",
-      label: "Architektur-Entwurf",
+      label: "Architecture Design",
       outputPath: ARCH_OUTPUT_PATH,
       status: "pending",
       rounds: makeRounds(ARCH_AGENTS, archRounds),
@@ -111,8 +111,8 @@ function formatOthersOutput(
       const out = allOutputs[roundIdx]?.[i];
       if (!out) return null;
       return i === ownAgentIdx
-        ? `--- Deine eigene Einschätzung (Runde ${roundIdx + 1}) ---\n${out}`
-        : `--- ${a.name} (Runde ${roundIdx + 1}) ---\n${out}`;
+        ? `--- Your own position (Round ${roundIdx + 1}) ---\n${out}`
+        : `--- ${a.name} (Round ${roundIdx + 1}) ---\n${out}`;
     })
     .filter(Boolean)
     .join("\n\n");
@@ -131,122 +131,122 @@ export function buildPrdPrompt(
   if (isSynthesis) {
     const lastRound = allOutputs[numRounds - 1] ?? [];
     const all = PRD_AGENTS.map((a, i) =>
-      `--- ${a.name} (finale Position) ---\n${lastRound[i] ?? "(keine Ausgabe)"}`
+      `--- ${a.name} (final position) ---\n${lastRound[i] ?? "(no output)"}`
     ).join("\n\n");
 
-    return `AUFGABE: Synthetisiere die folgenden Diskussionsbeiträge zu einem vollständigen PRD-Dokument.
+    return `TASK: Synthesize the following discussion contributions into a complete PRD document.
 
-AUSGABEREGELN (zwingend):
-- Deine Antwort beginnt mit dem Zeichen '#'. Kein Text davor.
-- Schreibe KEINE Dateien. Führe KEINE Befehle aus. Benutze KEINE Tools.
-- Keine Einleitung, keine Bestätigung, kein <k>-Block.
-- Deine Textantwort IST das Dokument — vollständig und direkt.
+OUTPUT RULES (mandatory):
+- Your response starts with the character '#'. No text before it.
+- Do NOT write files. Do NOT execute commands. Do NOT use tools.
+- No introduction, no confirmation, no <k> block.
+- Your text response IS the document — complete and direct.
 
-Projektbeschreibung: ${description}
+Project description: ${description}
 
-Finale Positionen aus der PRD-Diskussion:
+Final positions from the PRD discussion:
 
 ${all}
 
-Halte dich exakt an die folgende Dokumentstruktur. Beginne jetzt direkt mit "# PRD —".
+Follow the document structure below exactly. Start directly with "# PRD —".
 
-# PRD — [Projektname aus Beschreibung ableiten]
+# PRD — [project name derived from description]
 
-> [Ein-Satz-Beschreibung]
+> [one-sentence description]
 
 ---
 
 ## User Journeys
 
-Beschreibe 2–4 zentrale Nutzerflüsse als nummerierte Schritte. Fokus auf den Hauptpfad + wichtigsten Fehlerfall.
+Describe 2–4 core user flows as numbered steps. Focus on the happy path + most important error case.
 
-### UJ-001: [Journey-Name]
-**Ziel:** [Was will der Nutzer erreichen?]
+### UJ-001: [Journey name]
+**Goal:** [What does the user want to achieve?]
 
-1. [Schritt]
-2. [Schritt]
-3. [Schritt]
+1. [Step]
+2. [Step]
+3. [Step]
 
-**Fehlerfall:** [Was passiert wenn es schiefläuft?]
+**Error case:** [What happens when things go wrong?]
 
 ---
 
 ## Requirements
 
-Jede Anforderung MUSS als Markdown-Heading "### REQ-NNN:" beginnen.
-Priorisiere P0 und P1. P2 nur aufnehmen wenn klar differenzierend.
+Each requirement MUST start with the Markdown heading "### REQ-NNN:".
+Prioritize P0 and P1. Only include P2 when clearly differentiating.
 
-### REQ-001: [Titel]
+### REQ-001: [Title]
 
 - **Status:** open
-- **Priorität:** P0|P1|P2
-- **Größe:** XS|S|M|L
-- **Abhängig von:** ---
+- **Priority:** P0|P1|P2
+- **Size:** XS|S|M|L
+- **Depends on:** ---
 
-#### Beschreibung
-[2–4 Sätze]
+#### Description
+[2–4 sentences]
 
-#### Akzeptanzkriterien
+#### Acceptance Criteria
 - [ ] ...
 
-#### Verifikation
-\`[Befehl]\` → \`[Ausgabe]\`
+#### Verification
+\`[command]\` → \`[output]\`
 
-#### Content-Verifikation (nur bei Content-REQs — weglassen wenn nicht zutreffend)
-**Content-Typ:** text|visual|interactive
-**Re-Generierung:** \`[Befehl oder Schritt um den Content neu zu erzeugen — z.B. Seeder, API-Call, CLI-Befehl]\`
-**Korrektheitskriterium:** [Woran erkennt man dass der generierte Content inhaltlich richtig ist?]
+#### Content Verification (only for content REQs — omit if not applicable)
+**Content type:** text|visual|interactive
+**Re-generation:** \`[command or step to regenerate the content — e.g. seeder, API call, CLI command]\`
+**Correctness criterion:** [How to tell that the generated content is factually correct?]
 
 ---
 
-Falls Requirements sich widersprechen (z.B. REQ-A schreibt "kein Backend" vor, REQ-B
-referenziert \`/api/...\`-Endpunkte in der Verifikation): Ergänze direkt unterhalb der
-Verifikation-Section des betroffenen REQs:
+If requirements contradict each other (e.g. REQ-A mandates "no backend", REQ-B
+references \`/api/...\` endpoints in the Verification section): add directly below the
+Verification section of the affected REQ:
 
-> ⚠️ **Möglicher Widerspruch mit REQ-XXX:** [Ein Satz was widersprüchlich ist.]
+> ⚠️ **Possible conflict with REQ-XXX:** [One sentence describing the conflict.]
 
-Nicht auflösen — nur sichtbar machen. Die Auflösung ist Aufgabe der Architekturphase.
+Do not resolve it — just make it visible. Resolution is the architecture phase's job.
 
-Nur Markdown. Status immer 'open'.`;
+Markdown only. Status always 'open'.`;
   }
 
   if (roundIdx === 0) {
     return `${K_HEADER}${agent.persona}
 
-Projektbeschreibung: ${description}
+Project description: ${description}
 
-Führe zuerst \`ls\` im Projektverzeichnis aus. Lies alle \`.txt\`- und \`.md\`-Dateien die wie eine Projektbeschreibung aussehen (kurze, sprechende Namen — nicht \`PRD.md\`, \`architecture.md\`, \`AGENT.md\` o.ä.). Ist die "Projektbeschreibung" oben leer, sind diese Dateien die einzige Quelle. Berichte nicht über das Fehlen von Dateien.
+First run \`ls\` in the project directory. Read all \`.txt\` and \`.md\` files that look like a project description (short, descriptive names — not \`PRD.md\`, \`architecture.md\`, \`AGENT.md\` etc.). If the "project description" above is empty, these files are the only source. Do not report on missing files.
 
-Analysiere das Projekt aus deiner Perspektive und schlage Requirements vor.
-Nutze dieses Format für jedes REQ:
+Analyze the project from your perspective and propose requirements.
+Use this format for each REQ:
 
-### REQ-NNN: [Titel]
-- Priorität: P0|P1|P2
-- Größe: S|M
-- Abhängig von: ---
-#### Beschreibung
+### REQ-NNN: [Title]
+- Priority: P0|P1|P2
+- Size: S|M
+- Depends on: ---
+#### Description
 ...
-#### Akzeptanzkriterien
+#### Acceptance Criteria
 - [ ] ...
 
-Sei konkret und aus deiner Fachperspektive heraus. Kein generisches Aufzählen — was siehst du was andere vielleicht übersehen?`;
+Be concrete and speak from your professional perspective. No generic lists — what do you see that others might miss?`;
   }
 
   const context = formatOthersOutput(allOutputs, roundIdx - 1, agentIdx, PRD_AGENTS);
 
   return `${K_HEADER}${agent.persona}
 
-Projektbeschreibung: ${description}
+Project description: ${description}
 
-Runde ${roundIdx + 1} der Diskussion. Hier sind die Einschätzungen aus Runde ${roundIdx}:
+Round ${roundIdx + 1} of the discussion. Here are the positions from round ${roundIdx}:
 
 ${context}
 
-Reagiere auf die anderen Perspektiven:
-1. Was übersiehst du in deiner eigenen Runde-${roundIdx}-Position?
-2. Was fehlt bei den anderen?
-3. Wo gibt es Konflikte zwischen den Perspektiven — wie löst du sie?
-4. Gib deine verfeinerte, finale Position für diese Runde aus (vollständige REQ-Liste).`;
+Respond to the other perspectives:
+1. What did you miss in your own round-${roundIdx} position?
+2. What is missing from the others?
+3. Where are there conflicts between perspectives — how do you resolve them?
+4. Give your refined, final position for this round (complete REQ list).`;
 }
 
 export function buildArchPrompt(
@@ -263,78 +263,78 @@ export function buildArchPrompt(
   if (isSynthesis) {
     const lastRound = allOutputs[numRounds - 1] ?? [];
     const all = ARCH_AGENTS.map((a, i) =>
-      `--- ${a.name} (finale Position) ---\n${lastRound[i] ?? "(keine Ausgabe)"}`
+      `--- ${a.name} (final position) ---\n${lastRound[i] ?? "(no output)"}`
     ).join("\n\n");
 
-    return `AUFGABE: Synthetisiere die folgenden Diskussionsbeiträge zu einem vollständigen Architektur-Dokument.
+    return `TASK: Synthesize the following discussion contributions into a complete architecture document.
 
-AUSGABEREGELN (zwingend):
-- Deine Antwort beginnt mit dem Zeichen '#'. Kein Text davor.
-- Schreibe KEINE Dateien. Führe KEINE Befehle aus. Benutze KEINE Tools.
-- Keine Einleitung, keine Bestätigung, kein <k>-Block.
-- Deine Textantwort IST das Dokument — vollständig und direkt.
+OUTPUT RULES (mandatory):
+- Your response starts with the character '#'. No text before it.
+- Do NOT write files. Do NOT execute commands. Do NOT use tools.
+- No introduction, no confirmation, no <k> block.
+- Your text response IS the document — complete and direct.
 
-PRD des Projekts:
+Project PRD:
 ${prdContent}
 
-Finale Positionen aus der Architektur-Diskussion:
+Final positions from the architecture discussion:
 
 ${all}
 
-Beginne jetzt direkt mit "# Architektur-Entscheidungen". Jede Entscheidung MUSS als Markdown-Heading "## ADR-NNN:" beginnen.
+Start directly with "# Architecture Decisions". Each decision MUST start with the Markdown heading "## ADR-NNN:".
 
-WICHTIG — Typ-Klassifikation für jedes ADR:
-- Typ A (reine Implementierungsentscheidung — nur das WIE ändert sich): kein **Einschränkt:**-Feld
-- Typ B (schränkt ein PRD-Requirement inhaltlich ein — das WAS ändert sich):
-  Füge **Einschränkt:** REQ-XXX, REQ-YYY als letztes Feld ein.
-  Typ-A-Beispiel: "SM-2 eigenimplementiert statt Bibliothek" ändert kein Requirement.
-  Typ-B-Beispiel: Ein ADR "kein Laufzeit-Backend" betrifft nicht nur das offensichtlichste
-  Requirement — es betrifft JEDES REQ dessen Verifikation-Section einen API-Endpunkt nennt,
-  JEDES REQ das Sync oder Cross-Device erwähnt, und jedes REQ das serverseitige Logik impliziert.
+IMPORTANT — Type classification for each ADR:
+- Type A (pure implementation decision — only the HOW changes): no **Restricts:** field
+- Type B (constrains a PRD requirement in scope — the WHAT changes):
+  Add **Restricts:** REQ-XXX, REQ-YYY as the last field.
+  Type-A example: "SM-2 self-implemented instead of library" changes no requirement.
+  Type-B example: An ADR "no runtime backend" affects not just the most obvious
+  requirement — it affects EVERY REQ whose Verification section references an API endpoint,
+  EVERY REQ that mentions sync or cross-device, and every REQ that implies server-side logic.
 
-Pflicht-Scan für Typ-B-ADRs: Gehe die Anforderungen aus dem PRD systematisch durch.
-Für jedes ADR das das WAS eines Requirements berührt: liste ALLE betroffenen REQs im
-Einschränkt:-Feld — nicht nur den erstgefundenen oder offensichtlichsten.
+Mandatory scan for Type-B ADRs: Go through the PRD requirements systematically.
+For every ADR that touches the WHAT of a requirement: list ALL affected REQs in the
+Restricts: field — not just the first or most obvious one.
 
-# Architektur-Entscheidungen
+# Architecture Decisions
 
-> [Ein-Satz-Zusammenfassung des Ansatzes]
+> [one-sentence summary of the approach]
 
-## Überblick
-[3–5 Sätze: Stack, Pattern, Begründung]
+## Overview
+[3–5 sentences: stack, pattern, rationale]
 
-## Projektstruktur
+## Project Structure
 \`\`\`
-[Verzeichnisbaum der wichtigsten Ordner/Dateien]
+[directory tree of the main folders/files]
 \`\`\`
 
 ---
 
-## ADR-001: [Titel] (${today})
+## ADR-001: [Title] (${today})
 
-**Kontext:** ...
-**Entscheidung:** ...
-**Begründung:** ...
-**Konsequenzen:** ...
-**Einschränkt:** REQ-XXX  ← nur bei Typ B, sonst diese Zeile weglassen
+**Context:** ...
+**Decision:** ...
+**Rationale:** ...
+**Consequences:** ...
+**Restricts:** REQ-XXX  ← only for Type B, otherwise omit this line
 
 ---
 
-[weitere ADRs für Sprache, Framework, DB, Testing, Build, Deployment]`;
+[further ADRs for language, framework, DB, testing, build, deployment]`;
   }
 
   if (roundIdx === 0) {
     return `${K_HEADER}${agent.persona}
 
-PRD des Projekts:
+Project PRD:
 ${prdContent}
 
-Analysiere die Anforderungen aus deiner Perspektive und schlage eine Architektur vor.
-Falls bereits relevanter Code oder architecture.md im Projektordner existiert, kannst du ihn lesen — berichte aber nicht über das Fehlen von Dateien, das ist kein Thema.
-Sei konkret (echte Technologien, echte Versionsnummern wo relevant).
-Identifiziere auch Widersprüche im PRD (unvereinbare Anforderungen,
-implizite Konflikte) und zeige wie deine Architektur sie auflöst.
-Was ist aus deiner Fachperspektive besonders wichtig?`;
+Analyze the requirements from your perspective and propose an architecture.
+If relevant code or architecture.md already exists in the project folder, you may read it — but do not report on missing files.
+Be concrete (real technologies, real version numbers where relevant).
+Also identify contradictions in the PRD (incompatible requirements,
+implicit conflicts) and show how your architecture resolves them.
+What is especially important from your professional perspective?`;
   }
 
   const context = formatOthersOutput(allOutputs, roundIdx - 1, agentIdx, ARCH_AGENTS);
@@ -344,16 +344,16 @@ Was ist aus deiner Fachperspektive besonders wichtig?`;
 PRD:
 ${prdContent}
 
-Runde ${roundIdx + 1} der Diskussion. Hier sind die Einschätzungen aus Runde ${roundIdx}:
+Round ${roundIdx + 1} of the discussion. Here are the positions from round ${roundIdx}:
 
 ${context}
 
-Reagiere aus deiner Perspektive:
-1. Was stimmst du zu?
-2. Was widersprichst du und warum?
-3. Was fehlt aus deiner Fachsicht — auch im PRD selbst (Widersprüche, Lücken)?
-4. Gib deine verfeinerte finale Position für diese Runde aus — vollständig,
-   nicht nur als Delta. Die Synthese sieht nur diese Runde.`;
+Respond from your perspective:
+1. What do you agree with?
+2. What do you disagree with and why?
+3. What is missing from your professional view — including in the PRD itself (contradictions, gaps)?
+4. Give your refined final position for this round — complete,
+   not just as a delta. The synthesis only sees this round.`;
 }
 
 // ── Output utilities ───────────────────────────────────────────
@@ -396,7 +396,7 @@ export function formatRoundSummary(
   agents: Agent[],
   outputs: string[],
 ): string[] {
-  const lines: string[] = [`Runde ${roundNum} · Kernargumente`, SUMMARY_DIVIDER, ""];
+  const lines: string[] = [`Round ${roundNum} · Key arguments`, SUMMARY_DIVIDER, ""];
   for (let i = 0; i < agents.length; i++) {
     lines.push(agents[i].name + ":");
     const kernthese = extractKernthese(outputs[i]);
@@ -420,12 +420,12 @@ export function formatSynthesisSummary(synthOut: string, phaseId: "prd" | "arch"
       .filter((l: string) => /REQ-\d+/.test(l) && !l.startsWith("<"))
       .map((l: string) => l.replace(/^#+\s+/, "").replace(/\*\*/g, "").trim());
     return [
-      "Synthese · PRD.md erstellt",
+      "Synthesis · PRD.md created",
       SUMMARY_DIVIDER,
       "",
       ...(reqs.length > 0
         ? reqs.map((r: string) => `  ✓ ${r}`)
-        : ["  (keine REQ-Abschnitte gefunden)"]),
+        : ["  (no REQ sections found)"]),
     ];
   }
 
@@ -435,37 +435,37 @@ export function formatSynthesisSummary(synthOut: string, phaseId: "prd" | "arch"
     .filter((l: string) => /ADR-\d+/.test(l) && !l.startsWith("<"))
     .map((l: string) => l.replace(/^#+\s+/, "").replace(/\*\*/g, "").trim());
   return [
-    "Synthese · architecture.md erstellt",
+    "Synthesis · architecture.md created",
     SUMMARY_DIVIDER,
     "",
     ...(adrs.length > 0
       ? adrs.map((a: string) => `  ✓ ${a}`)
-      : ["  (keine ADR-Abschnitte gefunden)"]),
+      : ["  (no ADR sections found)"]),
   ];
 }
 
 // ── Walking Skeleton injection ──────────────────────────────────
 
-const SPIKE_BLOCK = `### REQ-000: Walking Skeleton — Technisches Grundgerüst
+const SPIKE_BLOCK = `### REQ-000: Walking Skeleton — Technical Foundation
 
 - **Status:** open
-- **Priorität:** P0
-- **Größe:** M
-- **Abhängig von:** ---
+- **Priority:** P0
+- **Size:** M
+- **Depends on:** ---
 
-#### Beschreibung
-Baue das vollständige technische Grundgerüst entsprechend \`architecture.md\`. Kein Business-Inhalt — nur Infrastruktur: alle Abhängigkeiten installiert, Build-System, Linter, Test-Runner konfiguriert, Development-Server lauffähig, eine minimale E2E-Schicht durch alle architekturellen Schichten (z.B. ein Hello-World-Endpunkt der eine DB-Query ausführt und im Frontend angezeigt wird — ohne Businesslogik).
+#### Description
+Build the complete technical foundation according to \`architecture.md\`. No business content — infrastructure only: all dependencies installed, build system, linter, test runner configured, development server running, a minimal E2E layer through all architectural layers (e.g. a Hello-World endpoint that executes a DB query and is displayed in the frontend — without business logic).
 
-#### Akzeptanzkriterien
-- [ ] Alle Abhängigkeiten installiert, keine Versionskonflikte
-- [ ] Build erfolgreich (keine Fehler, keine unresolved imports)
-- [ ] Linter grün (keine Fehler)
-- [ ] Test-Runner startet und läuft durch (0 failures)
-- [ ] Development-Server startet ohne Fehler
-- [ ] Minimale E2E-Schicht funktioniert: ein Request geht durch alle Schichten bis zur Antwort
+#### Acceptance Criteria
+- [ ] All dependencies installed, no version conflicts
+- [ ] Build successful (no errors, no unresolved imports)
+- [ ] Linter clean (no errors)
+- [ ] Test runner starts and passes (0 failures)
+- [ ] Development server starts without errors
+- [ ] Minimal E2E layer works: one request passes through all layers to a response
 
-#### Verifikation
-Projektspezifisch aus \`architecture.md\` ableiten — Build-Befehl grün, Test-Runner grün, Dev-Server antwortet.
+#### Verification
+Derive from \`architecture.md\` — build command green, test runner green, dev server responds.
 
 ---
 

@@ -9,21 +9,21 @@ import {
 
 // ── parseReqs ──────────────────────────────────────────────────
 
-const SAMPLE_PRD = `# PRD — Mein Projekt
+const SAMPLE_PRD = `# PRD — My Project
 
-## Überblick
+## Overview
 
-### REQ-001: Benutzer-Login
-Nutzer können sich mit E-Mail und Passwort einloggen.
+### REQ-001: User Login
+Users can log in with email and password.
 
-**Priorität:** P0
-**Größe:** S
+**Priority:** P0
+**Size:** S
 
-### REQ-002: Offline-Modus
-Die App funktioniert auch ohne Internetverbindung.
+### REQ-002: Offline Mode
+The app works without an internet connection.
 
-**Priorität:** P1
-**Größe:** M`;
+**Priority:** P1
+**Size:** M`;
 
 Deno.test("parseReqs: parses two REQ sections", () => {
   const items = parseReqs(SAMPLE_PRD);
@@ -33,18 +33,18 @@ Deno.test("parseReqs: parses two REQ sections", () => {
 Deno.test("parseReqs: first item has correct id and title", () => {
   const items = parseReqs(SAMPLE_PRD);
   assertEquals(items[0].id, "REQ-001");
-  assertEquals(items[0].title, "Benutzer-Login");
+  assertEquals(items[0].title, "User Login");
 });
 
 Deno.test("parseReqs: second item has correct id and title", () => {
   const items = parseReqs(SAMPLE_PRD);
   assertEquals(items[1].id, "REQ-002");
-  assertEquals(items[1].title, "Offline-Modus");
+  assertEquals(items[1].title, "Offline Mode");
 });
 
 Deno.test("parseReqs: content includes body text", () => {
   const items = parseReqs(SAMPLE_PRD);
-  assertEquals(items[0].content.includes("E-Mail und Passwort"), true);
+  assertEquals(items[0].content.includes("email and password"), true);
 });
 
 Deno.test("parseReqs: empty string returns empty array", () => {
@@ -52,23 +52,23 @@ Deno.test("parseReqs: empty string returns empty array", () => {
 });
 
 Deno.test("parseReqs: no REQ sections returns empty array", () => {
-  assertEquals(parseReqs("# PRD\n\nKein Requirement hier.").length, 0);
+  assertEquals(parseReqs("# PRD\n\nNo requirement here.").length, 0);
 });
 
 Deno.test("parseReqs: header before first REQ is ignored", () => {
   const items = parseReqs(SAMPLE_PRD);
-  // The '## Überblick' header must not appear as a parsed item
+  // The '## Overview' header must not appear as a parsed item
   assertEquals(items.every((i) => i.id.startsWith("REQ-")), true);
 });
 
 Deno.test("parseReqs: parses REQ with em dash separator", () => {
-  const prd = `### REQ-001 — Benutzer-Login\nContent\n### REQ-002 — Offline-Modus\nContent2`;
+  const prd = `### REQ-001 — User Login\nContent\n### REQ-002 — Offline Mode\nContent2`;
   const items = parseReqs(prd);
   assertEquals(items.length, 2);
   assertEquals(items[0].id, "REQ-001");
-  assertEquals(items[0].title, "Benutzer-Login");
+  assertEquals(items[0].title, "User Login");
   assertEquals(items[1].id, "REQ-002");
-  assertEquals(items[1].title, "Offline-Modus");
+  assertEquals(items[1].title, "Offline Mode");
 });
 
 Deno.test("parseReqs: parses REQ with hyphen separator", () => {
@@ -81,17 +81,17 @@ Deno.test("parseReqs: parses REQ with hyphen separator", () => {
 
 // ── parseAdrs ──────────────────────────────────────────────────
 
-const SAMPLE_ARCH = `# Architektur-Entscheidungen
+const SAMPLE_ARCH = `# Architecture Decisions
 
-## ADR-001: React Native für Mobile
-Wir nutzen React Native.
+## ADR-001: React Native for Mobile
+We use React Native.
 
-**Einschränkt:** REQ-001, REQ-002
+**Restricts:** REQ-001, REQ-002
 
-## ADR-002: SQLite für Offline-Speicherung
-Lokale Datenhaltung via SQLite.
+## ADR-002: SQLite for Offline Storage
+Local data persistence via SQLite.
 
-**Status:** Akzeptiert
+**Status:** Accepted
 `;
 
 Deno.test("parseAdrs: parses two ADR sections", () => {
@@ -102,13 +102,13 @@ Deno.test("parseAdrs: parses two ADR sections", () => {
 Deno.test("parseAdrs: first item has correct id and title", () => {
   const items = parseAdrs(SAMPLE_ARCH);
   assertEquals(items[0].id, "ADR-001");
-  assertEquals(items[0].title, "React Native für Mobile");
+  assertEquals(items[0].title, "React Native for Mobile");
 });
 
 Deno.test("parseAdrs: second item has correct id and title", () => {
   const items = parseAdrs(SAMPLE_ARCH);
   assertEquals(items[1].id, "ADR-002");
-  assertEquals(items[1].title, "SQLite für Offline-Speicherung");
+  assertEquals(items[1].title, "SQLite for Offline Storage");
 });
 
 Deno.test("parseAdrs: empty string returns empty array", () => {
@@ -134,49 +134,49 @@ Deno.test("replaceItemInContent: leaves unrelated content unchanged", () => {
 // ── parseAdrConstraints ────────────────────────────────────────
 
 Deno.test("parseAdrConstraints: extracts REQ references", () => {
-  const adr = "## ADR-001: Something\n\n**Einschränkt:** REQ-001, REQ-002\n\nText.";
+  const adr = "## ADR-001: Something\n\n**Restricts:** REQ-001, REQ-002\n\nText.";
   assertEquals(parseAdrConstraints(adr), ["REQ-001", "REQ-002"]);
 });
 
 Deno.test("parseAdrConstraints: returns empty array if no constraints", () => {
-  const adr = "## ADR-002: Something\n\nKeine Einschränkung.";
+  const adr = "## ADR-002: Something\n\nNo restrictions.";
   assertEquals(parseAdrConstraints(adr), []);
 });
 
 Deno.test("parseAdrConstraints: ignores non-REQ entries in constraint line", () => {
-  const adr = "## ADR-003: X\n\n**Einschränkt:** REQ-005, ADR-001\n";
+  const adr = "## ADR-003: X\n\n**Restricts:** REQ-005, ADR-001\n";
   const result = parseAdrConstraints(adr);
   // Only REQ-* entries should be returned
   assertEquals(result, ["REQ-005"]);
 });
 
 Deno.test("parseAdrConstraints: trims whitespace around entries", () => {
-  const adr = "## ADR-004: Y\n\n**Einschränkt:**  REQ-003 ,  REQ-004 \n";
+  const adr = "## ADR-004: Y\n\n**Restricts:**  REQ-003 ,  REQ-004 \n";
   assertEquals(parseAdrConstraints(adr), ["REQ-003", "REQ-004"]);
 });
 
 // ── buildRewritePrompt ─────────────────────────────────────────
 
 Deno.test("buildRewritePrompt: req type includes 'Requirement' label", () => {
-  const item = { id: "REQ-001", title: "Login", content: "### REQ-001: Login\nNutzer loggen sich ein." };
-  const prompt = buildRewritePrompt(item, "Mach es kürzer", "req");
+  const item = { id: "REQ-001", title: "Login", content: "### REQ-001: Login\nUsers log in." };
+  const prompt = buildRewritePrompt(item, "Make it shorter", "req");
   assertEquals(prompt.includes("Requirement"), true);
 });
 
-Deno.test("buildRewritePrompt: adr type includes 'Architekturentscheidung' label", () => {
+Deno.test("buildRewritePrompt: adr type includes 'Architecture Decision' label", () => {
   const item = { id: "ADR-001", title: "React Native", content: "## ADR-001: React Native\nDetails." };
-  const prompt = buildRewritePrompt(item, "Ergänze Kontext", "adr");
-  assertEquals(prompt.includes("Architekturentscheidung"), true);
+  const prompt = buildRewritePrompt(item, "Add context", "adr");
+  assertEquals(prompt.includes("Architecture Decision"), true);
 });
 
 Deno.test("buildRewritePrompt: contains user instruction", () => {
   const item = { id: "REQ-001", title: "Login", content: "content" };
-  const prompt = buildRewritePrompt(item, "Mach es kürzer", "req");
-  assertEquals(prompt.includes("Mach es kürzer"), true);
+  const prompt = buildRewritePrompt(item, "Make it shorter", "req");
+  assertEquals(prompt.includes("Make it shorter"), true);
 });
 
 Deno.test("buildRewritePrompt: contains item content", () => {
-  const item = { id: "REQ-001", title: "Login", content: "### REQ-001: Login\nNutzer loggen sich ein." };
-  const prompt = buildRewritePrompt(item, "Bearbeite", "req");
+  const item = { id: "REQ-001", title: "Login", content: "### REQ-001: Login\nUsers log in." };
+  const prompt = buildRewritePrompt(item, "Edit", "req");
   assertEquals(prompt.includes("### REQ-001: Login"), true);
 });

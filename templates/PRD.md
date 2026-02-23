@@ -1,30 +1,30 @@
-# PRD — [Projektname]
+# PRD — [Project Name]
 
-> [Kurzbeschreibung des Projekts — ein Satz]
+> [One-sentence description of the project]
 
 ---
 
-### REQ-001: [Erstes Requirement]
+### REQ-001: [First Requirement]
 
 - **Status:** open
-- **Priorität:** P0  <!-- P0 = MVP-Blocker · P1 = wichtig, aber startbar ohne · P2 = nice-to-have -->
-- **Größe:** S
-- **Abhängig von:** ---
+- **Priority:** P0  <!-- P0 = MVP blocker · P1 = important but launchable without · P2 = nice-to-have -->
+- **Size:** S
+- **Depends on:** ---
 
-#### Beschreibung
-[Was soll implementiert werden?]
+#### Description
+[What should be implemented?]
 
-#### Akzeptanzkriterien
-- [ ] [Beobachtbares, testbares Ergebnis]
+#### Acceptance Criteria
+- [ ] [Observable, testable result]
 
-#### Verifikation
-- `[Befehl]` ergibt `[erwartete Ausgabe]`
+#### Verification
+- `[command]` → `[expected output]`
 
 #### User Journey
-<!-- Nur bei UI-Features ausfüllen. Der Agent erstellt daraus die Playwright-Spec. -->
-1. Nutzer öffnet [URL/Seite]
-2. Nutzer [Aktion, z.B. füllt Formular aus / klickt Button]
-3. System zeigt [erwartetes Ergebnis]
-4. Fehlerfall: Nutzer [falsche Eingabe] → System zeigt [Fehlermeldung]
+<!-- Fill in only for UI features. The agent will create the Playwright spec from this. -->
+1. User opens [URL/page]
+2. User [action, e.g. fills in form / clicks button]
+3. System shows [expected result]
+4. Error case: User [invalid input] → System shows [error message]
 
 ---

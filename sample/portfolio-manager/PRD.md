@@ -1,358 +1,358 @@
 # PRD — Portfolio Manager
 
-> Persönliches KI-gestütztes Analyse-Werkzeug für Privatanleger, das Quartalsberichte, Finanzkennzahlen und News zu eigenen Depot-Aktien automatisch recherchiert, strukturiert speichert und durchsuchbar macht.
+> A personal AI-powered analysis tool for private investors that automatically researches quarterly reports, financial metrics, and news for stocks in your portfolio, stores them in a structured way, and makes them searchable.
 
 ---
 
 ## User Journeys
 
-### UJ-001: Erste Aktie aufnehmen und Recherche-Ergebnis einsehen
+### UJ-001: Adding the first stock and viewing research results
 
-**Ziel:** Nutzer nimmt eine Aktie auf und sieht innerhalb von 60 Sekunden die ersten Recherche-Ergebnisse.
+**Goal:** The user adds a stock and sees the first research results within 60 seconds.
 
-1. Nutzer öffnet `http://localhost:3000`. Leeres Depot zeigt Onboarding-Hinweis.
-2. Nutzer tippt „Apple" oder „AAPL" in das zentrale Suchfeld. Autocomplete liefert Treffer mit Börsenplatz (z.B. „Apple Inc. — AAPL — NASDAQ").
-3. Nutzer wählt einen Treffer. Aktie erscheint sofort im Dashboard mit aktuellem Kurs und Status-Badge „Recherche läuft".
-4. Im Hintergrund werden die letzten 4 Quartalsberichte recherchiert. Status-Badge wechselt auf „Aktuell" nach Abschluss.
-5. Nutzer klickt auf die Aktie und liest auf der Detailseite die KI-Zusammenfassungen der letzten 4 Quartale mit Quellenangaben.
+1. The user opens `http://localhost:3000`. An empty portfolio displays an onboarding hint.
+2. The user types "Apple" or "AAPL" into the central search field. Autocomplete returns matches including the exchange (e.g. "Apple Inc. — AAPL — NASDAQ").
+3. The user selects a match. The stock immediately appears on the dashboard with the current price and a status badge "Research in progress".
+4. In the background, the last 4 quarterly reports are researched. The status badge switches to "Up to date" once complete.
+5. The user clicks on the stock and reads AI summaries of the last 4 quarters with source references on the detail page.
 
-**Fehlerfall:** Kurs-API nicht erreichbar → Aktie wird ohne Kurs hinzugefügt, Hinweis „Kurs konnte nicht geladen werden". Recherche startet trotzdem. Kein Endlos-Spinner.
-
----
-
-### UJ-002: Depot-Überblick nach Nutzungspause
-
-**Ziel:** Nutzer kehrt nach mehrwöchiger Pause zurück und identifiziert sofort Aktien, die seine Aufmerksamkeit benötigen.
-
-1. Nutzer öffnet die App. Dashboard zeigt „Seit deinem letzten Besuch [Datum]: 3 neue Quartalsberichte, 2 Kursveränderungen > 5 %".
-2. Dashboard ist nach Handlungsbedarf sortiert: Aktien mit neuen Daten oder Anomalien stehen oben.
-3. Nutzer klickt auf eine hervorgehobene Aktie (Badge: „Neuer Quartalsbericht"). Timeline-View springt zum neusten Eintrag.
-4. Nutzer entscheidet, ob er eine vertiefte KI-Analyse starten möchte.
-
-**Fehlerfall:** Keine neuen Daten seit dem letzten Besuch → Dashboard zeigt neutralen Status ohne Fehler oder leeren Bildschirm.
+**Error case:** Price API unreachable → stock is added without a price, notice "Price could not be loaded". Research starts regardless. No infinite spinner.
 
 ---
 
-### UJ-003: Kennzahl nachschlagen und Anomalie untersuchen
+### UJ-002: Portfolio overview after a break
 
-**Ziel:** Nutzer prüft die Margenentwicklung einer Aktie über die letzten vier Quartale.
+**Goal:** The user returns after a break of several weeks and immediately identifies stocks that need their attention.
 
-1. Nutzer öffnet die Detailseite einer Aktie. Kennzahlen-Abschnitt zeigt „Operative Marge ↓ −22 % ggü. Vorquartal" (hervorgehoben).
-2. Nutzer klickt auf die Kennzahl → Drill-Down zeigt historischen Verlauf als Mini-Chart, Quelle (URL + Abrufdatum).
-3. Q2 2024 ist als „Nicht verfügbar" markiert. Nutzer löst manuell eine KI-Recherche für diesen Wert aus.
-4. Recherche findet zwei widersprüchliche Quellen. Hinweis: „Quelle A: 12,3 % / Quelle B: 11,8 % — bitte manuell bestätigen."
+1. The user opens the app. The dashboard shows "Since your last visit [date]: 3 new quarterly reports, 2 price changes > 5%".
+2. The dashboard is sorted by action required: stocks with new data or anomalies appear at the top.
+3. The user clicks on a highlighted stock (badge: "New quarterly report"). The Timeline view jumps to the latest entry.
+4. The user decides whether to start a deeper AI analysis.
 
-**Fehlerfall:** Recherche schlägt fehl → Wert bleibt „Nicht verfügbar" mit Zeitstempel des letzten Versuchs. Nutzer kann es später erneut versuchen.
+**Error case:** No new data since the last visit → dashboard shows a neutral status without errors or an empty screen.
 
 ---
 
-### UJ-004: KI-Analysebericht generieren
+### UJ-003: Looking up a metric and investigating an anomaly
 
-**Ziel:** Nutzer lässt drei KI-Perspektiven einen strukturierten Analysebericht auf Basis der gespeicherten Daten erstellen.
+**Goal:** The user checks the margin trend of a stock over the last four quarters.
 
-1. Nutzer öffnet Detailseite einer Aktie mit mindestens 2 Quartalen Datenbasis. Button „Analyse generieren" ist aktiv.
-2. Vor dem Start erscheint: „Drei KI-Perspektiven analysieren diese Aktie anhand Ihrer gespeicherten Daten. Dauer ca. 30–60 s."
-3. Ladeindikator mit Zeitschätzung. Nach Abschluss: strukturierter Bericht mit drei Abschnitten (Fundamentalanalyst, Burggraben-Experte, Bären-/Risiko-Perspektive) und konsolidierter Zusammenfassung.
-4. Bericht erscheint in der Timeline unter dem heutigen Datum.
+1. The user opens the detail page of a stock. The metrics section shows "Operating margin ↓ −22% vs. prior quarter" (highlighted).
+2. The user clicks on the metric → a drill-down shows the historical trend as a mini chart, along with the source (URL + retrieval date).
+3. Q2 2024 is marked as "Not available". The user manually triggers an AI research request for this value.
+4. The research finds two conflicting sources. Notice: "Source A: 12.3% / Source B: 11.8% — please confirm manually."
 
-**Fehlerfall:** Datenbasis zu dünn (< 2 Quartale) → Button deaktiviert mit Hinweis „Für eine Analyse werden mindestens 2 Quartalsberichte benötigt."
+**Error case:** Research fails → value remains "Not available" with a timestamp of the last attempt. The user can try again later.
+
+---
+
+### UJ-004: Generating an AI analysis report
+
+**Goal:** The user has three AI perspectives generate a structured analysis report based on the stored data.
+
+1. The user opens the detail page of a stock with at least 2 quarters of data. The "Generate analysis" button is active.
+2. Before starting, a prompt appears: "Three AI perspectives will analyze this stock based on your stored data. Estimated duration: 30–60 s."
+3. A loading indicator with a time estimate is shown. After completion: a structured report with three sections (fundamental analyst, moat expert, bear/risk perspective) and a consolidated summary.
+4. The report appears in the Timeline under today's date.
+
+**Error case:** Data basis too thin (< 2 quarters) → button disabled with the notice "At least 2 quarterly reports are required for an analysis."
 
 ---
 
 ## Requirements
 
-### REQ-000: Walking Skeleton — Technisches Grundgerüst
+### REQ-000: Walking Skeleton — Technical Foundation
 
 - **Status:** open
-- **Priorität:** P0
-- **Größe:** M
-- **Abhängig von:** ---
+- **Priority:** P0
+- **Size:** M
+- **Depends on:** ---
 
-#### Beschreibung
-Baue das vollständige technische Grundgerüst entsprechend `architecture.md`. Kein Business-Inhalt — nur Infrastruktur: alle Abhängigkeiten installiert, Build-System, Linter, Test-Runner konfiguriert, Development-Server lauffähig, eine minimale E2E-Schicht durch alle architekturellen Schichten (z.B. ein Hello-World-Endpunkt der eine DB-Query ausführt und im Frontend angezeigt wird — ohne Businesslogik).
+#### Description
+Build the complete technical foundation as described in `architecture.md`. No business content — infrastructure only: all dependencies installed, build system, linter, and test runner configured, development server running, and a minimal E2E path through all architectural layers (e.g. a Hello World endpoint that executes a DB query and renders the result in the frontend — no business logic).
 
-#### Akzeptanzkriterien
-- [ ] Alle Abhängigkeiten installiert (`npm ci`), keine Versionskonflikte
-- [ ] Build erfolgreich (`vite build` + `tsc -p tsconfig.server.json` — keine Fehler)
-- [ ] TypeScript strict-Check grün (`tsc --noEmit`)
-- [ ] Linter grün (`eslint src/` — keine Fehler)
-- [ ] Vitest Unit- und Contract-Tests starten und laufen durch (0 failures)
-- [ ] Vitest Integration-Tests mit In-Memory-SQLite laufen durch
-- [ ] Drizzle-Schema + alle Migrationen + FTS5-Trigger ausgeführt
-- [ ] Fastify-Server startet auf `127.0.0.1:3000`, bindet ausschließlich auf Loopback
-- [ ] `/api/health` antwortet mit HTTP 200 (inkl. DB-Status)
-- [ ] React-SPA wird vom Fastify-Server ausgeliefert (`curl http://127.0.0.1:3000` → HTTP 200)
-- [ ] LLMGateway-Skeleton mit Mock-Provider vorhanden (kein echter API-Key nötig)
-- [ ] Alle Adapter-Interfaces + Mock-Implementierungen vorhanden (QuoteProvider, WebSearchProvider)
-- [ ] `npm run validate` grün (typecheck + lint + test + test:contracts + test:integration + build)
+#### Acceptance Criteria
+- [ ] All dependencies installed (`npm ci`), no version conflicts
+- [ ] Build succeeds (`vite build` + `tsc -p tsconfig.server.json` — no errors)
+- [ ] TypeScript strict check passes (`tsc --noEmit`)
+- [ ] Linter passes (`eslint src/` — no errors)
+- [ ] Vitest unit and contract tests start and pass (0 failures)
+- [ ] Vitest integration tests with in-memory SQLite pass
+- [ ] Drizzle schema + all migrations + FTS5 triggers executed
+- [ ] Fastify server starts on `127.0.0.1:3000`, binds exclusively to loopback
+- [ ] `/api/health` responds with HTTP 200 (including DB status)
+- [ ] React SPA is served by the Fastify server (`curl http://127.0.0.1:3000` → HTTP 200)
+- [ ] LLMGateway skeleton with mock provider present (no real API key required)
+- [ ] All adapter interfaces + mock implementations present (QuoteProvider, WebSearchProvider)
+- [ ] `npm run validate` passes (typecheck + lint + test + test:contracts + test:integration + build)
 
-#### Verifikation
-`npm run validate` grün; `npm start` startet ohne Fehler; `curl http://127.0.0.1:3000/api/health` → HTTP 200 mit `{"status":"ok","db":"ok"}`
+#### Verification
+`npm run validate` passes; `npm start` starts without errors; `curl http://127.0.0.1:3000/api/health` → HTTP 200 with `{"status":"ok","db":"ok"}`
 
 ---
 
-### REQ-001: Aktie hinzufügen und Depot verwalten
+### REQ-001: Adding stocks and managing the portfolio
 
 - **Status:** open
-- **Priorität:** P0
-- **Größe:** M
-- **Abhängig von:** ---
+- **Priority:** P0
+- **Size:** M
+- **Depends on:** ---
 
-#### Beschreibung
-Nutzer fügt Aktien über ein einzelnes Eingabefeld per Ticker, Firmenname oder ISIN hinzu. Autocomplete mit Fuzzy-Match zeigt Treffer inklusive Börsenplatz, um Mehrdeutigkeiten aufzulösen (z.B. „SAP — XETRA" vs. „SAP — NYSE"). Kaufdaten (Datum, Stückzahl, Kaufpreis, Währung) sind optional und können beim Hinzufügen oder jederzeit nachträglich erfasst werden. Ohne Kaufdaten gilt die Position als Watchlist-Eintrag; mit Kaufdaten als Portfolio-Position mit Performance-Berechnung (via REQ-010).
+#### Description
+Users add stocks via a single input field using ticker, company name, or ISIN. Autocomplete with fuzzy matching shows results including the exchange to resolve ambiguities (e.g. "SAP — XETRA" vs. "SAP — NYSE"). Purchase data (date, number of shares, purchase price, currency) is optional and can be entered when adding a stock or at any time afterwards. Without purchase data, the position is treated as a watchlist entry; with purchase data it becomes a portfolio position with performance tracking (via REQ-010).
 
-#### Akzeptanzkriterien
-- [ ] Einzelnes Eingabefeld mit Autocomplete (Ticker + Firmenname + ISIN, Fuzzy-Match)
-- [ ] Suchergebnisse zeigen Börsenplatz zur Disambiguierung (z.B. „AAPL — NASDAQ")
-- [ ] Aktie wird mit einem Klick/Enter hinzugefügt — keine Pflichtfelder außer der Aktienauswahl selbst
-- [ ] Kaufdaten (Datum, Stückzahl, Preis, Währung) sind als aufklappbares Optional-Formular zugänglich
-- [ ] Nachkäufe werden als separate Transaktionen erfasst, nicht als Überschreibung der Ursprungsposition
-- [ ] Duplikat-Erkennung: gleiche Aktie + gleicher Börsenplatz kann nicht doppelt hinzugefügt werden; stattdessen Angebot „Nachkauf erfassen?"
-- [ ] Aktie kann aus dem Depot entfernt werden (mit Bestätigungsdialog)
-- [ ] Alle Depot-Daten persistieren zwischen Sessions (lokale Datenhaltung)
-- [ ] Fehlerfall Suche: „Keine Aktie gefunden" mit Hinweis auf alternatives Suchformat (Ticker statt Name, ISIN)
-- [ ] Fehlerfall Kurs-API beim Hinzufügen: Aktie wird trotzdem hinzugefügt, klarer Hinweis ohne Endlos-Spinner
+#### Acceptance Criteria
+- [ ] Single input field with autocomplete (ticker + company name + ISIN, fuzzy match)
+- [ ] Search results show exchange for disambiguation (e.g. "AAPL — NASDAQ")
+- [ ] Stock is added with a single click/Enter — no required fields other than the stock selection itself
+- [ ] Purchase data (date, shares, price, currency) accessible via an expandable optional form
+- [ ] Additional purchases are recorded as separate transactions, not as an overwrite of the original position
+- [ ] Duplicate detection: the same stock + same exchange cannot be added twice; instead an offer to "Record additional purchase?" is shown
+- [ ] Stock can be removed from the portfolio (with a confirmation dialog)
+- [ ] All portfolio data persists between sessions (local data storage)
+- [ ] Search error case: "No stock found" with a hint to try an alternative search format (ticker instead of name, ISIN)
+- [ ] Price API error case when adding: stock is still added, clear notice shown with no infinite spinner
 
-#### Verifikation
+#### Verification
 `curl -X POST http://localhost:3000/api/depot -d '{"ticker":"AAPL","exchange":"NASDAQ"}'` → `{"id":"...","ticker":"AAPL","exchange":"NASDAQ","addedAt":"..."}`
 
 ---
 
-### REQ-002: Kurse und Währungsanzeige
+### REQ-002: Prices and currency display
 
 - **Status:** open
-- **Priorität:** P0
-- **Größe:** S
-- **Abhängig von:** REQ-001
+- **Priority:** P0
+- **Size:** S
+- **Depends on:** REQ-001
 
-#### Beschreibung
-Kurse werden aus einer dokumentierten, kostenlosen API bezogen. Eine Verzögerung von 15–20 Minuten ist akzeptabel und muss für den Nutzer transparent sein. Jede Aktie zeigt den Kurs in der Originalwährung; eine optionale EUR-Umrechnung kann eingeblendet werden. Bei API-Ausfällen wird der zuletzt bekannte Kurs mit Warnhinweis angezeigt — nie ein leerer Wert ohne Erklärung.
+#### Description
+Prices are retrieved from a documented, free API. A delay of 15–20 minutes is acceptable and must be transparent to the user. Each stock shows its price in the original currency; an optional EUR conversion can be toggled. During API outages, the last known price is shown with a warning — never an empty value without explanation.
 
-#### Akzeptanzkriterien
-- [ ] Aktueller Kurs jeder Aktie ist auf dem Dashboard sichtbar
-- [ ] Zeitstempel des letzten Abrufs und Verzögerungs-Hinweis sind sichtbar (z.B. „Stand: 14:32 — 15 Min. verzögert")
-- [ ] Währung der Aktie wird korrekt angezeigt (USD, EUR, GBP etc.)
-- [ ] Optionale EUR-Umrechnung für Fremdwährungsaktien einblendbar
-- [ ] Bei API-Fehler: letzter bekannter Kurs mit Warnhinweis, kein Endlos-Spinner, kein leeres Feld
-- [ ] An Nicht-Handelstagen: Schlusskurs des letzten Handelstags mit Kennzeichnung
-- [ ] Kursquelle ist innerhalb der Anwendung dokumentiert und einheitlich für alle Aktien
+#### Acceptance Criteria
+- [ ] Current price of each stock is visible on the dashboard
+- [ ] Timestamp of the last retrieval and delay notice are visible (e.g. "As of 14:32 — 15 min. delayed")
+- [ ] Stock currency is displayed correctly (USD, EUR, GBP, etc.)
+- [ ] Optional EUR conversion for foreign-currency stocks can be toggled
+- [ ] On API error: last known price with warning notice, no infinite spinner, no empty field
+- [ ] On non-trading days: closing price of the last trading day with a label
+- [ ] Price source is documented within the application and consistent across all stocks
 
-#### Verifikation
+#### Verification
 `curl http://localhost:3000/api/depot/AAPL/quote` → `{"price":182.50,"currency":"USD","timestamp":"2025-01-15T14:32:00Z","delayed":true,"delayMinutes":15}`
 
 ---
 
-### REQ-003: Automatisierte Webrecherche (Quartalsberichte und News)
+### REQ-003: Automated web research (quarterly reports and news)
 
 - **Status:** open
-- **Priorität:** P0
-- **Größe:** L
-- **Abhängig von:** REQ-001
+- **Priority:** P0
+- **Size:** L
+- **Depends on:** REQ-001
 
-#### Beschreibung
-Bei Neuaufnahme einer Aktie werden automatisch die letzten 4 Quartalsberichte per KI-Webrecherche zusammengefasst und gespeichert. Jede Zusammenfassung enthält Zeitraum, Kerndaten, Quell-URL und Abrufdatum. Zusätzlich werden kursrelevante News (Earnings, M&A, regulatorische Änderungen) recherchiert und mit 2–3-Satz-Zusammenfassung gespeichert. Der Recherche-Status ist pro Aktie jederzeit sichtbar. Kein Cronjob im MVP — Trigger ist Neuaufnahme oder manueller Knopfdruck. Partielle Ergebnisse werden gespeichert; ein Einzelfehler blockiert nicht das Gesamtergebnis.
+#### Description
+When a stock is added, the last 4 quarterly reports are automatically summarised via AI web research and stored. Each summary contains the period, key data, source URL, and retrieval date. Additionally, price-relevant news (earnings, M&A, regulatory changes) is researched and stored with a 2–3-sentence summary. The research status is visible per stock at all times. No cron job in the MVP — the trigger is adding a new stock or a manual button press. Partial results are stored; a single failure does not block the overall result.
 
-#### Akzeptanzkriterien
-- [ ] Bei Neuaufnahme einer Aktie: automatischer Start der Recherche der letzten 4 Quartalsberichte
-- [ ] Jede Quartalsbericht-Zusammenfassung enthält: Zeitraum, Umsatz, Gewinn/Verlust, Ausblick, Quell-URL, Abrufdatum
-- [ ] News-Einträge enthalten: Titel, Datum, Quell-URL, 2–3-Satz-Zusammenfassung; nur kursrelevante Meldungen (kein allgemeines Rauschen)
-- [ ] Pro Aktie sichtbarer Recherche-Status: `Recherche läuft` / `Aktuell` / `Teilweise geladen` / `Fehler bei [Quelle X]`
-- [ ] Zeitstempel der letzten erfolgreichen Recherche ist sichtbar
-- [ ] Manuelle Neu-Recherche per Knopfdruck auslösbar
-- [ ] Partielle Ergebnisse werden gespeichert und angezeigt (kein Alles-oder-Nichts)
-- [ ] Fehlgeschlagene Quellen werden namentlich angezeigt, nicht generisch „Fehler"
-- [ ] UI ist während laufender Recherche nicht blockiert (asynchrone Ausführung)
-- [ ] Automatischer Retry bei transienten Fehlern (max. 3×, exponentielles Backoff)
-- [ ] Bei widersprüchlichen Werten aus verschiedenen Quellen: Nutzer wird mit beiden Werten und ihrer Herkunft informiert — kein stilles Bevorzugen eines Werts
+#### Acceptance Criteria
+- [ ] When a stock is added: automatic start of research into the last 4 quarterly reports
+- [ ] Each quarterly report summary contains: period, revenue, profit/loss, outlook, source URL, retrieval date
+- [ ] News entries contain: title, date, source URL, 2–3-sentence summary; only price-relevant items (no general noise)
+- [ ] Research status visible per stock: `Research in progress` / `Up to date` / `Partially loaded` / `Error at [Source X]`
+- [ ] Timestamp of the last successful research is visible
+- [ ] Manual re-research triggerable via a button
+- [ ] Partial results are stored and displayed (no all-or-nothing)
+- [ ] Failed sources are shown by name, not as a generic "Error"
+- [ ] UI is not blocked during active research (asynchronous execution)
+- [ ] Automatic retry on transient errors (max. 3×, exponential backoff)
+- [ ] When conflicting values are found from different sources: the user is informed with both values and their origins — no silent preference for one value
 
-#### Verifikation
-`curl http://localhost:3000/api/depot/AAPL/research` → Array mit mind. 1 Objekt der Form `{"period":"Q3 2024","revenue":"...","earnings":"...","sourceUrl":"...","fetchedAt":"..."}`
+#### Verification
+`curl http://localhost:3000/api/depot/AAPL/research` → Array with at least 1 object of the form `{"period":"Q3 2024","revenue":"...","earnings":"...","sourceUrl":"...","fetchedAt":"..."}`
 
 ---
 
-### REQ-004: Finanzkennzahlen-Tracking als Zeitreihe
+### REQ-004: Financial metrics tracking as a time series
 
 - **Status:** open
-- **Priorität:** P0
-- **Größe:** M
-- **Abhängig von:** REQ-003
+- **Priority:** P0
+- **Size:** M
+- **Depends on:** REQ-003
 
-#### Beschreibung
-Zentrale Finanzkennzahlen werden pro Aktie als Zeitreihe in Quartalsauflösung gespeichert. Standard-Kennzahlen werden automatisch aus den Recherche-Ergebnissen extrahiert. Nutzer kann pro Aktie zusätzliche, unternehmensspezifische Kennzahlen manuell definieren (z.B. „DAU" für Meta). Fehlende Werte sind explizit als „Nicht verfügbar" markiert — niemals als 0 oder leere Zelle. Jeder Datenpunkt hat eine nachvollziehbare Quellenangabe. Abweichungen ≥ 20 % zum Vorquartal werden visuell hervorgehoben.
+#### Description
+Key financial metrics are stored per stock as a time series at quarterly resolution. Standard metrics are automatically extracted from the research results. Users can manually define additional company-specific metrics per stock (e.g. "DAU" for Meta). Missing values are explicitly marked as "Not available" — never as 0 or an empty cell. Each data point has a traceable source reference. Deviations of ≥ 20% compared to the prior quarter are visually highlighted.
 
-#### Akzeptanzkriterien
-- [ ] Standard-Kennzahlen automatisch befüllt: P/E, P/B, EPS, Capex, FCF, Umsatz, operative Marge, Verschuldungsgrad
-- [ ] Kennzahlen als Zeitreihe gespeichert (mindestens Quartalsauflösung, mindestens 4 Quartale Tiefe)
-- [ ] Nutzer kann pro Aktie individuelle Kennzahlen definieren (Name + Wert + Zeitraum)
-- [ ] Fehlende Werte werden als „Nicht verfügbar" dargestellt — keine 0, keine leere Zelle
-- [ ] Jeder Datenpunkt hat eine Quellenangabe (URL + Abrufdatum)
-- [ ] Trend-Indikator pro Kennzahl (↑ ↓ →) auf Basis der letzten zwei Werte
-- [ ] Abweichungen ≥ 20 % zum Vorquartal werden visuell hervorgehoben (Farbe oder Badge)
-- [ ] Währung bei allen monetären Kennzahlen sichtbar; optionale EUR-Umrechnung einblendbar
-- [ ] Drill-Down: Klick auf Kennzahl zeigt historischen Verlauf als Mini-Chart + Quellendetails
-- [ ] Nutzer kann fehlende Werte manuell erfassen oder per explizitem Trigger eine KI-Nachrecherche auslösen
+#### Acceptance Criteria
+- [ ] Standard metrics automatically populated: P/E, P/B, EPS, Capex, FCF, revenue, operating margin, debt ratio
+- [ ] Metrics stored as a time series (at least quarterly resolution, at least 4 quarters of depth)
+- [ ] Users can define individual metrics per stock (name + value + period)
+- [ ] Missing values are displayed as "Not available" — no 0, no empty cell
+- [ ] Each data point has a source reference (URL + retrieval date)
+- [ ] Trend indicator per metric (↑ ↓ →) based on the last two values
+- [ ] Deviations ≥ 20% compared to the prior quarter are visually highlighted (colour or badge)
+- [ ] Currency visible for all monetary metrics; optional EUR conversion can be toggled
+- [ ] Drill-down: clicking a metric shows the historical trend as a mini chart + source details
+- [ ] Users can enter missing values manually or trigger an AI re-research via an explicit action
 
-#### Verifikation
-`curl http://localhost:3000/api/depot/AAPL/metrics` → Array von Kennzahl-Objekten mit Feldern `name`, `periods` (Array von `{quarter, value, source, fetchedAt, status}`), `trend`
+#### Verification
+`curl http://localhost:3000/api/depot/AAPL/metrics` → Array of metric objects with fields `name`, `periods` (Array of `{quarter, value, source, fetchedAt, status}`), `trend`
 
 ---
 
-### REQ-005: Datenhistorie mit Timeline-Navigation und Volltextsuche
+### REQ-005: Data history with Timeline navigation and full-text search
 
 - **Status:** open
-- **Priorität:** P0
-- **Größe:** M
-- **Abhängig von:** REQ-003, REQ-004
+- **Priority:** P0
+- **Size:** M
+- **Depends on:** REQ-003, REQ-004
 
-#### Beschreibung
-Alle gesammelten Daten (Quartalsberichte, News, Kennzahlen, KI-Analysen) werden persistent gespeichert und über eine Zeitachsen-Navigation erschlossen. Quartale sind die primären Ankerpunkte; leere Quartale werden explizit als solche markiert. Im MVP gibt es strukturierte Filter und Volltextsuche. Semantische Suche ist explizit nicht Teil des MVP und wird in Phase 2 ergänzt, sobald genug Datenbasis vorhanden ist, um sie sinnvoll nutzen zu können.
+#### Description
+All collected data (quarterly reports, news, metrics, AI analyses) is stored persistently and browsed via a Timeline navigation. Quarters are the primary anchor points; empty quarters are explicitly marked as such. The MVP includes structured filters and full-text search. Semantic search is explicitly not part of the MVP and will be added in Phase 2 once enough data is available to make meaningful use of it.
 
-#### Akzeptanzkriterien
-- [ ] Alle Recherche-Ergebnisse, Kennzahlen und KI-Analysen werden persistent gespeichert
-- [ ] Timeline-View pro Aktie: Quartale als visuelle Ankerpunkte, Einträge chronologisch zugeordnet
-- [ ] Leere Quartale sichtbar markiert: „Keine Daten für Q2 2024"
-- [ ] Filter nach Datentyp (Quartalsbericht / News / Kennzahl / KI-Analyse / Burggraben)
-- [ ] Volltextsuche über alle Daten einer Aktie (Keyword-basiert)
-- [ ] Übergreifende Suche über mehrere Depot-Aktien möglich (z.B. „Welche Aktien hatten sinkende Margen?")
-- [ ] Ergebnisse zeigen Kontext: Quelle, Datum, Datentyp
-- [ ] „Was hat sich geändert seit letztem Besuch"-Indikator pro Quartal
-- [ ] Performance: Suche unter 3 s bei > 1 000 gespeicherten Dokumenten
-- [ ] KI-Analysen (REQ-008) werden in der Timeline archiviert und sind über Datum auffindbar
+#### Acceptance Criteria
+- [ ] All research results, metrics, and AI analyses are stored persistently
+- [ ] Timeline view per stock: quarters as visual anchor points, entries assigned chronologically
+- [ ] Empty quarters visibly marked: "No data for Q2 2024"
+- [ ] Filter by data type (quarterly report / news / metric / AI analysis / moat)
+- [ ] Full-text search across all data for a stock (keyword-based)
+- [ ] Cross-portfolio search across multiple stocks (e.g. "Which stocks had declining margins?")
+- [ ] Results show context: source, date, data type
+- [ ] "What changed since your last visit" indicator per quarter
+- [ ] Performance: search under 3 s with > 1,000 stored documents
+- [ ] AI analyses (REQ-008) are archived in the Timeline and retrievable by date
 
-#### Verifikation
-`curl "http://localhost:3000/api/depot/AAPL/history?type=report&from=2024-01-01"` → gefilterte Liste mit Feldern `type`, `period`, `content`, `source`, `createdAt`
+#### Verification
+`curl "http://localhost:3000/api/depot/AAPL/history?type=report&from=2024-01-01"` → filtered list with fields `type`, `period`, `content`, `source`, `createdAt`
 
-#### Explizit Out-of-Scope (MVP)
-- Semantische / natürlichsprachliche Suche → Phase 2
-- Embedding-Pipeline / Vektorstore → Phase 2
+#### Explicitly Out of Scope (MVP)
+- Semantic / natural-language search → Phase 2
+- Embedding pipeline / vector store → Phase 2
 
-> ⚠️ **Möglicher Widerspruch mit REQ-008:** REQ-008 fordert, dass KI-Agenten „ausschließlich auf gespeicherte Daten der Aktie zugreifen" und setzt damit eine valide Datenbasis voraus. REQ-005 lässt leere Quartale explizit zu. Wie Agenten mit lückenhaften Daten umgehen (Abbruch, Kennzeichnung, Hinweis), muss in der Architekturphase definiert werden.
+> ⚠️ **Potential conflict with REQ-008:** REQ-008 requires that AI agents "access exclusively the stored data of the stock" and therefore assumes a valid data basis. REQ-005 explicitly allows empty quarters. How agents handle incomplete data (abort, flag as gap, note in report) must be defined in the architecture phase.
 
 ---
 
-### REQ-006: Web-Frontend mit Aufmerksamkeits-Dashboard
+### REQ-006: Web frontend with attention dashboard
 
 - **Status:** open
-- **Priorität:** P0
-- **Größe:** L
-- **Abhängig von:** REQ-001, REQ-002, REQ-003
+- **Priority:** P0
+- **Size:** L
+- **Depends on:** REQ-001, REQ-002, REQ-003
 
-#### Beschreibung
-Webbasierte Single-Page-Application als einziger Zugangskanal. Single-User, startet lokal mit einem einzigen Befehl. Das Dashboard ist keine gleichförmige Liste, sondern sortiert Aktien nach Handlungsbedarf: Positionen mit neuen Daten, Anomalien oder Kursveränderungen > 5 % treten optisch hervor; ruhige Positionen treten zurück. Beim Öffnen nach einer Nutzungspause wird eine kompakte „Seit deinem letzten Besuch"-Zusammenfassung eingeblendet.
+#### Description
+A web-based single-page application as the sole access channel. Single-user, starts locally with a single command. The dashboard is not a uniform list but sorts stocks by action required: positions with new data, anomalies, or price changes > 5% stand out visually; quiet positions recede. When opened after a break, a compact "Since your last visit" summary is shown.
 
-#### Akzeptanzkriterien
-- [ ] Dashboard zeigt alle Depot-Aktien: Name, Ticker, Kurs, Tagesveränderung (%)
-- [ ] Sortierung standardmäßig nach „Handlungsbedarf" (neue Daten, Anomalien, Kursänderungen > 5 % oben)
-- [ ] Aktien mit neuen Recherche-Ergebnissen oder Kennzahl-Anomalien tragen einen visuellen Indikator (Badge, Farbton)
-- [ ] Ruhige Aktien ohne neue Daten sind visuell dezenter dargestellt
-- [ ] Alternative Sortierungen wählbar: alphabetisch, Performance (wenn Kaufdaten vorhanden), Hinzufügedatum
-- [ ] „Seit deinem letzten Besuch [Datum]"-Zusammenfassung beim Öffnen: neue Reports, Kursveränderungen > 5 %
-- [ ] Depot-Gesamtwert sichtbar wenn Kaufdaten gepflegt sind; sonst Anzahl Positionen
-- [ ] Klick auf Aktie öffnet Detailseite (Timeline, Kennzahlen, News, KI-Analysen, Burggraben)
-- [ ] Aktie-Hinzufügen direkt vom Dashboard möglich
-- [ ] Leeres Depot: Onboarding-Hinweis statt leerem Bildschirm
-- [ ] Responsive Design (Desktop-first; Kernfunktionen auf 375 px Breite nutzbar)
-- [ ] Ladezeit Dashboard < 2 s
-- [ ] Anwendung startet lokal mit einem einzigen Befehl (z.B. `npm start`)
+#### Acceptance Criteria
+- [ ] Dashboard shows all portfolio stocks: name, ticker, price, daily change (%)
+- [ ] Default sort by "action required" (new data, anomalies, price changes > 5% at the top)
+- [ ] Stocks with new research results or metric anomalies carry a visual indicator (badge, colour tint)
+- [ ] Quiet stocks without new data are displayed more subtly
+- [ ] Alternative sort options selectable: alphabetical, performance (when purchase data is available), date added
+- [ ] "Since your last visit [date]" summary on open: new reports, price changes > 5%
+- [ ] Total portfolio value visible when purchase data is maintained; otherwise number of positions
+- [ ] Clicking a stock opens the detail page (Timeline, metrics, news, AI analyses, moat)
+- [ ] Adding a stock is possible directly from the dashboard
+- [ ] Empty portfolio: onboarding hint instead of blank screen
+- [ ] Responsive design (desktop-first; core features usable at 375 px width)
+- [ ] Dashboard load time < 2 s
+- [ ] Application starts locally with a single command (e.g. `npm start`)
 
-#### Verifikation
-`npm start` → kein Fehler-Exit-Code; `curl http://localhost:3000` antwortet mit HTTP 200 in < 2 s
+#### Verification
+`npm start` → no error exit code; `curl http://localhost:3000` responds with HTTP 200 in < 2 s
 
 ---
 
-### REQ-007: Burggraben-Analyse (Moat Assessment)
+### REQ-007: Moat Assessment
 
 - **Status:** open
-- **Priorität:** P1
-- **Größe:** M
-- **Abhängig von:** REQ-003
+- **Priority:** P1
+- **Size:** M
+- **Depends on:** REQ-003
 
-#### Beschreibung
-Strukturierte Burggraben-Einschätzung pro Aktie mit fünf Standardkategorien. Die KI generiert eine initiale Bewertung auf Basis der gespeicherten Recherche-Ergebnisse; der Nutzer kann jede Kategorie überschreiben oder kommentieren. Alle Änderungen werden versioniert, sodass die Entwicklung der Einschätzung über Zeit nachvollziehbar bleibt. Das Feature ist kein reiner KI-Output, sondern ein kollaborativer Analyse-Baustein.
+#### Description
+A structured moat assessment per stock with five standard categories. The AI generates an initial rating based on the stored research results; the user can override or comment on each category. All changes are versioned so that the evolution of the assessment remains traceable over time. This feature is not a pure AI output but a collaborative analysis building block.
 
-#### Akzeptanzkriterien
-- [ ] Fünf Kategorien: Markenstärke, Netzwerkeffekte, Kostenvorteile, Wechselkosten, regulatorische Vorteile
-- [ ] Bewertung pro Kategorie: stark / mittel / schwach / nicht vorhanden — mit Begründungstext
-- [ ] KI generiert initiale Bewertung auf Basis der gespeicherten Daten der Aktie
-- [ ] Nutzer kann KI-Bewertung pro Kategorie überschreiben oder kommentieren
-- [ ] Gesamteinschätzung (wide / narrow / no moat) wird aus Einzelbewertungen abgeleitet
-- [ ] Änderungshistorie sichtbar: „KI: stark am [Datum] → Nutzer: mittel am [Datum]"
-- [ ] Quellen für jede Einschätzung nachvollziehbar (referenziert auf gespeicherte Datenpunkte)
+#### Acceptance Criteria
+- [ ] Five categories: brand strength, network effects, cost advantages, switching costs, regulatory advantages
+- [ ] Rating per category: strong / medium / weak / none — with a justification text
+- [ ] AI generates an initial rating based on the stored data for the stock
+- [ ] User can override or comment on the AI rating per category
+- [ ] Overall rating (wide / narrow / no moat) is derived from the individual ratings
+- [ ] Change history visible: "AI: strong on [date] → User: medium on [date]"
+- [ ] Sources for each assessment are traceable (referenced to stored data points)
 
-#### Verifikation
-`curl http://localhost:3000/api/depot/AAPL/moat` → Objekt mit Feldern `categories` (Array), `overallRating`, `lastUpdated`, `history` (Array von Änderungen)
+#### Verification
+`curl http://localhost:3000/api/depot/AAPL/moat` → object with fields `categories` (Array), `overallRating`, `lastUpdated`, `history` (Array of changes)
 
 ---
 
-### REQ-008: KI-Analysebericht (Multi-Agenten)
+### REQ-008: AI Analysis Report (Multi-Agent)
 
 - **Status:** open
-- **Priorität:** P1
-- **Größe:** L
-- **Abhängig von:** REQ-004, REQ-005
+- **Priority:** P1
+- **Size:** L
+- **Depends on:** REQ-004, REQ-005
 
-#### Beschreibung
-Per explizitem Trigger wird ein strukturierter Analysebericht aus drei KI-Perspektiven generiert: Fundamentalanalyst, Burggraben-Experte, Bären-/Risiko-Perspektive. V1 ist kein Live-Chat, sondern ein lesbarer Bericht mit klar getrennten Abschnitten — das senkt das UX-Risiko erheblich und erfordert kein neues mentales Modell. Jeder Agent referenziert ausschließlich gespeicherte Datenpunkte der Aktie. Die Diskussion endet nach maximal N Runden (konfigurierbar, Default 5) mit einer konsolidierten Zusammenfassung. Ein klickbarer UX-Prototyp muss mit 3–5 Nutzern validiert werden, bevor die Backend-Implementierung startet.
+#### Description
+A structured analysis report from three AI perspectives is generated via an explicit trigger: fundamental analyst, moat expert, bear/risk perspective. V1 is not a live chat but a readable report with clearly separated sections — this substantially reduces UX risk and requires no new mental model. Each agent references exclusively stored data points for the stock. The discussion ends after a maximum of N rounds (configurable, default 5) with a consolidated summary. A clickable UX prototype must be validated with 3–5 users before backend implementation begins.
 
-#### Akzeptanzkriterien
-- [ ] Button „Analyse generieren" pro Aktie; nur aktiv wenn mindestens 2 Quartale Datenbasis vorliegen
-- [ ] Vor dem Start: Kurzerklärung (max. 2 Sätze) + geschätzte Dauer (z.B. „ca. 30–60 s")
-- [ ] Drei Perspektiven: Fundamentalanalyst, Burggraben-Experte, Bären-/Risiko-Perspektive
-- [ ] Jeder Abschnitt referenziert konkrete gespeicherte Datenpunkte mit Quellenangabe (keine unbelegten Aussagen)
-- [ ] Ergebnis: Strukturierter Bericht mit klar getrennten, semantisch markierten Perspektiv-Abschnitten
-- [ ] Konsolidierte Zusammenfassung am Ende: Kernthesen, Konsens- und Dissenz-Punkte
-- [ ] Diskussion endet nach max. N Runden (Default 5, konfigurierbar)
-- [ ] Nutzer kann laufende Diskussion abbrechen ohne Datenverlust; Teilergebnis bleibt gespeichert
-- [ ] Bericht wird in der Timeline (REQ-005) archiviert
-- [ ] Bewusst nicht in V1 enthalten: Live-Chat, Rückfragen des Nutzers während Diskussion, interaktiver Verlauf
-- [ ] **Voraussetzung vor Backend-Implementierung:** Klick-Prototyp mit 3–5 Nutzern getestet und validiert
+#### Acceptance Criteria
+- [ ] "Generate analysis" button per stock; only active when at least 2 quarters of data are available
+- [ ] Before starting: a brief explanation (max. 2 sentences) + estimated duration (e.g. "approx. 30–60 s")
+- [ ] Three perspectives: fundamental analyst, moat expert, bear/risk perspective
+- [ ] Each section references concrete stored data points with source citations (no unsupported claims)
+- [ ] Result: structured report with clearly separated, semantically labelled perspective sections
+- [ ] Consolidated summary at the end: key theses, points of consensus and dissent
+- [ ] Discussion ends after max. N rounds (default 5, configurable)
+- [ ] User can cancel an ongoing discussion without data loss; partial result remains saved
+- [ ] Report is archived in the Timeline (REQ-005)
+- [ ] Deliberately not included in V1: live chat, user questions during discussion, interactive flow
+- [ ] **Prerequisite before backend implementation:** clickable prototype tested and validated with 3–5 users
 
-#### Verifikation
-`curl -X POST http://localhost:3000/api/depot/AAPL/analysis` → `{"id":"...","status":"running","estimatedSeconds":45}`; nach Abschluss: `GET /api/depot/AAPL/analysis/:id` → Objekt mit Feldern `perspectives` (Array mit `role`, `content`, `datapointsReferenced`), `summary`, `consensusPoints`, `dissentPoints`, `archivedAt`
+#### Verification
+`curl -X POST http://localhost:3000/api/depot/AAPL/analysis` → `{"id":"...","status":"running","estimatedSeconds":45}`; after completion: `GET /api/depot/AAPL/analysis/:id` → object with fields `perspectives` (Array with `role`, `content`, `datapointsReferenced`), `summary`, `consensusPoints`, `dissentPoints`, `archivedAt`
 
-> ⚠️ **Möglicher Widerspruch mit REQ-005:** REQ-008 setzt eine vollständige Datenbasis voraus (Agenten greifen „ausschließlich auf gespeicherte Daten" zu). REQ-005 lässt leere Quartale explizit zu. Was ein Agent tut, wenn für ein Quartal keine Daten vorliegen (Abbruch, Kennzeichnung als Lücke, Hinweis im Bericht), ist nicht spezifiziert und muss in der Architekturphase entschieden werden.
+> ⚠️ **Potential conflict with REQ-005:** REQ-008 assumes a complete data basis (agents access "exclusively stored data"). REQ-005 explicitly allows empty quarters. What an agent does when no data exists for a quarter (abort, flag as gap, note in report) is not specified and must be decided in the architecture phase.
 
 ---
 
-### REQ-009: Kostentransparenz und -begrenzung
+### REQ-009: Cost transparency and limits
 
 - **Status:** open
-- **Priorität:** P1
-- **Größe:** S
-- **Abhängig von:** REQ-003, REQ-008
+- **Priority:** P1
+- **Size:** S
+- **Depends on:** REQ-003, REQ-008
 
-#### Beschreibung
-Jede KI-Operation (Recherche, Analyse) verursacht API-Kosten. Ohne Transparenz entsteht entweder Nutzungsangst (Feature wird nie genutzt) oder unerwartete Rechnungen (Vertrauensverlust). Nutzer sehen vor kostenpflichtigen Operationen eine Schätzung und können ein optionales monatliches Budget-Limit konfigurieren.
+#### Description
+Every AI operation (research, analysis) incurs API costs. Without transparency, either usage anxiety develops (the feature is never used) or unexpected bills arrive (loss of trust). Users see an estimate before any paid operation and can configure an optional monthly budget limit.
 
-#### Akzeptanzkriterien
-- [ ] Vor jeder Recherche und Analyse-Operation: geschätzter Token-Verbrauch und Kostenäquivalent in EUR angezeigt
-- [ ] Kumulative Kosten pro Tag / Woche / Monat in den Einstellungen einsehbar
-- [ ] Optionales Budget-Limit konfigurierbar (z.B. „max. 20 € / Monat") mit Warnung bei Erreichen von 80 %
-- [ ] Abgebrochene Operationen werden anteilig erfasst (kein Nullwert bei Abbruch)
-- [ ] Kostenübersicht ist dauerhaft in den App-Einstellungen zugänglich
+#### Acceptance Criteria
+- [ ] Before each research and analysis operation: estimated token consumption and cost equivalent in EUR shown
+- [ ] Cumulative costs per day / week / month viewable in settings
+- [ ] Optional budget limit configurable (e.g. "max. €20 / month") with a warning at 80%
+- [ ] Cancelled operations are recorded proportionally (no zero value on cancellation)
+- [ ] Cost overview is permanently accessible in the app settings
 
-#### Verifikation
+#### Verification
 `curl http://localhost:3000/api/costs/summary` → `{"today":{"tokens":4200,"estimatedEur":0.12},"month":{"tokens":82000,"estimatedEur":2.35},"budgetLimit":20,"budgetUsedPercent":11.7}`
 
 ---
 
-### REQ-010: Kauf-/Verkaufshistorie und Performance-Tracking
+### REQ-010: Buy/sell history and performance tracking
 
 - **Status:** open
-- **Priorität:** P2
-- **Größe:** M
-- **Abhängig von:** REQ-001, REQ-002
+- **Priority:** P2
+- **Size:** M
+- **Depends on:** REQ-001, REQ-002
 
-#### Beschreibung
-Optional erfassbare Transaktionsdaten ergänzen das Analyse-Werkzeug um Performance-Tracking. Positionen ohne Kaufdaten bleiben vollständig funktional (Watchlist-Modus). Realisierte Gewinne und Verluste werden nur für Positionen mit vollständiger Transaktionshistorie berechnet. Das Tool ist primär ein Analyse-Gedächtnis, kein Brokerage-Ersatz — deshalb ist dieses Feature P2.
+#### Description
+Optionally recorded transaction data extends the analysis tool with performance tracking. Positions without purchase data remain fully functional (watchlist mode). Realised gains and losses are only calculated for positions with a complete transaction history. The tool is primarily an analysis memory, not a brokerage replacement — which is why this feature is P2.
 
-#### Akzeptanzkriterien
-- [ ] Kauf erfassbar: Datum, Stückzahl, Kaufpreis, Währung, optionale Gebühren
-- [ ] Teilverkäufe erfassbar: Datum, Stückzahl, Verkaufspreis
-- [ ] Realisierter Gewinn/Verlust berechnet pro Position und gesamt
-- [ ] Dividendenzahlungen erfassbar: Datum, Betrag pro Aktie
-- [ ] Geschlossene Positionen bleiben in der Datenhistorie sichtbar, visuell von offenen Positionen abgegrenzt
-- [ ] Währungsumrechnung: Transaktionen in Fremdwährung, Performance-Anzeige wahlweise in EUR
+#### Acceptance Criteria
+- [ ] Purchase recordable: date, number of shares, purchase price, currency, optional fees
+- [ ] Partial sales recordable: date, number of shares, sale price
+- [ ] Realised gain/loss calculated per position and overall
+- [ ] Dividend payments recordable: date, amount per share
+- [ ] Closed positions remain visible in the data history, visually distinguished from open positions
+- [ ] Currency conversion: transactions in foreign currency, performance display optionally in EUR
 
-#### Verifikation
+#### Verification
 `curl -X POST http://localhost:3000/api/depot/AAPL/transactions -d '{"type":"buy","date":"2024-03-15","shares":10,"price":175.50,"currency":"USD"}'` → `{"transactionId":"...","unrealizedGainEur":72.30}`

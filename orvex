@@ -13,14 +13,14 @@ LOOP_SCRIPT="$FRAMEWORK_DIR/loop_dev.sh"
 TUI_BIN="$FRAMEWORK_DIR/orvex-tui"
 TEMPLATES_DIR="$FRAMEWORK_DIR/templates"
 
-# ── Init-Logik (shared zwischen 'orvex init' und leerem Ordner) ─
+# ── Init logic (shared between 'orvex init' and empty folder) ────
 do_init() {
   for f in AGENT.md VALIDATOR.md; do
     if [ -f "$f" ]; then
-      echo "⏭  $f existiert bereits — übersprungen"
+      echo "⏭  $f already exists — skipped"
     else
       cp "$TEMPLATES_DIR/$f" "./$f"
-      echo "✅  $f erstellt"
+      echo "✅  $f created"
     fi
   done
 
@@ -33,32 +33,32 @@ do_init() {
 
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "  ⚠️   Bitte vor dem ersten Start sorgfältig prüfen:"
+  echo "  ⚠️   Please review carefully before the first run:"
   echo ""
   echo "  PRD.md"
-  echo "    • Alle wichtigen Features enthalten?"
-  echo "    • Akzeptanzkriterien präzise und testbar?"
-  echo "    • User Journeys vollständig?"
-  echo "    • Priorisierung korrekt?  (P0 = MVP-Blocker · P1 = wichtig · P2 = nice-to-have)"
+  echo "    • All important features included?"
+  echo "    • Acceptance criteria precise and testable?"
+  echo "    • User journeys complete?"
+  echo "    • Priorities correct?  (P0 = MVP blocker · P1 = important · P2 = nice-to-have)"
   echo ""
   if [ -f architecture.md ] && grep -q 'ADR-' architecture.md 2>/dev/null; then
-    echo "  .agent/architecture.md"
-    echo "    • Tech-Stack passend für das Projekt?"
-    echo "    • Architektur-Pattern verständlich?"
-    echo "    • Projektstruktur sinnvoll?"
+    echo "  architecture.md"
+    echo "    • Tech stack appropriate for the project?"
+    echo "    • Architecture patterns clear?"
+    echo "    • Project structure sensible?"
     echo ""
   fi
-  echo "  KI-Entwürfe sind ein erster Aufschlag —"
-  echo "  kein Ersatz für dein Domänenwissen."
+  echo "  AI drafts are a starting point —"
+  echo "  not a substitute for your domain knowledge."
   echo ""
-  echo "  Wenn alles bereit ist: orvex erneut starten"
+  echo "  When ready: run orvex again"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   exit 0
 }
 
 # ── orvex init ────────────────────────────────────────────────
 if [ "${1:-}" = "init" ]; then
-  echo "Orvex — Projekt initialisieren"
+  echo "Orvex — Initialize project"
   echo ""
   do_init
 fi
@@ -68,19 +68,19 @@ errors=0
 
 for f in PRD.md AGENT.md VALIDATOR.md; do
   if [ ! -f "$f" ] && [ ! -L "$f" ]; then
-    echo "❌  $f fehlt in $(pwd)"
+    echo "❌  $f missing in $(pwd)"
     errors=$((errors + 1))
   fi
 done
 
 if [ -f PRD.md ] && ! grep -q '^### REQ-' PRD.md 2>/dev/null; then
-  echo "❌  PRD.md enthält keine Requirements (erwartet: '### REQ-XXX:')"
+  echo "❌  PRD.md contains no requirements (expected: '### REQ-XXX:')"
   errors=$((errors + 1))
 fi
 
 if [ $errors -gt 0 ]; then
   echo ""
-  printf "Projekt initialisieren? [j/N] "
+  printf "Initialize project? [y/N] "
   read -r answer
   if [ "$answer" = "j" ] || [ "$answer" = "J" ] || \
      [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
@@ -104,7 +104,7 @@ fi
 export ORVEX_AGENT_DIR="$(pwd)/.agent"
 export ORVEX_TUI=1
 
-# ── Loop im Hintergrund starten ────────────────────────────────
+# ── Start loop in background ──────────────────────────────────
 LOOP_LOG=".agent/logs/loop.log"
 "$LOOP_SCRIPT" >"$LOOP_LOG" 2>&1 &
 LOOP_PID=$!
@@ -117,11 +117,11 @@ trap cleanup EXIT INT TERM
 
 sleep 1
 if ! kill -0 "$LOOP_PID" 2>/dev/null; then
-  echo "❌  loop_dev.sh ist sofort beendet. Ausgabe:"
+  echo "❌  loop_dev.sh exited immediately. Output:"
   echo ""
   tail -20 "$LOOP_LOG"
   exit 1
 fi
 
-# ── TUI im Vordergrund ────────────────────────────────────────
+# ── Launch TUI in foreground ──────────────────────────────────
 ORVEX_AGENT_DIR="$(pwd)/.agent" "$TUI_BIN"

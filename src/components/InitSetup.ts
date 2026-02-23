@@ -18,31 +18,31 @@ const MODELS = [
   {
     id: "claude-opus-4-6",
     label: "Opus 4.6",
-    desc: "Höchste Qualität · empfohlen für PRD & Architektur",
+    desc: "Highest quality · recommended for PRD & Architecture",
   },
   {
     id: "claude-sonnet-4-6",
     label: "Sonnet 4.6",
-    desc: "Stark & schnell · günstiger",
+    desc: "Strong & fast · cheaper",
   },
   {
     id: "claude-haiku-4-5-20251001",
     label: "Haiku 4.5",
-    desc: "Schnellstes Modell · günstigstes",
+    desc: "Fastest model · most affordable",
   },
 ] as const;
 
 const ROUND_EXPLANATIONS = {
   prd: [
-    "Product Manager, UX Researcher und Business Analyst",
-    "analysieren dein Thema unabhängig, dann reagieren sie",
-    "aufeinander. Die Synthese erstellt PRD.md.",
-    "→ 3 Runden: bei komplexen oder widersprüchlichen Ideen",
+    "Product Manager, UX Researcher and Business Analyst",
+    "analyze your topic independently, then respond to",
+    "each other. The synthesis creates PRD.md.",
+    "→ 3 rounds: for complex or conflicting ideas",
   ],
   arch: [
-    "Software-Architekt, Senior Developer und DevOps Engineer",
-    "entwickeln eine Architektur auf Basis des PRD.",
-    "Die Synthese erstellt architecture.md.",
+    "Software Architect, Senior Developer and DevOps Engineer",
+    "develop an architecture based on the PRD.",
+    "The synthesis creates architecture.md.",
   ],
 };
 
@@ -58,7 +58,7 @@ function ModelSelector(props: {
     h(
       Box,
       { flexDirection: "row", gap: 1 },
-      h(Text, { color: active ? "yellow" : undefined, bold: active }, "Modell:"),
+      h(Text, { color: active ? "yellow" : undefined, bold: active }, "Model:"),
       h(Text, { color: active ? "yellow" : "white", bold: true },
         `  ← ${model.label} →`),
     ),
@@ -92,7 +92,7 @@ function RoundsSelector(props: {
       h(Text, { key: String(i), dimColor: true }, `  ${line}`)
     ),
     h(Text, { dimColor: true },
-      `  1 Runde ≈ 2–3 min  ·  ${value} Runde${value > 1 ? "n" : ""} ≈ ${timeMin}–${timeMax} min`),
+      `  1 round ≈ 2–3 min  ·  ${value} round${value > 1 ? "s" : ""} ≈ ${timeMin}–${timeMax} min`),
   );
 }
 
@@ -113,7 +113,7 @@ export function InitSetup(props: {
   const tryStart = () => {
     onStart({
       description: description.trim() ||
-        "Lies die Projektidee aus vorhandenen Dateien im Projektverzeichnis.",
+        "Read the project idea from existing files in the project directory.",
       model: MODELS[modelIdx].id,
       prdRounds,
       archRounds,
@@ -170,12 +170,12 @@ export function InitSetup(props: {
 
   const hint =
     activeField === "description"
-      ? "[Enter / Tab] Weiter    [Backspace] Löschen"
+      ? "[Enter / Tab] Next    [Backspace] Delete"
       : activeField === "model"
-      ? "[Enter / Tab] Weiter    [← →] Modell wechseln    [1–3] direkt wählen"
+      ? "[Enter / Tab] Next    [← →] Switch model    [1–3] select directly"
       : activeField === "prdRounds"
-      ? "[Enter / Tab] Weiter    [← →] Runden    [1–5] direkt eingeben"
-      : "[Enter] Starten    [Tab] Erstes Feld    [← →] Runden    [1–5] direkt eingeben";
+      ? "[Enter / Tab] Next    [← →] Rounds    [1–5] enter directly"
+      : "[Enter] Start    [Tab] First field    [← →] Rounds    [1–5] enter directly";
 
   return h(
     Box,
@@ -186,7 +186,7 @@ export function InitSetup(props: {
       { flexDirection: "row", gap: 2 },
       h(Text, { bold: true, color: "cyan" }, "Orvex"),
       h(Text, { dimColor: true }, "—"),
-      h(Text, { dimColor: true }, "Neues Projekt einrichten"),
+      h(Text, { dimColor: true }, "Set up new project"),
     ),
     h(Text, { dimColor: true }, divider),
     // Description
@@ -196,10 +196,10 @@ export function InitSetup(props: {
       h(
         Text,
         { bold: activeField === "description", color: activeField === "description" ? "yellow" : undefined },
-        "Projektbeschreibung:",
+        "Project description:",
       ),
-      h(Text, { dimColor: true }, "  Liegt die Idee bereits in einer .txt- oder .md-Datei im Projektordner,"),
-      h(Text, { dimColor: true }, "  kann dieses Feld leer bleiben — die Agenten finden sie automatisch."),
+      h(Text, { dimColor: true }, "  If the idea already exists as a .txt or .md file in the project folder,"),
+      h(Text, { dimColor: true }, "  this field can stay empty — agents will find it automatically."),
       h(
         Box,
         { flexDirection: "row" },
@@ -217,14 +217,14 @@ export function InitSetup(props: {
     }),
     // PRD rounds
     h(RoundsSelector, {
-      label: "PRD-Diskussionsrunden:",
+      label: "PRD discussion rounds:",
       value: prdRounds,
       active: activeField === "prdRounds",
       explanation: ROUND_EXPLANATIONS.prd,
     }),
     // Arch rounds
     h(RoundsSelector, {
-      label: "Architektur-Diskussionsrunden:",
+      label: "Architecture discussion rounds:",
       value: archRounds,
       active: activeField === "archRounds",
       explanation: ROUND_EXPLANATIONS.arch,
@@ -296,13 +296,13 @@ export function ArchSetup(props: {
     }
   });
 
-  const skipHint = onSkip ? "    [Esc] Überspringen" : "";
+  const skipHint = onSkip ? "    [Esc] Skip" : "";
   const hint =
     activeField === "note"
-      ? `[Enter / Tab] Weiter    [Backspace] Löschen${skipHint}`
+      ? `[Enter / Tab] Next    [Backspace] Delete${skipHint}`
       : activeField === "model"
-      ? `[Enter / Tab] Weiter    [← →] Modell wechseln    [1–3] direkt wählen${skipHint}`
-      : `[Enter] Starten    [Tab] Zum ersten Feld    [← →] Runden    [1–5] direkt eingeben${skipHint}`;
+      ? `[Enter / Tab] Next    [← →] Switch model    [1–3] select directly${skipHint}`
+      : `[Enter] Start    [Tab] First field    [← →] Rounds    [1–5] enter directly${skipHint}`;
 
   return h(
     Box,
@@ -313,18 +313,18 @@ export function ArchSetup(props: {
       { flexDirection: "row", gap: 2 },
       h(Text, { bold: true, color: "cyan" }, "Orvex"),
       h(Text, { dimColor: true }, "—"),
-      h(Text, { dimColor: true }, "Architektur generieren"),
+      h(Text, { dimColor: true }, "Generate architecture"),
     ),
     h(Text, { dimColor: true }, divider),
     // PRD info
     h(
       Box,
       { flexDirection: "column", marginTop: 1, marginBottom: 1 },
-      h(Text, {}, `PRD.md gefunden: ${prdTitle}`),
+      h(Text, {}, `PRD.md found: ${prdTitle}`),
       h(Text, { dimColor: true },
-        "Software-Architekt, Senior Developer und DevOps Engineer"),
+        "Software Architect, Senior Developer and DevOps Engineer"),
       h(Text, { dimColor: true },
-        "analysieren das PRD und entwerfen eine Architektur."),
+        "analyze the PRD and design an architecture."),
     ),
     // Note / focus field
     h(
@@ -333,7 +333,7 @@ export function ArchSetup(props: {
       h(
         Text,
         { bold: activeField === "note", color: activeField === "note" ? "yellow" : undefined },
-        "Hinweis / Fokus:  (optional)",
+        "Note / Focus:  (optional)",
       ),
       h(
         Box,
@@ -348,7 +348,7 @@ export function ArchSetup(props: {
     h(ModelSelector, { modelIdx, active: activeField === "model" }),
     // Arch rounds
     h(RoundsSelector, {
-      label: "Diskussionsrunden:",
+      label: "Discussion rounds:",
       value: archRounds,
       active: activeField === "archRounds",
       explanation: ROUND_EXPLANATIONS.arch,
