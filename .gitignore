@@ -1,5 +1,5 @@
 # Compiled binaries
-kinema-tui
+orvex-tui
 
 # Agent runtime files
 .agent/loop.lock

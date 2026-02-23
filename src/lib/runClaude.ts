@@ -1,5 +1,5 @@
 
-const DEBUG_LOG = `${Deno.cwd()}/.kinema-debug.log`;
+const DEBUG_LOG = `${Deno.cwd()}/.orvex-debug.log`;
 
 async function debugLog(msg: string): Promise<void> {
   const ts = new Date().toISOString().slice(11, 23);

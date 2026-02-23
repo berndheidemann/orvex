@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Kinema Agent Loop
+# Orvex Agent Loop
 # Iteriert über Requirements in PRD.md mit Claude Code
 # Sonnet implementiert, Opus wird via Task-Tool für Entscheidungen gerufen.
 #
@@ -79,7 +79,7 @@ for arg in "$@"; do
   case "$arg" in
     [0-9]*) MAX_ITERATIONS="$arg" ;;
     -h|--help)
-      echo -e "${BOLD}Kinema Agent Loop${RESET}"
+      echo -e "${BOLD}Orvex Agent Loop${RESET}"
       echo ""
       echo "Usage: ./loop.sh [N]"
       echo ""
@@ -351,7 +351,7 @@ mkdir -p "$LOG_DIR"
 
 # events.jsonl ist ein Live-Stream der aktuellen Session — beim Start leeren
 # damit die TUI keinen Zustand aus vorherigen Runs zeigt (z.B. alte loop:phase)
-: > "${KINEMA_AGENT_DIR:-.agent}/events.jsonl"
+: > "${ORVEX_AGENT_DIR:-.agent}/events.jsonl"
 
 # ── Crash recovery ───────────────────────────────────────────
 # Reset any in_progress REQs from crashed previous iterations
@@ -607,11 +607,11 @@ tag_iteration() {
 }
 
 # ── TUI Event emitter ─────────────────────────────────────────
-# Writes a JSON line to .agent/events.jsonl when KINEMA_TUI=1.
+# Writes a JSON line to .agent/events.jsonl when ORVEX_TUI=1.
 emit_event() {
-  [[ "${KINEMA_TUI:-0}" != "1" ]] && return
+  [[ "${ORVEX_TUI:-0}" != "1" ]] && return
   local json="$1"
-  echo "$json" >> "${KINEMA_AGENT_DIR:-.agent}/events.jsonl"
+  echo "$json" >> "${ORVEX_AGENT_DIR:-.agent}/events.jsonl"
 }
 
 # ── Agent branch setup ────────────────────────────────────────
@@ -927,7 +927,7 @@ parse_progress() {
 echo ""
 SANDBOX_LABEL=""
 [ "$SANDBOX_MODE" = "1" ] && SANDBOX_LABEL="  ${YELLOW}SANDBOX${RESET}"
-echo -e "${BOLD}Kinema Agent Loop${RESET}  ${DIM}model=${MODEL}  max=$([ "$MAX_ITERATIONS" -eq 0 ] && echo '∞' || echo "$MAX_ITERATIONS")  idle=$(format_duration "$IDLE_TIMEOUT")  hard=$(format_duration "$ITER_TIMEOUT")${RESET}${SANDBOX_LABEL}"
+echo -e "${BOLD}Orvex Agent Loop${RESET}  ${DIM}model=${MODEL}  max=$([ "$MAX_ITERATIONS" -eq 0 ] && echo '∞' || echo "$MAX_ITERATIONS")  idle=$(format_duration "$IDLE_TIMEOUT")  hard=$(format_duration "$ITER_TIMEOUT")${RESET}${SANDBOX_LABEL}"
 
 # ── Pre-loop: init + recovery + branch ──────────────────────
 init_status_json

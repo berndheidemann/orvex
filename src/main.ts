@@ -5,8 +5,8 @@ import { InitDashboard } from "./components/InitDashboard.ts";
 
 const { createElement: h } = React;
 
-const INIT_MODE = Deno.env.get("KINEMA_INIT_MODE") === "1";
-const INIT_DESCRIPTION = Deno.env.get("KINEMA_INIT_DESCRIPTION") ?? "";
+const INIT_MODE = Deno.env.get("ORVEX_INIT_MODE") === "1";
+const INIT_DESCRIPTION = Deno.env.get("ORVEX_INIT_DESCRIPTION") ?? "";
 
 // Auto-detect project state from filesystem:
 //   bothExist  → PRD.md + architecture.md vorhanden → direkt zum Dashboard
@@ -46,7 +46,7 @@ function App(): React.ReactElement {
   return h(
     Box,
     { flexDirection: "column" },
-    h(Text, { bold: true, color: "cyan" }, "Kinema"),
+    h(Text, { bold: true, color: "cyan" }, "Orvex"),
     h(Text, { dimColor: true }, "─".repeat(40)),
     h(Dashboard, null),
   );

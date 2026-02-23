@@ -184,7 +184,7 @@ export function InitSetup(props: {
     h(
       Box,
       { flexDirection: "row", gap: 2 },
-      h(Text, { bold: true, color: "cyan" }, "Kinema"),
+      h(Text, { bold: true, color: "cyan" }, "Orvex"),
       h(Text, { dimColor: true }, "—"),
       h(Text, { dimColor: true }, "Neues Projekt einrichten"),
     ),
@@ -311,7 +311,7 @@ export function ArchSetup(props: {
     h(
       Box,
       { flexDirection: "row", gap: 2 },
-      h(Text, { bold: true, color: "cyan" }, "Kinema"),
+      h(Text, { bold: true, color: "cyan" }, "Orvex"),
       h(Text, { dimColor: true }, "—"),
       h(Text, { dimColor: true }, "Architektur generieren"),
     ),
