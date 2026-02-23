@@ -362,7 +362,7 @@ recover_in_progress() {
     echo -e "  ${YELLOW}Crash recovery: $count REQ(s) stuck in 'in_progress' → resetting to 'open'${RESET}"
     jq 'map_values(if .status == "in_progress" then .status = "open" else . end)' \
       "$STATUS_JSON" > "${STATUS_JSON}.tmp" && mv "${STATUS_JSON}.tmp" "$STATUS_JSON"
-    sed -i '' 's/^\- \*\*Status:\*\* in_progress/- **Status:** open/' "$PRD_FILE"
+    sed -i.bak 's/^\- \*\*Status:\*\* in_progress/- **Status:** open/' "$PRD_FILE" && rm -f "${PRD_FILE}.bak"
     git add "$STATUS_JSON" "$PRD_FILE" && \
       git commit -m "loop.sh: crash recovery — reset in_progress REQs to open" 2>/dev/null || true
   fi
@@ -554,7 +554,13 @@ kill_dev_servers() {
   local ports_arg
   ports_arg=$(echo "$DEV_PORTS" | tr ',' '\n' | paste -sd ',' -)
   local pids
-  pids=$(lsof -ti:"$ports_arg" 2>/dev/null || true)
+  if command -v lsof &>/dev/null; then
+    pids=$(lsof -ti:"$ports_arg" 2>/dev/null || true)
+  else
+    pids=$(for port in $(echo "$ports_arg" | tr ',' ' '); do
+      ss -tlnp "sport = :$port" 2>/dev/null | grep -o 'pid=[0-9]*' | cut -d= -f2
+    done)
+  fi
   if [ -n "$pids" ]; then
     echo -e "  ${DIM}Cleaning up leftover processes on ports ${DEV_PORTS}${RESET}"
     echo "$pids" | xargs kill -9 2>/dev/null || true
