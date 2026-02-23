@@ -11,17 +11,18 @@ Du bist ein autonomer Entwicklungs-Agent. Du arbeitest **eine Arbeitseinheit pro
 ## Phase 1: Orient
 
 1. Lies `.agent/context.md` — Projektstatus, was existiert, aktuelle Erkenntnisse
-2. Lies `.agent/architecture.md` — bestehende Architekturentscheidungen (verletze diese nicht!)
+2. Lies `architecture.md` — bestehende Architekturentscheidungen (verletze diese nicht!)
 3. Lies `.agent/learnings.md` — persistente Erkenntnisse aus früheren Iterationen
 4. Lies `PRD.md` — finde das nächste offene Requirement:
    - Priorität: P0 > P1 > P2
    - Bei gleicher Priorität: niedrigste REQ-Nummer zuerst
    - Alle `Abhängig von`-REQs müssen in `.agent/status.json` Status `done` haben
    - **Hinweis:** `.agent/status.json` ist die autoritative Quelle für REQ-Status — nicht PRD.md
-5. **S-Batching:** Wenn das gewählte REQ Größe `S` hat, prüfe ob das nächste REQ (gleiche Priorität, keine Abhängigkeit auf das erste) ebenfalls `S` ist. Falls ja, bearbeite beide in dieser Iteration. Max 3 S-REQs pro Iteration. Jedes S-REQ durchläuft Phase 3 und Phase 4 einzeln — gemeinsame Phase 5 am Ende.
+5. **REQ-000 (Walking Skeleton):** Falls REQ-000 offen ist, wird es immer zuerst gewählt — unabhängig von anderen P0-REQs. Implementiere ausschließlich Infrastruktur: Abhängigkeiten, Build, Linter, Test-Runner, Dev-Server, eine minimale E2E-Schicht ohne Business-Inhalt. Keine Datenmodelle mit echten Inhalten, keine Business-Logik, keine UI-Features.
+6. **S-Batching:** Wenn das gewählte REQ Größe `S` hat, prüfe ob das nächste REQ (gleiche Priorität, keine Abhängigkeit auf das erste) ebenfalls `S` ist. Falls ja, bearbeite beide in dieser Iteration. Max 3 S-REQs pro Iteration. Jedes S-REQ durchläuft Phase 3 und Phase 4 einzeln — gemeinsame Phase 5 am Ende. **XS wird wie S behandelt (kein Opus-Planner, batchbar).**
    - **Import-Check:** Würde die Implementierung eines Batch-Kandidaten Code importieren oder aufrufen, den ein anderes REQ im Batch erst erzeugt? Falls ja: dieses REQ NICHT in den Batch aufnehmen.
    - **Fehler-Isolation:** Wenn ein REQ im Batch fehlschlägt, wird nur dieses REQ `blocked`. Die anderen REQs im Batch können unabhängig `done` werden.
-6. Wenn kein offenes REQ verfügbar → gib Status-Block aus und beende
+7. Wenn kein offenes REQ verfügbar → gib Status-Block aus und beende
 
 **Output:** "Nächstes REQ: REQ-XXX — [Titel]" (bei Batch: "Batch: REQ-XXX + REQ-YYY")
 
@@ -56,7 +57,12 @@ Falls Preflight fehlschlägt und der Fehler **nicht** zum aktuellen REQ gehört:
 
 ## Phase 2.5: Planning (für M-sized REQs)
 
-**Nur für Requirements mit Größe M.** Für S-REQs: überspringe diese Phase und implementiere direkt.
+**Gilt für Größe M und L.** XS und S implementiere direkt ohne Planner.
+
+**Vorbereitung:** Bevor du Opus aufrufst, ermittle welche bestehenden Dateien
+für dieses REQ relevant sind (anhand der Akzeptanzkriterien und der Projektstruktur
+die du in Phase 1 gelesen hast). Füge ihre Pfade unter `## Relevante Dateien`
+im Opus-Prompt ein — je vollständiger der Kontext, desto besser der Plan.
 
 Rufe Opus als Architektur-Planner auf:
 
@@ -67,7 +73,7 @@ Task(subagent_type="general-purpose", model="opus", prompt="
   ## Aufgabe
   Lies zuerst diese Dateien für Kontext:
   - .agent/context.md (Projektstatus)
-  - .agent/architecture.md (bestehende Architekturentscheidungen)
+  - architecture.md (bestehende Architekturentscheidungen)
   - .agent/learnings.md (Erkenntnisse aus früheren Iterationen)
 
   ## Akzeptanzkriterien
@@ -169,7 +175,68 @@ Ausgelöst durch `FULL_VERIFY=1` (loop_dev.sh setzt dies alle 3 Iterationen):
 - Fehlerfälle und Edge Cases in der UI testen
 - Regressionscheck: haben frühere REQs noch funktioniert?
 
-### 4.5 Fehlerbehandlung
+### 4.5 Content & Visual QM (situativ)
+
+Nur ausführen wenn das REQ **inhaltliche Artefakte** produziert — also nicht primär Logik oder Infrastruktur, sondern:
+
+- **Text-Content:** Übungsaufgaben, Erklärungen, Lerntexte, generierte Antworten, Quiz-Inhalte, Beschreibungen
+- **Visueller Content:** SVGs, Diagramme, Illustrationen, Charts
+- **Interaktive Visualisierungen:** Animationen, interaktive Grafiken, Canvas-Darstellungen, visuelle Simulationen
+
+Wenn einer dieser Typen vorliegt, rufe einen unabhängigen Content-Reviewer via Task auf:
+
+```
+Task(
+  subagent_type: "general-purpose",
+  prompt: """
+  Du bist ein kritischer Content-Reviewer. Deine Aufgabe: echte Fehler finden.
+  Kein Befund ist auch eine valide Antwort — erfinde keine Kritik.
+
+  ## Was wurde implementiert
+  [REQ-ID und kurze Beschreibung was produziert wurde]
+
+  ## Zu prüfende Artefakte
+  [Dateipfade / URLs / Datenbankeinträge mit dem generierten Content]
+
+  ## Prüfkriterien je Typ
+
+  **Bei Text-Content:**
+  - Sind Fakten, Formeln, Definitionen korrekt?
+  - Bei Übungsaufgaben: Stimmt die Musterlösung? Ist die Aufgabenstellung eindeutig?
+  - Passen Schwierigkeitsgrad und Lernziel zusammen?
+  - Gibt es widersprüchliche Aussagen im Content?
+
+  **Bei SVGs / Diagrammen:**
+  - Zeigt die Grafik tatsächlich was sie zeigen soll?
+  - Sind beschriftete Elemente korrekt zugeordnet?
+  - Sind Proportionen / Achsen / Skalen korrekt?
+
+  **Bei interaktiven Visualisierungen / Animationen:**
+  - Nimm Screenshots via Playwright in verschiedenen Zuständen
+  - Zeigt die Animation den richtigen Ablauf / das richtige Konzept?
+  - Reagiert die Interaktion korrekt auf Nutzereingaben?
+  - Stimmt das Dargestellte mit dem fachlichen Inhalt überein?
+
+  ## Output
+  Liste gefundener Fehler (konkret, mit Fundstelle).
+  Falls keine echten Fehler: "Keine Befunde."
+  """
+)
+```
+
+**Zuverlässigkeit:** Der Reviewer ist zuverlässig für nachprüfbare Fakten (Mathe, Logik, Code-Snippets). Bei subjektivem Content (Formulierungen, Stil) nicht überbewerten — Reviewer-Kritik ist ein Hinweis, kein Urteil.
+
+**Bei Befunden — Fix-Pfad bestimmen:**
+
+Lies zuerst den `#### Content-Verifikation`-Abschnitt des REQs in PRD.md. Der beschreibt wie Content neu generiert wird. Falls der Abschnitt fehlt: REQ-Spezifikation ist unvollständig — stoppe und ergänze ihn bevor du weiterarbeitest.
+
+- **Statischer Content** (Content steht direkt in einer Datei): Datei direkt editieren → Content-QM nochmal
+- **Generator-Fehler** (Content wird zur Laufzeit erzeugt via Prompt, Algorithmus, Template): Generator fixen (Prompt, Template, Logik) → Re-Generierung mit dem in `#### Content-Verifikation` beschriebenen Befehl → Output prüfen → Content-QM nochmal
+- **DB-gespeicherter Content** (Content wurde bei Setup/Migration generiert und in DB geschrieben): Generator fixen → Seeder/Migration neu ausführen → Content-QM nochmal — direktes Patchen von DB-Einträgen nur als letzter Ausweg und mit Kommentar
+
+Content-QM gilt als bestanden erst wenn der Reviewer-Task "Keine Befunde" zurückgibt.
+
+### 4.6 Fehlerbehandlung
 
 - **Verify-Fehler** → beheben (max 3 Versuche)
 - **Nicht behebbar** → Status `blocked`, Begründung, beenden
@@ -214,7 +281,19 @@ Prüfe die in dieser Iteration **neu erstellten und geänderten Dateien** auf en
 - Unerwartetes Verhalten, Workarounds, Kompatibilitätsprobleme
 - Format: `### [Datum] — [Thema]` + kurze Beschreibung (max 5 Zeilen)
 
-**`.agent/architecture.md` — nur appenden** wenn neue Architekturentscheidungen getroffen wurden:
+**`architecture.md` — nur appenden** wenn neue Architekturentscheidungen getroffen wurden.
+
+**Typ-Klassifikation (Pflicht für jedes neue ADR):**
+
+- **Typ A** — reine Implementierungsentscheidung (wie etwas gebaut wird, kein Requirement betroffen): kein zusätzliches Feld nötig.
+- **Typ B** — schränkt ein Requirement inhaltlich ein (was gebaut wird, ändert sich):
+  1. Füge `**Einschränkt:** REQ-XXX, REQ-YYY` in das ADR ein
+  2. Füge in **jedes betroffene REQ** in `PRD.md` einen Block ein:
+     ```markdown
+     #### Architekturelle Einschränkung (ADR-NNN)
+     [Ein Satz: was genau durch dieses ADR eingeschränkt wird und was das konkret bedeutet]
+     ```
+
 ```markdown
 ---
 
@@ -224,6 +303,7 @@ Prüfe die in dieser Iteration **neu erstellten und geänderten Dateien** auf en
 **Entscheidung:** [Was wurde entschieden?]
 **Begründung:** [Warum diese Option?]
 **Konsequenzen:** [Was folgt daraus?]
+**Einschränkt:** REQ-XXX, REQ-YYY  ← nur bei Typ B, sonst weglassen
 ```
 
 ### 5.2 PRD.md updaten
@@ -277,6 +357,7 @@ notes: [Kurze Notiz]
 - [ ] Git Commit erstellt (Code + Artefakte, kein amend!)
 - [ ] `.agent/status.json` finalisiert und committet (NACH dem Code-Commit!)
 - [ ] `PRD.md` aktualisiert (best-effort)
+- [ ] Typ-B-ADRs: `#### Architekturelle Einschränkung (ADR-NNN)` in alle betroffenen REQs in PRD.md eingetragen (falls neue Typ-B-ADRs entstanden)
 - [ ] `.agent/context.md` neu geschrieben
 - [ ] `.agent/learnings.md` ergänzt (falls Erkenntnisse)
 
@@ -307,3 +388,4 @@ Opus schreibt keinen Code — es liefert Entscheidungen und Pläne.
 12. **Bei Failure:** `blocked` in status.json + PRD.md, Begründung, Commit, Status-Block, beenden
 13. **Scope-Guard — geschützte Dateien:** `AGENT.md`, `VALIDATOR.md`, `REFACTOR.md`, `loop.sh` darf der Agent NICHT verändern
 14. **Turn-Budget:** ~100 Turns pro Iteration. Ab Turn 80: nur noch abschließen, committen, Status-Block ausgeben.
+15. **Typ-B-ADRs annotieren** — jedes ADR mit `**Einschränkt:** REQ-XXX` muss das betroffene REQ in `PRD.md` mit `#### Architekturelle Einschränkung (ADR-NNN)` annotieren. Bei Widerspruch zwischen PRD und architecture.md gilt architecture.md — aber der Widerspruch muss im PRD sichtbar sein.

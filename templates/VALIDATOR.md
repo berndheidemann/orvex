@@ -12,9 +12,14 @@ Prüfe ob die letzten Iterationen des Sonnet-Agenten tatsächlich funktionieren.
 
 ## Phase 1: Kontext laden
 
-1. Lies `.agent/context.md`, `.agent/architecture.md`, `.agent/learnings.md`
+1. Lies `.agent/context.md`, `architecture.md`, `.agent/learnings.md`
 2. Lies `.agent/status.json` — aktuelle REQ-Status
-3. Lies `PRD.md` — Akzeptanzkriterien der als `done` markierten REQs
+3. Lies `PRD.md` vollständig:
+   - Akzeptanzkriterien aller als `done` markierten REQs
+   - **Abschnitt `## User Journeys`**: Notiere für jede UJ die enthaltenen Schritte, den Fehlerfall und welche REQs sie berührt. Klassifiziere:
+     - **Vollständig testbar**: alle REQs dieser UJ haben Status `done`
+     - **Teilweise testbar**: mindestens ein REQ `done`, aber nicht alle — teste soweit möglich, notiere wo die Journey abbricht
+     - **Nicht testbar**: kein relevantes REQ ist `done` — überspringen
 4. Die **Log-Zusammenfassungen** der letzten Iterationen sind unten injiziert. Für Details lies die vollen Logs in `.agent/logs/iter-NNN.jsonl` per Read-Tool.
 
 ---
@@ -48,11 +53,30 @@ Du darfst keinen Code SCHREIBEN, aber du darfst bestehende Tests ausführen und 
 
 **Bei UI-Projekten: Playwright-Pflicht**
 
-Nutze MCP Playwright gegen die **laufende Applikation** — nicht gegen statisches HTML, nicht gegen Mocks:
-- Führe die in der PRD beschriebene User Journey vollständig durch, von Anfang bis Ende
-- Teste als unabhängiger Akteur: ignoriere was der Agent getestet hat und teste selbst
-- Teste mindestens einen Fehlerfall pro REQ (falsche Eingabe, fehlende Auth, Edge Case)
+Nutze MCP Playwright gegen die **laufende Applikation** — nicht gegen statisches HTML, nicht gegen Mocks.
+
+**User Journeys zuerst (wichtigster Test-Block)**
+
+Führe für jede **vollständig** oder **teilweise testbare** UJ folgende Schritte durch:
+
+1. **Starte frisch** — kein State aus vorherigen Tests, frischer Browser-Context oder Logout
+2. **Happy Path**: Führe jeden Schritt der UJ exakt so durch, wie ein echter Nutzer ohne Vorwissen es täte. Halte dich an die Beschreibung in der PRD — verwende reale Testdaten (keine Platzhalter), echte Eingabefelder, echte Buttons
+3. **Fehlerfall** (wie in der PRD unter dieser UJ beschrieben): Führe den Fehlerfall vollständig durch. Prüfe ob die App korrekt reagiert (Fehlermeldung, kein Absturz, Recovery)
+4. **Edge Cases**: Leere Eingaben, sehr lange Strings, Doppelklick, Browser-Back während eines Flows — mindestens einer pro UJ
+
+**Klassifiziere jeden Fehlschlag:**
+- **Bug** → Schritt schlägt fehl, das zugehörige REQ hat Status `done`: Revert das REQ auf `open` (Phase 4)
+- **Erwartet** → Schritt schlägt fehl, das zugehörige REQ hat Status `open` oder `blocked`: Nur notieren, kein Revert
+- **Journey-Abbruch** → Journey bricht ab weil ein `open`-REQ fehlt: Dokumentiere den Abbruchpunkt, teste was bis dahin möglich ist
+
+Nach den UJ-Tests:
+- Teste mindestens einen **REQ-spezifischen Fehlerfall** für jedes `done`-REQ das in **keiner** UJ vorkommt
 - Wenn die App nicht läuft: dokumentiere das als Preflight-Failure, nicht als REQ-Fehler
+
+**Teste als echter Nutzer:**
+- Keine internen API-Aufrufe die ein Nutzer nicht kennt
+- Keine direkten URL-Hacks die den normalen Flow umgehen
+- Starte jede Journey vom Einstiegspunkt (Login-Screen, Landing Page, etc.)
 
 **Bei API/Backend-Projekten:**
 - Alle vorhandenen Unit-, Integrations- und E2E-Tests ausführen
@@ -64,7 +88,32 @@ Wenn für ein Akzeptanzkriterium keine Verifikation möglich ist: dokumentiere a
 - Verwende kein internes Wissen das ein echter Nutzer nicht hätte
 - Teste nicht nur den Happy-Path — teste realistische Szenarien
 
-### 3.3 Log-Analyse
+### 3.3 Content & Visual QM (situativ)
+
+Für jedes `done`-REQ das einen `#### Content-Verifikation`-Abschnitt in PRD.md hat — das ist das Erkennungsmerkmal für Content-REQs.
+
+Du bist unabhängiger Reviewer. **Plane max. 3 Turns pro Content-REQ** für diesen Block — nicht mehr, sonst gefährdest du das Turn-Budget für Log-Analyse und Korrekturen.
+
+**Text-Content** (`**Content-Typ:** text`):
+- Lies den Content direkt aus Datei, DB oder API-Response (1 Read/Bash-Call)
+- Prüfe: Fakten, Formeln, Definitionen nachweislich korrekt? Musterlösungen stimmig? Widersprüche zu anderen `done`-REQs?
+- Kein Playwright — reine Textprüfung
+
+**Visual-Content** (`**Content-Typ:** visual` — nur dann Playwright):
+- 1 Screenshot via Playwright, dann visuell beurteilen
+- Zeigt die Grafik was sie soll? Beschriftungen korrekt? Skalen plausibel?
+- Mehr als 1 Screenshot nur wenn eindeutig nötig
+
+**Interaktiver Content** (`**Content-Typ:** interactive` — nur dann Playwright):
+- Max. 2 Screenshots in verschiedenen Zuständen
+- Stimmt das dargestellte Konzept? Reagiert die Interaktion korrekt?
+
+**Klassifizierung:**
+- **Inhaltsfehler** (falsche Antwort, falsche Darstellung) → REQ zurücksetzen (`done` → `open`); in `context.md` dokumentieren: was falsch war, ob es ein statischer oder Generator-Fehler ist, wie er behoben werden muss
+- **Kleinere Unschärfen** → `needs_recheck` flaggen, in `context.md` beschreiben
+- **Kein Befund** → explizit als ✅ dokumentieren
+
+### 3.4 Log-Analyse
 
 Prüfe die Iteration-Logs auf:
 
