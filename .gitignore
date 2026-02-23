@@ -1,0 +1,11 @@
+# Compiled binaries
+kinema-tui
+
+# Agent runtime files
+.agent/loop.lock
+.agent/status.json.bak
+.agent/logs/
+.agent/iterations.jsonl
+
+# macOS
+.DS_Store
