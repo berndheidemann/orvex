@@ -210,7 +210,7 @@ function SynthDoneUI(props: {
     h(
       Box,
       { flexDirection: "row", gap: 2 },
-      h(Text, { bold: true, color: "cyan" }, "Kinema"),
+      h(Text, { bold: true, color: "cyan" }, "Orvex"),
       h(Text, { dimColor: true }, "—"),
       h(Text, { bold: true, color: "green" }, `✓  ${title}`),
     ),
@@ -297,7 +297,7 @@ function ReviewUI(props: {
     h(
       Box,
       { flexDirection: "row", gap: 2 },
-      h(Text, { bold: true, color: "cyan" }, "Kinema"),
+      h(Text, { bold: true, color: "cyan" }, "Orvex"),
       h(Text, { dimColor: true }, "—"),
       h(Text, { bold: true }, typeLabel),
     ),
@@ -573,7 +573,7 @@ function InitRunner(props: {
     h(
       Box,
       { flexDirection: "row", gap: 2 },
-      h(Text, { bold: true, color: "cyan" }, "Kinema"),
+      h(Text, { bold: true, color: "cyan" }, "Orvex"),
       h(Text, { dimColor: true }, "—"),
       h(Text, { dimColor: true }, "Projekt-Setup"),
     ),
@@ -699,9 +699,9 @@ export function InitDashboard(props: {
     (skipSetup || archOnly)
       ? {
           description: initialDescription,
-          model: Deno.env.get("KINEMA_INIT_MODEL") ?? "claude-opus-4-6",
-          prdRounds: Number(Deno.env.get("KINEMA_INIT_ROUNDS") ?? "3"),
-          archRounds: Number(Deno.env.get("KINEMA_INIT_ROUNDS") ?? "3"),
+          model: Deno.env.get("ORVEX_INIT_MODEL") ?? "claude-opus-4-6",
+          prdRounds: Number(Deno.env.get("ORVEX_INIT_ROUNDS") ?? "3"),
+          archRounds: Number(Deno.env.get("ORVEX_INIT_ROUNDS") ?? "3"),
         }
       : null
   );

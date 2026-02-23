@@ -19,7 +19,7 @@ const { createElement: h, useState, useEffect, useRef } = React;
 const MAX_BLOCKED_ENTRIES = 3;
 
 // Fixed rows consumed outside the feed entry list:
-// main.ts: "Kinema" + divider = 2
+// main.ts: "Orvex" + divider = 2
 // Dashboard: status + REQ bar + Phase bar + 2 dividers + hint = 6
 // ActivityFeed: header + divider + iter line = 3  → total = 11
 const FEED_OVERHEAD = 11;

@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
-# kinema — Unified entry point for the Kinema agent framework
-# Usage: cd my-project && /path/to/kinema [init]
+# orvex — Unified entry point for the Orvex agent framework
+# Usage: cd my-project && /path/to/orvex [init]
 set -euo pipefail
 
-FRAMEWORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve symlinks so the framework dir is always the repo root,
+# even when orvex is invoked via a symlink in /usr/local/bin.
+_SELF="${BASH_SOURCE[0]}"
+while [ -L "$_SELF" ]; do _SELF="$(readlink "$_SELF")"; done
+FRAMEWORK_DIR="$(cd "$(dirname "$_SELF")" && pwd)"
+unset _SELF
 LOOP_SCRIPT="$FRAMEWORK_DIR/loop_dev.sh"
-TUI_BIN="$FRAMEWORK_DIR/kinema-tui"
+TUI_BIN="$FRAMEWORK_DIR/orvex-tui"
 TEMPLATES_DIR="$FRAMEWORK_DIR/templates"
 
-# ── Init-Logik (shared zwischen 'kinema init' und leerem Ordner) ─
+# ── Init-Logik (shared zwischen 'orvex init' und leerem Ordner) ─
 do_init() {
   for f in AGENT.md VALIDATOR.md; do
     if [ -f "$f" ]; then
@@ -22,8 +27,8 @@ do_init() {
   mkdir -p .agent
 
   # Launch TUI in init mode — user enters description and round counts there
-  KINEMA_INIT_MODE=1 \
-  KINEMA_AGENT_DIR="$(pwd)/.agent" \
+  ORVEX_INIT_MODE=1 \
+  ORVEX_AGENT_DIR="$(pwd)/.agent" \
   "$TUI_BIN"
 
   echo ""
@@ -46,14 +51,14 @@ do_init() {
   echo "  KI-Entwürfe sind ein erster Aufschlag —"
   echo "  kein Ersatz für dein Domänenwissen."
   echo ""
-  echo "  Wenn alles bereit ist: kinema erneut starten"
+  echo "  Wenn alles bereit ist: orvex erneut starten"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   exit 0
 }
 
-# ── kinema init ───────────────────────────────────────────────
+# ── orvex init ────────────────────────────────────────────────
 if [ "${1:-}" = "init" ]; then
-  echo "Kinema — Projekt initialisieren"
+  echo "Orvex — Projekt initialisieren"
   echo ""
   do_init
 fi
@@ -96,8 +101,8 @@ if [ -f .agent/status.json ]; then
   fi
 fi
 
-export KINEMA_AGENT_DIR="$(pwd)/.agent"
-export KINEMA_TUI=1
+export ORVEX_AGENT_DIR="$(pwd)/.agent"
+export ORVEX_TUI=1
 
 # ── Loop im Hintergrund starten ────────────────────────────────
 LOOP_LOG=".agent/logs/loop.log"
@@ -119,4 +124,4 @@ if ! kill -0 "$LOOP_PID" 2>/dev/null; then
 fi
 
 # ── TUI im Vordergrund ────────────────────────────────────────
-KINEMA_AGENT_DIR="$(pwd)/.agent" "$TUI_BIN"
+ORVEX_AGENT_DIR="$(pwd)/.agent" "$TUI_BIN"

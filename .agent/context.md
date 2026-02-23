@@ -11,7 +11,7 @@
 ## Was existiert
 - loop_dev.sh — Orchestrator + FIFO/Pause-Kontrolle (REQ-009)
 - deno.json — Tasks: dev, build, check; Dependencies: ink@5, react@18
-- src/main.ts — Ink-TUI, zeigt Kinema-Header + Dashboard
+- src/main.ts — Ink-TUI, zeigt Orvex-Header + Dashboard
 - src/types.ts — ReqStatus, ReqEntry, IterationEntry, StatusData, STATUS_COLORS
 - src/hooks/useStatusPoller.ts — Pollt .agent/status.json alle 2s
 - src/hooks/useElapsedTime.ts — Laufzeit-Hook (mm:ss)
