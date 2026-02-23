@@ -61,6 +61,36 @@
 
 ## Requirements
 
+### REQ-000: Walking Skeleton — Technisches Grundgerüst
+
+- **Status:** open
+- **Priorität:** P0
+- **Größe:** M
+- **Abhängig von:** ---
+
+#### Beschreibung
+Baue das vollständige technische Grundgerüst entsprechend `architecture.md`. Kein Business-Inhalt — nur Infrastruktur: alle Abhängigkeiten installiert, Build-System, Linter, Test-Runner konfiguriert, Development-Server lauffähig, eine minimale E2E-Schicht durch alle architekturellen Schichten (z.B. ein Hello-World-Endpunkt der eine DB-Query ausführt und im Frontend angezeigt wird — ohne Businesslogik).
+
+#### Akzeptanzkriterien
+- [ ] Alle Abhängigkeiten installiert (`npm ci`), keine Versionskonflikte
+- [ ] Build erfolgreich (`vite build` + `tsc -p tsconfig.server.json` — keine Fehler)
+- [ ] TypeScript strict-Check grün (`tsc --noEmit`)
+- [ ] Linter grün (`eslint src/` — keine Fehler)
+- [ ] Vitest Unit- und Contract-Tests starten und laufen durch (0 failures)
+- [ ] Vitest Integration-Tests mit In-Memory-SQLite laufen durch
+- [ ] Drizzle-Schema + alle Migrationen + FTS5-Trigger ausgeführt
+- [ ] Fastify-Server startet auf `127.0.0.1:3000`, bindet ausschließlich auf Loopback
+- [ ] `/api/health` antwortet mit HTTP 200 (inkl. DB-Status)
+- [ ] React-SPA wird vom Fastify-Server ausgeliefert (`curl http://127.0.0.1:3000` → HTTP 200)
+- [ ] LLMGateway-Skeleton mit Mock-Provider vorhanden (kein echter API-Key nötig)
+- [ ] Alle Adapter-Interfaces + Mock-Implementierungen vorhanden (QuoteProvider, WebSearchProvider)
+- [ ] `npm run validate` grün (typecheck + lint + test + test:contracts + test:integration + build)
+
+#### Verifikation
+`npm run validate` grün; `npm start` startet ohne Fehler; `curl http://127.0.0.1:3000/api/health` → HTTP 200 mit `{"status":"ok","db":"ok"}`
+
+---
+
 ### REQ-001: Aktie hinzufügen und Depot verwalten
 
 - **Status:** open

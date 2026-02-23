@@ -71,7 +71,20 @@ export function useKeyboardControls(): ControlState {
 
       case "q": {
         setQuitting(true);
-        setTimeout(() => exit(), 80);
+        // Send SIGTERM to the loop process so it can clean up gracefully.
+        // The loop writes its PID to .agent/loop.lock and handles TERM via trap.
+        Deno.readTextFile(`${AGENT_DIR}/loop.lock`)
+          .then((pid) => {
+            const trimmed = pid.trim();
+            if (trimmed) {
+              new Deno.Command("kill", {
+                args: ["-TERM", trimmed],
+                stdin: "null", stdout: "null", stderr: "null",
+              }).spawn();
+            }
+          })
+          .catch(() => { /* lock file missing = loop not running, just exit */ })
+          .finally(() => setTimeout(() => exit(), 300));
         break;
       }
 

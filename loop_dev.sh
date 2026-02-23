@@ -57,7 +57,7 @@ PRD_FILE="PRD.md"
 MODEL="sonnet"
 PROMPT_FILE="AGENT.md"
 ITER_TIMEOUT="${ITER_TIMEOUT:-1800}"  # 30 min hard max, override via env
-IDLE_TIMEOUT="${IDLE_TIMEOUT:-300}"   # 5 min without output → kill (override via env)
+IDLE_TIMEOUT="${IDLE_TIMEOUT:-900}"   # 15 min without output → kill (override via env)
 SAFE_BRANCH="${SAFE_BRANCH:-1}"       # Auto-create agent branch
 SANDBOX_MODE="${SANDBOX_MODE:-0}"     # Skip environment checks
 FULL_VERIFY_OVERRIDE="${FULL_VERIFY:-0}"
@@ -1288,16 +1288,22 @@ while :; do
     if [ -n "$REPEAT_REQ" ]; then
       REPEAT_COUNT=$(tail -3 "$ITER_LOG" | grep -c "\"req_hint\":.*$REPEAT_REQ" 2>/dev/null || echo "0")
       if [ "$REPEAT_COUNT" -ge 3 ]; then
-        echo -e "  ${RED}${BOLD}REQ $REPEAT_REQ attempted 3 times in a row — auto-blocking${RESET}"
-        jq --arg req "$REPEAT_REQ" \
-          '.[$req].status = "blocked" | .[$req].notes = "Auto-blocked: 3 consecutive failed attempts"' \
-          "$STATUS_JSON" > "${STATUS_JSON}.tmp" && mv "${STATUS_JSON}.tmp" "$STATUS_JSON"
-        emit_event "$(jq -nc \
-          --argjson ts "$(( $(date +%s) * 1000 ))" \
-          --argjson iter "$ITERATION" \
-          --arg reqId "$REPEAT_REQ" \
-          --arg reason "Auto-blocked: 3 consecutive failed attempts" \
-          '{"type":"req:status","ts":$ts,"iter":$iter,"reqId":$reqId,"from":"in_progress","to":"blocked","reason":$reason}')"
+        # Check if agent already marked it done on the 3rd attempt
+        _repeat_current_status=$(jq -r --arg req "$REPEAT_REQ" '.[$req].status // ""' "$STATUS_JSON" 2>/dev/null || echo "")
+        if [ "$_repeat_current_status" = "done" ]; then
+          echo -e "  ${DIM}REQ $REPEAT_REQ: 3 attempts, but status=done — skipping auto-block${RESET}"
+        else
+          echo -e "  ${RED}${BOLD}REQ $REPEAT_REQ attempted 3 times in a row — auto-blocking${RESET}"
+          jq --arg req "$REPEAT_REQ" \
+            '.[$req].status = "blocked" | .[$req].notes = "Auto-blocked: 3 consecutive failed attempts"' \
+            "$STATUS_JSON" > "${STATUS_JSON}.tmp" && mv "${STATUS_JSON}.tmp" "$STATUS_JSON"
+          emit_event "$(jq -nc \
+            --argjson ts "$(( $(date +%s) * 1000 ))" \
+            --argjson iter "$ITERATION" \
+            --arg reqId "$REPEAT_REQ" \
+            --arg reason "Auto-blocked: 3 consecutive failed attempts" \
+            '{"type":"req:status","ts":$ts,"iter":$iter,"reqId":$reqId,"from":"in_progress","to":"blocked","reason":$reason}')"
+        fi
       fi
     fi
   fi
