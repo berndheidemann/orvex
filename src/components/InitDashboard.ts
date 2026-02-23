@@ -107,7 +107,7 @@ function PhaseBlockCompact(props: {
         phase.status === "running" ? `▶  ${phase.label}` :
         `○  ${phase.label}`),
       phase.status === "pending"
-        ? h(Text, { dimColor: true }, "(wartet)")
+        ? h(Text, { dimColor: true }, "(waiting)")
         : null,
     ),
     h(
@@ -167,17 +167,17 @@ function SynthDoneUI(props: {
     const prdTitleMatch = state.fileContent.match(/^#\s+PRD\s+[—-]+\s*(.+)$/m);
     const prdTitle = prdTitleMatch ? prdTitleMatch[1].trim() : "";
     const statusLine = state.existing
-      ? `○  PRD.md gefunden — ${state.items.length} Requirements`
-      : `✓  PRD.md erstellt — ${state.items.length} Requirements gefunden`;
+      ? `○  PRD.md found — ${state.items.length} requirements`
+      : `✓  PRD.md created — ${state.items.length} requirements found`;
     const introLines = state.existing
       ? [
-          "Möchtest du die Requirements einzeln reviewen,",
-          "oder direkt zur Architektur-Erstellung weitergehen?",
+          "Would you like to review each requirement individually,",
+          "or continue directly to architecture generation?",
         ]
       : [
-          "Das Review gibt dir die Möglichkeit, jedes Requirement",
-          "einzeln zu prüfen, anzupassen oder von Opus umschreiben",
-          "zu lassen. Änderungen werden direkt in PRD.md gespeichert.",
+          "The review lets you inspect each requirement individually,",
+          "adjust it, or have Opus rewrite it.",
+          "Changes are saved directly to PRD.md.",
         ];
     lines = [
       statusLine,
@@ -201,8 +201,8 @@ function SynthDoneUI(props: {
 
   const visibleLines = lines.slice(scrollOffset, scrollOffset + viewportH);
   const title = type === "prd"
-    ? (state.existing ? "PRD.md — Review" : "PRD.md erstellt")
-    : "architecture.md erstellt";
+    ? (state.existing ? "PRD.md — Review" : "PRD.md created")
+    : "architecture.md created";
 
   return h(
     Box,
@@ -230,14 +230,14 @@ function SynthDoneUI(props: {
       { flexDirection: "row", gap: 3 },
       maxScroll > 0
         ? h(Text, { dimColor: true },
-            `  ↑/↓ scrollen  (${scrollOffset + 1}–${Math.min(scrollOffset + viewportH, lines.length)} / ${lines.length})`)
+            `  ↑/↓ scroll  (${scrollOffset + 1}–${Math.min(scrollOffset + viewportH, lines.length)} / ${lines.length})`)
         : null,
     ),
     type === "prd"
       ? (state.existing
-          ? h(Text, { dimColor: true }, "  [Enter / j] Review starten    [Esc / n] Überspringen → direkt zur Architektur")
-          : h(Text, { dimColor: true }, "  [Enter] Review starten"))
-      : h(Text, { dimColor: true }, "  [Enter / j] Review starten    [Esc / n] Überspringen"),
+          ? h(Text, { dimColor: true }, "  [Enter / y] Start review    [Esc / n] Skip → continue to architecture")
+          : h(Text, { dimColor: true }, "  [Enter] Start review"))
+      : h(Text, { dimColor: true }, "  [Enter / y] Start review    [Esc / n] Skip"),
   );
 }
 
@@ -277,16 +277,16 @@ function ReviewUI(props: {
 
   const visibleLines = allLines.slice(scrollOffset, scrollOffset + viewportH);
   const divider = "─".repeat(Math.min(columns - 2, 60));
-  const typeLabel = type === "prd" ? "PRD Review" : "Architektur Review";
+  const typeLabel = type === "prd" ? "PRD Review" : "Architecture Review";
   const itemLabel = type === "prd" ? "REQ" : "ADR";
 
   if (!item) {
     return h(
       Box,
       { flexDirection: "column", paddingX: 1 },
-      h(Text, { color: "yellow", bold: true }, "⚠  Keine REQ-Abschnitte gefunden"),
-      h(Text, { dimColor: true }, "PRD.md wurde generiert, aber keine ### REQ-NNN:-Abschnitte erkannt."),
-      h(Text, { dimColor: true }, "  [Enter] Fortfahren → Architektur"),
+      h(Text, { color: "yellow", bold: true }, "⚠  No REQ sections found"),
+      h(Text, { dimColor: true }, "PRD.md was generated but no ### REQ-NNN: sections were detected."),
+      h(Text, { dimColor: true }, "  [Enter] Continue → Architecture"),
     );
   }
 
@@ -314,9 +314,9 @@ function ReviewUI(props: {
           Box,
           { flexDirection: "column", paddingLeft: 1 },
           h(Text, { color: "yellow", bold: true },
-            `⚠  Scope-Einschränkung — betrifft: ${constraints.join(", ")}`),
+            `⚠  Scope constraint — affects: ${constraints.join(", ")}`),
           h(Text, { color: "yellow" },
-            "   Dieses ADR verändert den Produkt-Scope. PRD-Requirement prüfen."),
+            "   This ADR changes the product scope. Check the affected PRD requirement."),
         )
       : null,
     h(Text, { dimColor: true }, divider),
@@ -331,7 +331,7 @@ function ReviewUI(props: {
     h(Text, { dimColor: true }, divider),
     // Footer
     inputMode === "rewriting"
-      ? h(Text, { color: "yellow" }, `  ⟳  Opus überarbeitet ${item.id}…`)
+      ? h(Text, { color: "yellow" }, `  ⟳  Opus is rewriting ${item.id}…`)
       : inputMode === "typing"
       ? h(
           Box,
@@ -344,15 +344,15 @@ function ReviewUI(props: {
             h(Text, { inverse: true }, typedInput[typingCursorPos] ?? " "),
             h(Text, {}, typedInput.slice(typingCursorPos + 1)),
           ),
-          h(Text, { dimColor: true }, "  [Enter] Senden  [Esc] Abbrechen  [←/→] Cursor"),
+          h(Text, { dimColor: true }, "  [Enter] Send  [Esc] Cancel  [←/→] Cursor"),
         )
       : h(
           Box,
           { flexDirection: "row", gap: 2 },
-          h(Text, { dimColor: true }, "  [Enter] Weiter  [e] Bearbeiten  [r] Opus-Rewrite"),
+          h(Text, { dimColor: true }, "  [Enter] Next  [e] Edit  [r] Opus-Rewrite"),
           maxScroll > 0
             ? h(Text, { dimColor: true },
-                `  ↑/↓ scrollen (${scrollOffset + 1}–${Math.min(scrollOffset + viewportH, allLines.length)} / ${allLines.length})`)
+                `  ↑/↓ scroll (${scrollOffset + 1}–${Math.min(scrollOffset + viewportH, allLines.length)} / ${allLines.length})`)
             : null,
         ),
   );
@@ -487,8 +487,8 @@ function InitRunner(props: {
     return h(
       Box,
       { flexDirection: "column", padding: 1 },
-      h(Text, { bold: true, color: "green" }, "✓  Setup abgeschlossen"),
-      h(Text, { dimColor: true }, "Dateien werden gespeichert…"),
+      h(Text, { bold: true, color: "green" }, "✓  Setup complete"),
+      h(Text, { dimColor: true }, "Saving files…"),
     );
   }
 
@@ -496,13 +496,13 @@ function InitRunner(props: {
     return h(
       Box,
       { flexDirection: "column", padding: 1 },
-      h(Text, { color: "red", bold: true }, "⚠  Fehler"),
+      h(Text, { color: "red", bold: true }, "⚠  Error"),
       h(Text, {}, state.error),
       state.liveLines.length > 0
         ? h(
             Box,
             { flexDirection: "column", marginTop: 1 },
-            h(Text, { dimColor: true }, "Letzte Ausgabe:"),
+            h(Text, { dimColor: true }, "Last output:"),
             ...state.liveLines.map((line, i) =>
               h(Text, { key: String(i), dimColor: true, wrap: "truncate" }, line)
             ),
@@ -575,13 +575,13 @@ function InitRunner(props: {
       { flexDirection: "row", gap: 2 },
       h(Text, { bold: true, color: "cyan" }, "Orvex"),
       h(Text, { dimColor: true }, "—"),
-      h(Text, { dimColor: true }, "Projekt-Setup"),
+      h(Text, { dimColor: true }, "Project Setup"),
     ),
     h(Text, { dimColor: true }, divider),
     h(
       Box,
       { paddingLeft: 1, marginBottom: 0 },
-      h(Text, { dimColor: true }, "Beschreibung: "),
+      h(Text, { dimColor: true }, "Description: "),
       h(Text, {}, descPreview),
     ),
     h(Text, { dimColor: true }, splitDivider),
@@ -611,9 +611,9 @@ function InitRunner(props: {
           ? h(Text, { dimColor: true }, "─".repeat(Math.max(0, rightWidth - 2)))
           : null,
         state.agentWarnLevel === "yellow"
-          ? h(Text, { color: "yellow" }, "⚠  Dauert länger als üblich — Claude denkt noch nach…")
+          ? h(Text, { color: "yellow" }, "⚠  Taking longer than usual — Claude is still thinking…")
           : state.agentWarnLevel === "red"
-          ? h(Text, { color: "red", bold: true }, "⚠  Sehr lange Wartezeit — Claude könnte ein Problem haben, aber ein Ergebnis kann noch kommen. [Ctrl+C] zum Abbrechen.")
+          ? h(Text, { color: "red", bold: true }, "⚠  Very long wait — Claude may have an issue, but a result can still arrive. [Ctrl+C] to cancel.")
           : null,
         ...(() => {
           const result: React.ReactElement[] = [];
@@ -625,20 +625,20 @@ function InitRunner(props: {
           } else if (!hasAgentStreams && runningPhase && state.activeLabel) {
             const intro = runningPhase.id === "prd"
               ? [
-                  "Product Manager, UX Researcher und Business Analyst",
-                  "erarbeiten ihre erste Einschätzung zum Thema.",
+                  "Product Manager, UX Researcher and Business Analyst",
+                  "are forming their initial takes on the topic.",
                   "",
-                  `In ${prdRounds} Diskussionsrunden verfeinern sie ihre`,
-                  "Positionen und reagieren aufeinander.",
-                  "Die Synthese wird als PRD.md gespeichert.",
+                  `Over ${prdRounds} discussion rounds they refine their`,
+                  "positions and respond to each other.",
+                  "The synthesis is saved as PRD.md.",
                 ]
               : [
-                  "Software-Architekt, Senior Developer und DevOps Engineer",
-                  "analysieren die PRD und schlagen eine Architektur vor.",
+                  "Software Architect, Senior Developer and DevOps Engineer",
+                  "analyze the PRD and propose an architecture.",
                   "",
-                  `In ${archRounds} Diskussionsrunden entwickeln sie`,
-                  "gemeinsam Architekturentscheidungen.",
-                  "Die Synthese wird als architecture.md gespeichert.",
+                  `Over ${archRounds} discussion rounds they develop`,
+                  "architecture decisions together.",
+                  "The synthesis is saved as architecture.md.",
                 ];
             intro.forEach((line, i) =>
               result.push(h(Text, { key: `i${i}`, dimColor: true, wrap: "truncate" }, line))
@@ -673,10 +673,10 @@ function InitRunner(props: {
       ? h(
           Box,
           { flexDirection: "column", marginTop: 0 },
-          h(Text, { bold: true, color: "green" }, "  ✓  PRD.md fertig"),
-          h(Text, {}, "  Auch Software-Architektur diskutieren lassen?"),
+          h(Text, { bold: true, color: "green" }, "  ✓  PRD.md done"),
+          h(Text, {}, "  Also generate a software architecture?"),
           h(Text, { dimColor: true },
-            "  [Enter / j]  Ja, Architektur generieren    [Esc / n]  Überspringen"),
+            "  [Enter / y]  Yes, generate architecture    [Esc / n]  Skip"),
         )
       : null,
   );

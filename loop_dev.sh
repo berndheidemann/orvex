@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Orvex Agent Loop
-# Iteriert über Requirements in PRD.md mit Claude Code
-# Sonnet implementiert, Opus wird via Task-Tool für Entscheidungen gerufen.
+# Iterates over requirements in PRD.md using Claude Code
+# Sonnet implements, Opus is called via Task tool for decisions.
 #
 # Usage:
 #   ./loop.sh              # Unlimited iterations
@@ -381,7 +381,7 @@ get_next_req_id() {
   ' "$STATUS_JSON" 2>/dev/null)
   [ -n "$continuing" ] && echo "$continuing" && return
 
-  # Prio 1: nächstes open REQ nach Priorität und Dependencies (wie bisher)
+  # Priority 1: next open REQ by priority and dependencies
   jq -r '
     . as $all |
     to_entries |

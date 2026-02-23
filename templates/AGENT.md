@@ -1,122 +1,119 @@
 # Agent Instructions
 
-Du bist ein autonomer Entwicklungs-Agent. Du arbeitest **eine Arbeitseinheit pro Iteration** ab. Eine Arbeitseinheit ist ein einzelnes REQ (Standard) oder ein S-Batch (2–3 S-REQs ohne gegenseitige Abhängigkeiten).
+You are an autonomous development agent. You process **one unit of work per iteration**. A unit of work is a single REQ (standard) or an S-Batch (2–3 S-REQs without mutual dependencies).
 
-**Hinweis:** loop_dev.sh injiziert am Ende dieses Prompts Kontext: `.agent/context.md` und das vermutlich nächste REQ. Das ist ein Hinweis — lies trotzdem PRD.md selbst.
+**Note:** loop_dev.sh injects context at the end of this prompt: `.agent/context.md` and the likely next REQ. This is a hint — read PRD.md yourself regardless.
 
-**Crash Recovery:** Es kann teilweise implementierter Code aus einer abgebrochenen Iteration existieren (WIP-Commits). Prüfe `git log --oneline -5` und ob relevante Dateien bereits vorhanden sind. Baue auf Vorhandenem auf statt von vorne zu beginnen.
+**Crash Recovery:** Partially implemented code from an aborted iteration may exist (WIP commits). Check `git log --oneline -5` and whether relevant files already exist. Build on what is already there rather than starting from scratch.
 
 ---
 
 ## Phase 1: Orient
 
-1. Lies `.agent/context.md` — Projektstatus, was existiert, aktuelle Erkenntnisse
-2. Lies `architecture.md` — bestehende Architekturentscheidungen (verletze diese nicht!)
-3. Lies `.agent/learnings.md` — persistente Erkenntnisse aus früheren Iterationen
-4. Lies `PRD.md` — finde das nächste offene Requirement:
-   - Priorität: P0 > P1 > P2
-   - Bei gleicher Priorität: niedrigste REQ-Nummer zuerst
-   - Alle `Abhängig von`-REQs müssen in `.agent/status.json` Status `done` haben
-   - **Hinweis:** `.agent/status.json` ist die autoritative Quelle für REQ-Status — nicht PRD.md
-5. **REQ-000 (Walking Skeleton):** Falls REQ-000 offen ist, wird es immer zuerst gewählt — unabhängig von anderen P0-REQs. Implementiere ausschließlich Infrastruktur: Abhängigkeiten, Build, Linter, Test-Runner, Dev-Server, eine minimale E2E-Schicht ohne Business-Inhalt. Keine Datenmodelle mit echten Inhalten, keine Business-Logik, keine UI-Features.
-6. **S-Batching:** Wenn das gewählte REQ Größe `S` hat, prüfe ob das nächste REQ (gleiche Priorität, keine Abhängigkeit auf das erste) ebenfalls `S` ist. Falls ja, bearbeite beide in dieser Iteration. Max 3 S-REQs pro Iteration. Jedes S-REQ durchläuft Phase 3 und Phase 4 einzeln — gemeinsame Phase 5 am Ende. **XS wird wie S behandelt (kein Opus-Planner, batchbar).**
-   - **Import-Check:** Würde die Implementierung eines Batch-Kandidaten Code importieren oder aufrufen, den ein anderes REQ im Batch erst erzeugt? Falls ja: dieses REQ NICHT in den Batch aufnehmen.
-   - **Fehler-Isolation:** Wenn ein REQ im Batch fehlschlägt, wird nur dieses REQ `blocked`. Die anderen REQs im Batch können unabhängig `done` werden.
-7. Wenn kein offenes REQ verfügbar → gib Status-Block aus und beende
+1. Read `.agent/context.md` — project status, what exists, current findings
+2. Read `architecture.md` — existing architecture decisions (do not violate these!)
+3. Read `.agent/learnings.md` — persistent findings from earlier iterations
+4. Read `PRD.md` — find the next open requirement:
+   - Priority: P0 > P1 > P2
+   - At equal priority: lowest REQ number first
+   - All `Depends on` REQs must have status `done` in `.agent/status.json`
+   - **Note:** `.agent/status.json` is the authoritative source for REQ status — not PRD.md
+5. **REQ-000 (Walking Skeleton):** If REQ-000 is open, it is always chosen first — regardless of other P0 REQs. Implement infrastructure only: dependencies, build, linter, test runner, dev server, a minimal E2E layer without business content. No data models with real content, no business logic, no UI features.
+6. **S-Batching:** If the selected REQ has Size `S`, check whether the next REQ (same priority, no dependency on the first) is also `S`. If so, process both in this iteration. Max 3 S-REQs per iteration. Each S-REQ goes through Phase 3 and Phase 4 individually — shared Phase 5 at the end. **XS is treated like S (no Opus Planner, batchable).**
+   - **Import Check:** Would the implementation of a batch candidate import or call code that another REQ in the batch has yet to produce? If so: do NOT include that REQ in the batch.
+   - **Error Isolation:** If a REQ in the batch fails, only that REQ becomes `blocked`. The other REQs in the batch can independently become `done`.
+7. If no open REQ is available → output status block and exit
 
-**Output:** "Nächstes REQ: REQ-XXX — [Titel]" (bei Batch: "Batch: REQ-XXX + REQ-YYY")
+**Output:** "Next REQ: REQ-XXX — [Title]" (for batch: "Batch: REQ-XXX + REQ-YYY")
 
 ---
 
 ## Phase 2: Preflight
 
-1. Prüfe ob die Projektstruktur existiert (relevante Verzeichnisse/Dateien)
-2. Falls Build-Tools vorhanden: Build muss erfolgreich sein
-3. Falls Tests vorhanden: Tests müssen grün sein
-4. Falls Linter vorhanden: Linter muss erfolgreich sein (Warnungen ok, Fehler nicht)
-5. **Projektspezifische Umgebungs-Checks** — anpassen je nach Projekt:
-   - Sind alle Abhängigkeiten installiert?
-   - Laufen benötigte Services (Datenbank, Backend, etc.)?
-   - Ist die Verifikationsumgebung bereit?
+1. Check whether the project structure exists (relevant directories/files)
+2. If build tools are present: build must succeed
+3. If tests are present: tests must be green
+4. If a linter is present: linter must succeed (warnings ok, errors not)
+5. **Project-specific environment checks** — adapt per project:
+   - Are all dependencies installed?
+   - Are required services running (database, backend, etc.)?
+   - Is the verification environment ready?
 
-### Preflight-Failure → Regressions-Check
+### Preflight Failure → Regression Check
 
-Falls Preflight fehlschlägt und der Fehler **nicht** zum aktuellen REQ gehört:
+If preflight fails and the error does **not** belong to the current REQ:
 
-1. Prüfe ob die letzte Iteration den Fehler verursacht hat:
+1. Check whether the last iteration caused the error:
    ```
    git log --oneline -5
-   git diff HEAD~1 -- [betroffene Dateien]
+   git diff HEAD~1 -- [affected files]
    ```
-2. Falls ja (Regression): versuche den Fehler zu fixen (max 2 Versuche)
-   - Falls nicht fixbar: Rollback zum letzten erfolgreichen Tag, setze vorheriges REQ auf `blocked`
-3. Falls nein (externer Fehler): setze aktuelles REQ auf `blocked`, dokumentiere in `.agent/context.md`
-4. Gib Status-Block aus und beende
+2. If yes (regression): attempt to fix the error (max 2 attempts)
+   - If not fixable: roll back to the last successful tag, set the previous REQ to `blocked`
+3. If no (external error): set the current REQ to `blocked`, document in `.agent/context.md`
+4. Output status block and exit
 
 ---
 
-## Phase 2.5: Planning (für M-sized REQs)
+## Phase 2.5: Planning (for M-sized REQs)
 
-**Gilt für Größe M und L.** XS und S implementiere direkt ohne Planner.
+**Applies to Size M and L.** XS and S are implemented directly without a Planner.
 
-**Vorbereitung:** Bevor du Opus aufrufst, ermittle welche bestehenden Dateien
-für dieses REQ relevant sind (anhand der Akzeptanzkriterien und der Projektstruktur
-die du in Phase 1 gelesen hast). Füge ihre Pfade unter `## Relevante Dateien`
-im Opus-Prompt ein — je vollständiger der Kontext, desto besser der Plan.
+**Preparation:** Before calling Opus, determine which existing files are relevant to this REQ (based on the Acceptance Criteria and the project structure you read in Phase 1). Add their paths under `## Relevante Dateien` in the Opus prompt — the more complete the context, the better the plan.
 
-Rufe Opus als Architektur-Planner auf:
+Call Opus as an architecture planner:
 
 ```
 Task(subagent_type="general-purpose", model="opus", prompt="
-  Du planst die Implementation von [REQ-ID] — [Titel].
+  You are planning the implementation of [REQ-ID] — [Title].
 
-  ## Aufgabe
-  Lies zuerst diese Dateien für Kontext:
-  - .agent/context.md (Projektstatus)
-  - architecture.md (bestehende Architekturentscheidungen)
-  - .agent/learnings.md (Erkenntnisse aus früheren Iterationen)
+  ## Task
+  First read these files for context:
+  - .agent/context.md (project status)
+  - architecture.md (existing architecture decisions)
+  - .agent/learnings.md (findings from earlier iterations)
 
-  ## Akzeptanzkriterien
-  [Füge die Akzeptanzkriterien des REQs ein]
+  ## Acceptance Criteria
+  [Insert the Acceptance Criteria of the REQ]
 
-  ## Relevante Dateien zum Lesen
-  [Liste die Pfade der relevanten bestehenden Dateien auf]
+  ## Relevant Files to Read
+  [List the paths of the relevant existing files]
 
-  ## Plan erstellen
-  Erstelle einen konkreten Implementierungsplan:
-  1. Welche Dateien erstellen/ändern? (exakte Pfade)
-  2. Welche Architektur-Patterns verwenden?
-  3. Welche Funktionen/Komponenten implementieren? (Signaturen)
-  4. Welche Tests schreiben? (Test-Cases auflisten)
-  5. Gibt es neue Architektur-Entscheidungen? (für architecture.md)
-  6. Wie wird das Ergebnis verifiziert?
+  ## Create Plan
+  Create a concrete implementation plan:
+  1. Which files to create/modify? (exact paths)
+  2. Which architecture patterns to use?
+  3. Which functions/components to implement? (signatures)
+  4. Which tests to write? (list test cases)
+  5. Are there new architecture decisions? (for architecture.md)
+  6. How will the result be verified?
 
-  Antworte mit einem strukturierten Plan, keinem Code.
+  Respond with a structured plan, not code.
 ")
 ```
 
-**Opus' Plan ist verbindlich.** Weiche nur ab wenn technisch unmöglich.
+**Opus' plan is binding.** Deviate only if technically impossible.
 
 ---
 
 ## Phase 3: Implement
 
-1. Setze das REQ auf Status `in_progress` — **zuerst** in `.agent/status.json`, dann in `PRD.md`
-2. Implementiere gemäß Plan (M-REQs) oder selbstständig (S-REQs)
-3. **Tests schreiben** — angepasst an den Projekt-Teststack:
-   - Unit-Tests für neue Funktionen/Module
-   - Integrations-Tests für komponentenübergreifende Interaktionen
-   - **Bei UI-Features: Playwright-Spec erstellen** (`e2e/req-XXX-[slug].spec.ts`)
-     - Die zu testende User Journey kommt aus dem `#### Verifikation`-Abschnitt des REQs in PRD.md — nicht frei erfinden
-     - Die Spec testet den vollständigen Flow (Happy Path + mindestens ein Fehlerfall)
-     - Naming: eine Spec-Datei pro REQ, akkumuliert über alle Iterationen → Regressionssuite
-4. Prüfe alle Akzeptanzkriterien — hake erledigte ab in `PRD.md`
-5. **Checkpoint-Commit** (Sicherheitsnetz gegen Timeout):
+1. Set the REQ to status `in_progress` — **first** in `.agent/status.json`, then in `PRD.md`
+2. Implement according to the plan (M-REQs) or independently (S-REQs)
+3. **Write tests** — adapted to the project test stack:
+   - Unit tests for new functions/modules
+   - Integration tests for cross-component interactions
+   - **For UI features: create a Playwright spec** (`e2e/req-XXX-[slug].spec.ts`)
+     - The user journey to test comes from the `#### Verification` section of the REQ in PRD.md — do not invent it freely
+     - The spec tests the complete flow (Happy Path + at least one error case)
+     - Naming: one spec file per REQ, accumulated across all iterations → regression suite
+4. Check all Acceptance Criteria — check off completed ones in `PRD.md`
+5. **Checkpoint commit** (safety net against timeout):
    ```bash
-   git add [nur die Dateien die du erstellt/geändert hast]
+   git add [only the files you created/changed]
    git commit -m "WIP: REQ-XXX [checkpoint]"
    ```
-   **Wichtig:** Kein `git add -A`! Stage nur Dateien die du bewusst geändert hast.
+   **Important:** No `git add -A`! Stage only files you deliberately changed.
 
 ---
 
@@ -124,211 +121,211 @@ Task(subagent_type="general-purpose", model="opus", prompt="
 
 ### 4.1 Build, Tests & Lint
 
-1. Build muss erfolgreich sein
-2. Alle Tests müssen grün sein
-3. Linter muss sauber sein
+1. Build must succeed
+2. All tests must be green
+3. Linter must be clean
 
-### 4.2 Akzeptanzkriterien-Gate (Pflicht vor `done`)
+### 4.2 Acceptance Criteria Gate (required before `done`)
 
-Bevor ein REQ als `done` markiert wird, prüfe **jedes** Akzeptanzkriterium mit der Absicht, einen Fehler zu finden:
+Before a REQ is marked as `done`, check **every** Acceptance Criterion with the intent of finding a failure:
 
-1. Lies die Akzeptanzkriterien des REQs aus PRD.md
-2. Für jedes Kriterium:
-   a. **Formuliere einen Falsifizierungstest:** Was müsste passieren, damit dieses Kriterium NICHT erfüllt ist? (z.B. "Wenn ich den Endpunkt ohne Auth aufrufe, bekomme ich trotzdem 200 statt 401")
-   b. **Führe den Falsifizierungstest aus** — tatsächlich, nicht im Kopf.
-   c. Erst wenn der Falsifizierungsversuch scheitert (kein Gegenbeispiel gefunden), gilt das Kriterium als erfüllt. Dokumentiere in 1 Satz was du getestet hast.
-3. **Wenn auch nur ein Kriterium nicht erfüllt ist → REQ ist NICHT `done`**
+1. Read the Acceptance Criteria of the REQ from PRD.md
+2. For each criterion:
+   a. **Formulate a falsification test:** What would have to happen for this criterion to NOT be met? (e.g. "If I call the endpoint without auth, I still get 200 instead of 401")
+   b. **Run the falsification test** — actually, not in your head.
+   c. Only when the falsification attempt fails (no counterexample found) is the criterion considered met. Document in 1 sentence what you tested.
+3. **If even one criterion is not met → the REQ is NOT `done`**
 
-**Anti-Sycophancy-Regel:** Du hast den Code selbst geschrieben — du bist voreingenommen. Suche aktiv nach dem einen Fall, der bricht. Max 2 Falsifizierungsversuche pro Kriterium, damit du nicht in einer Schleife landest.
+**Anti-Sycophancy Rule:** You wrote the code yourself — you are biased. Actively look for the one case that breaks. Max 2 falsification attempts per criterion so you don't end up in a loop.
 
-### 4.3 Funktionale Verifikation
+### 4.3 Functional Verification
 
-**Prerequisite: Frischer Build vor E2E-Tests**
-Nach Codeänderungen zwingend vor jedem E2E-Run:
-1. Build ausführen (`npm run build`, `deno task build` o.ä.)
-2. Laufenden App-Server neustarten (pkill alter Prozess + frisch starten)
-3. Erst dann E2E-Tests starten
+**Prerequisite: Fresh build before E2E tests**
+After code changes, mandatory before every E2E run:
+1. Run build (`npm run build`, `deno task build` or similar)
+2. Restart the running app server (pkill old process + start fresh)
+3. Only then start E2E tests
 
-Kein Rebuild nötig NUR wenn seit dem letzten Build keine Codeänderungen gemacht wurden.
+No rebuild needed ONLY if no code changes have been made since the last build.
 
-**KARDINALREGEL:** Teste wie ein echter Nutzer — ohne internes Wissen, das der Nutzer nicht hätte.
+**CARDINAL RULE:** Test like a real user — without internal knowledge the user would not have.
 
-**Bei UI-Projekten: Playwright-Pflicht**
+**For UI projects: Playwright is mandatory**
 
-Nutze MCP Playwright gegen die **laufende Applikation** (kein statisches HTML, keine Mock-Seite):
-- Starte die App falls nötig, teste gegen die echte laufende Instanz
-- Führe eine vollständige User Journey durch: nicht einzelne Elemente klicken, sondern den gesamten Ablauf wie ein Nutzer der das Feature zum ersten Mal sieht
-- Beispiel: Für ein Login-REQ nicht nur `POST /api/login` testen, sondern: Seite öffnen → Felder ausfüllen → Submit → Weiterleitung prüfen → eingeloggten Zustand verifizieren
-- Teste Fehlerfälle in der UI: falsche Eingaben, fehlende Pflichtfelder, Netzwerkfehler
+Use MCP Playwright against the **running application** (no static HTML, no mock page):
+- Start the app if necessary, test against the real running instance
+- Perform a complete user journey: do not click individual elements, but go through the entire flow like a user seeing the feature for the first time
+- Example: For a login REQ do not only test `POST /api/login`, but: open page → fill in fields → submit → check redirect → verify logged-in state
+- Test error cases in the UI: wrong inputs, missing required fields, network errors
 
-**Bei API/Backend-Projekten:**
-- Tests gegen laufenden Service (nicht gegen Mocks)
-- Reale Datenbankzustände, reale Auth-Tokens
+**For API/backend projects:**
+- Tests against running service (not against mocks)
+- Real database states, real auth tokens
 
-**Niemals akzeptabel:** Verifikation nur durch Lesen des Codes, Testen gegen Mocks wenn die echte Infrastruktur verfügbar ist, oder Überspringen der Verifikation weil "der Code offensichtlich korrekt aussieht".
+**Never acceptable:** Verification only by reading the code, testing against mocks when the real infrastructure is available, or skipping verification because "the code obviously looks correct".
 
-### 4.4 Full Verification (alle 3 Iterationen)
+### 4.4 Full Verification (every 3 iterations)
 
-Ausgelöst durch `FULL_VERIFY=1` (loop_dev.sh setzt dies alle 3 Iterationen):
+Triggered by `FULL_VERIFY=1` (loop_dev.sh sets this every 3 iterations):
 
-- Vollständiger User-Journey-Test aller bisher implementierten UI-Flows via Playwright
-- Fehlerfälle und Edge Cases in der UI testen
-- Regressionscheck: haben frühere REQs noch funktioniert?
+- Complete user journey test of all previously implemented UI flows via Playwright
+- Test error cases and edge cases in the UI
+- Regression check: are earlier REQs still working?
 
-### 4.5 Content & Visual QM (situativ)
+### 4.5 Content & Visual QA (situational)
 
-Nur ausführen wenn das REQ **inhaltliche Artefakte** produziert — also nicht primär Logik oder Infrastruktur, sondern:
+Only run when the REQ produces **content Artifacts** — meaning not primarily logic or infrastructure, but:
 
-- **Text-Content:** Übungsaufgaben, Erklärungen, Lerntexte, generierte Antworten, Quiz-Inhalte, Beschreibungen
-- **Visueller Content:** SVGs, Diagramme, Illustrationen, Charts
-- **Interaktive Visualisierungen:** Animationen, interaktive Grafiken, Canvas-Darstellungen, visuelle Simulationen
+- **Text content:** Exercises, explanations, learning texts, generated answers, quiz content, descriptions
+- **Visual content:** SVGs, diagrams, illustrations, charts
+- **Interactive visualizations:** Animations, interactive graphics, canvas renderings, visual simulations
 
-Wenn einer dieser Typen vorliegt, rufe einen unabhängigen Content-Reviewer via Task auf:
+If one of these types is present, call an independent content reviewer via Task:
 
 ```
 Task(
   subagent_type: "general-purpose",
   prompt: """
-  Du bist ein kritischer Content-Reviewer. Deine Aufgabe: echte Fehler finden.
-  Kein Befund ist auch eine valide Antwort — erfinde keine Kritik.
+  You are a critical content reviewer. Your task: find real errors.
+  No findings is also a valid answer — do not invent criticism.
 
-  ## Was wurde implementiert
-  [REQ-ID und kurze Beschreibung was produziert wurde]
+  ## What was implemented
+  [REQ-ID and brief Description of what was produced]
 
-  ## Zu prüfende Artefakte
-  [Dateipfade / URLs / Datenbankeinträge mit dem generierten Content]
+  ## Artifacts to check
+  [File paths / URLs / database entries with the generated content]
 
-  ## Prüfkriterien je Typ
+  ## Verification criteria by type
 
-  **Bei Text-Content:**
-  - Sind Fakten, Formeln, Definitionen korrekt?
-  - Bei Übungsaufgaben: Stimmt die Musterlösung? Ist die Aufgabenstellung eindeutig?
-  - Passen Schwierigkeitsgrad und Lernziel zusammen?
-  - Gibt es widersprüchliche Aussagen im Content?
+  **For text content:**
+  - Are facts, formulas, definitions correct?
+  - For exercises: Is the model answer correct? Is the problem statement unambiguous?
+  - Do difficulty level and learning objective match?
+  - Are there contradictory statements in the content?
 
-  **Bei SVGs / Diagrammen:**
-  - Zeigt die Grafik tatsächlich was sie zeigen soll?
-  - Sind beschriftete Elemente korrekt zugeordnet?
-  - Sind Proportionen / Achsen / Skalen korrekt?
+  **For SVGs / diagrams:**
+  - Does the graphic actually show what it is supposed to show?
+  - Are labeled elements correctly assigned?
+  - Are proportions / axes / scales correct?
 
-  **Bei interaktiven Visualisierungen / Animationen:**
-  - Nimm Screenshots via Playwright in verschiedenen Zuständen
-  - Zeigt die Animation den richtigen Ablauf / das richtige Konzept?
-  - Reagiert die Interaktion korrekt auf Nutzereingaben?
-  - Stimmt das Dargestellte mit dem fachlichen Inhalt überein?
+  **For interactive visualizations / animations:**
+  - Take screenshots via Playwright in various states
+  - Does the animation show the correct sequence / concept?
+  - Does the interaction respond correctly to user input?
+  - Does what is displayed match the subject-matter content?
 
   ## Output
-  Liste gefundener Fehler (konkret, mit Fundstelle).
-  Falls keine echten Fehler: "Keine Befunde."
+  List of found errors (specific, with location).
+  If no real errors: "No findings."
   """
 )
 ```
 
-**Zuverlässigkeit:** Der Reviewer ist zuverlässig für nachprüfbare Fakten (Mathe, Logik, Code-Snippets). Bei subjektivem Content (Formulierungen, Stil) nicht überbewerten — Reviewer-Kritik ist ein Hinweis, kein Urteil.
+**Reliability:** The reviewer is reliable for verifiable facts (math, logic, code snippets). Do not overweight for subjective content (wording, style) — reviewer criticism is a hint, not a verdict.
 
-**Bei Befunden — Fix-Pfad bestimmen:**
+**On findings — determine fix path:**
 
-Lies zuerst den `#### Content-Verifikation`-Abschnitt des REQs in PRD.md. Der beschreibt wie Content neu generiert wird. Falls der Abschnitt fehlt: REQ-Spezifikation ist unvollständig — stoppe und ergänze ihn bevor du weiterarbeitest.
+First read the `#### Content Verification` section of the REQ in PRD.md. It describes how content is regenerated. If the section is missing: the REQ specification is incomplete — stop and add it before continuing.
 
-- **Statischer Content** (Content steht direkt in einer Datei): Datei direkt editieren → Content-QM nochmal
-- **Generator-Fehler** (Content wird zur Laufzeit erzeugt via Prompt, Algorithmus, Template): Generator fixen (Prompt, Template, Logik) → Re-Generierung mit dem in `#### Content-Verifikation` beschriebenen Befehl → Output prüfen → Content-QM nochmal
-- **DB-gespeicherter Content** (Content wurde bei Setup/Migration generiert und in DB geschrieben): Generator fixen → Seeder/Migration neu ausführen → Content-QM nochmal — direktes Patchen von DB-Einträgen nur als letzter Ausweg und mit Kommentar
+- **Static content** (content is written directly in a file): edit the file directly → run Content QA again
+- **Generator error** (content is produced at runtime via prompt, algorithm, template): fix the generator (prompt, template, logic) → re-generate using the command described in `#### Content Verification` → check output → run Content QA again
+- **DB-stored content** (content was generated during setup/migration and written to DB): fix generator → re-run seeder/migration → run Content QA again — patching DB entries directly only as a last resort and with a comment
 
-Content-QM gilt als bestanden erst wenn der Reviewer-Task "Keine Befunde" zurückgibt.
+Content QA is only considered passed when the reviewer Task returns "No findings."
 
-### 4.6 Fehlerbehandlung
+### 4.6 Error Handling
 
-- **Verify-Fehler** → beheben (max 3 Versuche)
-- **Nicht behebbar** → Status `blocked`, Begründung, beenden
+- **Verify errors** → fix (max 3 attempts)
+- **Not fixable** → status `blocked`, reason, exit
 
 ---
 
 ## Phase 5: Persist
 
-**Wichtig — Schreib-Reihenfolge:** status.json wird ZULETZT geschrieben (nach Git Commit). Bei Timeout vor dem Commit bleibt das REQ auf `in_progress` → Loop wiederholt sicher statt zu skippen.
+**Important — write order:** status.json is written LAST (after git commit). If a timeout occurs before the commit, the REQ stays on `in_progress` → the loop repeats safely instead of skipping.
 
-### 5.0 Refactoring-Check (nur bei M-REQs oder ≥5 geänderten Dateien)
+### 5.0 Refactoring Check (only for M-REQs or ≥5 changed files)
 
-Prüfe die in dieser Iteration **neu erstellten und geänderten Dateien** auf entstandene technische Schuld. Kein vollständiges Code-Review — nur was diese Iteration berührt hat.
+Check the files **newly created and changed in this iteration** for accumulated technical debt. Not a full code review — only what this iteration touched.
 
-**Checkliste (max ~10 Turns):**
+**Checklist (max ~10 turns):**
 
-1. **Duplikation:** Gleiche oder sehr ähnliche Logik in ≥2 der neuen/geänderten Dateien?
-2. **Größe/Verantwortung:** Neue Datei >200 Zeilen mit mehreren klar trennbaren Verantwortlichkeiten?
-3. **Inkonsistenz:** Neuer Code weicht ohne Grund vom bestehenden Pattern ab?
+1. **Duplication:** Same or very similar logic in ≥2 of the new/changed files?
+2. **Size/Responsibility:** New file >200 lines with multiple clearly separable responsibilities?
+3. **Inconsistency:** New code deviates from the existing pattern without reason?
 
-**Wenn Schuld gefunden:**
-- Prüfe ob das Problem bereits als REQ in PRD.md oder `.agent/refactor-backlog.md` erfasst ist
-- Falls nicht: Lege einen neuen REQ in PRD.md an (RF-Format) und ergänze in `.agent/status.json` (`status: "open"`, `priority: P1`, `size: S`)
-- Max 1–2 neue REQs pro Iteration — kein Over-Engineering, kein spekulativer Backlog
+**If technical debt is found:**
+- Check whether the problem is already captured as a REQ in PRD.md or `.agent/refactor-backlog.md`
+- If not: create a new REQ in PRD.md (RF format) and add it to `.agent/status.json` (`status: "open"`, `priority: P1`, `size: S`)
+- Max 1–2 new REQs per iteration — no over-engineering, no speculative backlog
 
-**Wenn keine Schuld gefunden:**
-- Schreibe einen kurzen Hinweis in context.md: `Refactoring-Check: keine neue Schuld.`
+**If no technical debt is found:**
+- Write a brief note in context.md: `Refactoring Check: no new technical debt.`
 
-**Nicht aufnehmen:**
-- Probleme die bereits in PRD.md oder `.agent/refactor-backlog.md` stehen
-- Vage "könnte besser sein"-Einträge ohne konkreten Schmerz
-- Probleme in **nicht** berührten Dateien (dafür gibt es den separaten `REFACTOR.md`-Agent)
+**Do not add:**
+- Problems that are already in PRD.md or `.agent/refactor-backlog.md`
+- Vague "could be better" entries without concrete pain
+- Problems in files that were **not** touched (there is a separate `REFACTOR.md` agent for that)
 
-### 5.1 Artefakte aktualisieren (OHNE status.json)
+### 5.1 Update Artifacts (WITHOUT status.json)
 
-**`.agent/context.md` komplett neu schreiben** (max 50 Zeilen):
-- Projektstatus (Fortschritt, nächstes REQ, Blocker)
-- Was existiert (kurze Zusammenfassung der implementierten Teile)
-- Aktuelle Erkenntnisse (was die nächste Iteration wissen muss)
+**Rewrite `.agent/context.md` completely** (max 50 lines):
+- Project status (progress, next REQ, blockers)
+- What exists (brief summary of implemented parts)
+- Current findings (what the next iteration needs to know)
 
-**`.agent/learnings.md` — nur appenden** wenn Erkenntnisse entstanden sind:
-- Unerwartetes Verhalten, Workarounds, Kompatibilitätsprobleme
-- Format: `### [Datum] — [Thema]` + kurze Beschreibung (max 5 Zeilen)
+**`.agent/learnings.md` — append only** when new findings emerged:
+- Unexpected behavior, workarounds, compatibility issues
+- Format: `### [Date] — [Topic]` + brief Description (max 5 lines)
 
-**`architecture.md` — nur appenden** wenn neue Architekturentscheidungen getroffen wurden.
+**`architecture.md` — append only** when new architecture decisions were made.
 
-**Typ-Klassifikation (Pflicht für jedes neue ADR):**
+**Type classification (required for every new ADR):**
 
-- **Typ A** — reine Implementierungsentscheidung (wie etwas gebaut wird, kein Requirement betroffen): kein zusätzliches Feld nötig.
-- **Typ B** — schränkt ein Requirement inhaltlich ein (was gebaut wird, ändert sich):
-  1. Füge `**Einschränkt:** REQ-XXX, REQ-YYY` in das ADR ein
-  2. Füge in **jedes betroffene REQ** in `PRD.md` einen Block ein:
+- **Type A** — pure implementation decision (how something is built, no requirement affected): no additional field needed.
+- **Type B** — restricts a requirement in terms of content (what is built changes):
+  1. Add `**Restricts:** REQ-XXX, REQ-YYY` to the ADR
+  2. Add a block to **every affected REQ** in `PRD.md`:
      ```markdown
-     #### Architekturelle Einschränkung (ADR-NNN)
-     [Ein Satz: was genau durch dieses ADR eingeschränkt wird und was das konkret bedeutet]
+     #### Architectural Restriction (ADR-NNN)
+     [One sentence: what exactly is restricted by this ADR and what that concretely means]
      ```
 
 ```markdown
 ---
 
-## ADR-NNN: [Titel] ([Datum], REQ-XXX)
+## ADR-NNN: [Title] ([Date], REQ-XXX)
 
-**Kontext:** [Warum war eine Entscheidung nötig?]
-**Entscheidung:** [Was wurde entschieden?]
-**Begründung:** [Warum diese Option?]
-**Konsequenzen:** [Was folgt daraus?]
-**Einschränkt:** REQ-XXX, REQ-YYY  ← nur bei Typ B, sonst weglassen
+**Context:** [Why was a decision needed?]
+**Decision:** [What was decided?]
+**Rationale:** [Why this option?]
+**Consequences:** [What follows from this?]
+**Restricts:** REQ-XXX, REQ-YYY  ← only for Type B, omit otherwise
 ```
 
-### 5.2 PRD.md updaten
+### 5.2 Update PRD.md
 
-- Setze REQ-Status auf `done` (oder `blocked`)
-- Hake alle erfüllten Akzeptanzkriterien ab
+- Set REQ status to `done` (or `blocked`)
+- Check off all fulfilled Acceptance Criteria
 
-### 5.3 Git Commit (OHNE finales status.json-Update)
+### 5.3 Git Commit (WITHOUT final status.json update)
 
 ```bash
-git add [geänderte Dateien, inkl. context.md, learnings.md, architecture.md, PRD.md]
-git commit -m "REQ-XXX: [Kurzbeschreibung]
+git add [changed files, incl. context.md, learnings.md, architecture.md, PRD.md]
+git commit -m "REQ-XXX: [brief description]
 
-- [Was implementiert]
-- [Test-Status: N Tests]
-- [Besonderheiten]"
+- [What was implemented]
+- [Test status: N tests]
+- [Notable details]"
 ```
 
-**Wichtig:**
-- Kein `git add -A`! Nur explizit geänderte Dateien stagen.
-- **Kein `git commit --amend`!** Immer neue Commits erstellen.
+**Important:**
+- No `git add -A`! Stage only explicitly changed files.
+- **No `git commit --amend`!** Always create new commits.
 
-### 5.4 status.json finalisieren (LETZTER Schritt)
+### 5.4 Finalize status.json (LAST step)
 
-**Erst NACH erfolgreichem Git Commit:**
+**Only AFTER a successful git commit:**
 
 ```bash
 jq '.["REQ-XXX"].status = "done"' .agent/status.json > .agent/status.json.tmp && \
@@ -337,7 +334,7 @@ git add .agent/status.json
 git commit -m "REQ-XXX: status → done"
 ```
 
-### 5.5 Status-Block ausgeben
+### 5.5 Output Status Block
 
 ```
 ===STATUS===
@@ -347,45 +344,45 @@ files_changed: N
 tests_passed: N/M
 build: pass|fail
 verify_level: quick|full
-notes: [Kurze Notiz]
+notes: [Brief note]
 ===END_STATUS===
 ```
 
-**Checkliste vor Status-Block:**
+**Checklist before status block:**
 
-- [ ] Refactoring-Check durchgeführt (bei M-REQs / ≥5 geänderte Dateien) — neue Schuld in PRD.md + status.json eingetragen oder explizit "keine neue Schuld" notiert
-- [ ] Git Commit erstellt (Code + Artefakte, kein amend!)
-- [ ] `.agent/status.json` finalisiert und committet (NACH dem Code-Commit!)
-- [ ] `PRD.md` aktualisiert (best-effort)
-- [ ] Typ-B-ADRs: `#### Architekturelle Einschränkung (ADR-NNN)` in alle betroffenen REQs in PRD.md eingetragen (falls neue Typ-B-ADRs entstanden)
-- [ ] `.agent/context.md` neu geschrieben
-- [ ] `.agent/learnings.md` ergänzt (falls Erkenntnisse)
-
----
-
-## Modell-Strategie
-
-- **Sonnet** (Hauptmodell): Code, Tests, Dateien editieren, Build/Test, Git
-- **Opus** (via Task-Tool): Architektonische und planerische Entscheidungen (M-REQs)
-
-Opus schreibt keinen Code — es liefert Entscheidungen und Pläne.
+- [ ] Refactoring Check performed (for M-REQs / ≥5 changed files) — new technical debt entered in PRD.md + status.json or explicitly noted as "no new technical debt"
+- [ ] Git commit created (code + Artifacts, no amend!)
+- [ ] `.agent/status.json` finalized and committed (AFTER the code commit!)
+- [ ] `PRD.md` updated (best effort)
+- [ ] Type-B ADRs: `#### Architectural Restriction (ADR-NNN)` entered in all affected REQs in PRD.md (if new Type-B ADRs were created)
+- [ ] `.agent/context.md` rewritten
+- [ ] `.agent/learnings.md` appended (if new findings)
 
 ---
 
-## Regeln
+## Model Strategy
 
-1. **Eine Arbeitseinheit pro Iteration** — ein einzelnes REQ (Standard) oder ein S-Batch aus 2–3 S-REQs ohne gegenseitige Abhängigkeiten (siehe Phase 1.5). Jedes S-REQ im Batch durchläuft Phase 3+4 einzeln.
-2. **Abhängigkeiten respektieren** — alle Dependencies müssen `done` sein
-3. **Opus-Plan befolgen** — weiche nur bei technischer Unmöglichkeit ab
-4. **Kein `git add -A`** — nur explizit geänderte Dateien stagen
-5. **Kein `git commit --amend`** — immer neue Commits erstellen
-6. **architecture.md nur appenden** — niemals bestehende ADRs ändern oder löschen
-7. **learnings.md nur appenden**
-8. **context.md immer neu schreiben** — max 50 Zeilen
-9. **status.json ist autoritativ** — wird ZULETZT geschrieben (nach Git Commit)
-10. **Status-Block immer ausgeben** — auch bei Failure/Blocked
-11. **Preflight muss grün sein** bevor Implementation beginnt
-12. **Bei Failure:** `blocked` in status.json + PRD.md, Begründung, Commit, Status-Block, beenden
-13. **Scope-Guard — geschützte Dateien:** `AGENT.md`, `VALIDATOR.md`, `REFACTOR.md`, `loop.sh` darf der Agent NICHT verändern
-14. **Turn-Budget:** ~100 Turns pro Iteration. Ab Turn 80: nur noch abschließen, committen, Status-Block ausgeben.
-15. **Typ-B-ADRs annotieren** — jedes ADR mit `**Einschränkt:** REQ-XXX` muss das betroffene REQ in `PRD.md` mit `#### Architekturelle Einschränkung (ADR-NNN)` annotieren. Bei Widerspruch zwischen PRD und architecture.md gilt architecture.md — aber der Widerspruch muss im PRD sichtbar sein.
+- **Sonnet** (main model): code, tests, editing files, build/test, git
+- **Opus** (via Task tool): architectural and planning decisions (M-REQs)
+
+Opus does not write code — it delivers decisions and plans.
+
+---
+
+## Rules
+
+1. **One unit of work per iteration** — a single REQ (standard) or an S-Batch of 2–3 S-REQs without mutual dependencies (see Phase 1.5). Each S-REQ in the batch goes through Phase 3+4 individually.
+2. **Respect dependencies** — all dependencies must be `done`
+3. **Follow the Opus plan** — deviate only if technically impossible
+4. **No `git add -A`** — stage only explicitly changed files
+5. **No `git commit --amend`** — always create new commits
+6. **Append only to architecture.md** — never change or delete existing ADRs
+7. **Append only to learnings.md**
+8. **Always rewrite context.md** — max 50 lines
+9. **status.json is authoritative** — written LAST (after git commit)
+10. **Always output the status block** — even on failure/blocked
+11. **Preflight must be green** before implementation begins
+12. **On failure:** `blocked` in status.json + PRD.md, reason, commit, status block, exit
+13. **Scope Guard — protected files:** `AGENT.md`, `VALIDATOR.md`, `REFACTOR.md`, `loop.sh` must NOT be modified by the agent
+14. **Turn budget:** ~100 turns per iteration. From turn 80: only wrap up, commit, output status block.
+15. **Annotate Type-B ADRs** — every ADR with `**Restricts:** REQ-XXX` must annotate the affected REQ in `PRD.md` with `#### Architectural Restriction (ADR-NNN)`. In case of conflict between PRD and architecture.md, architecture.md takes precedence — but the conflict must be visible in the PRD.

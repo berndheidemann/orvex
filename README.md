@@ -80,14 +80,14 @@ Requirements live in `PRD.md` and follow this structure:
 ```markdown
 ### REQ-001: Walking Skeleton
 - **Status:** open
-- **Priorität:** P0
-- **Größe:** S
-- **Abhängig von:** ---
+- **Priority:** P0
+- **Size:** S
+- **Depends on:** ---
 
-#### Beschreibung
+#### Description
 Minimal runnable project scaffold.
 
-#### Akzeptanzkriterien
+#### Acceptance Criteria
 - [ ] `npm run dev` starts without errors
 - [ ] Health endpoint returns 200
 ```
@@ -96,7 +96,7 @@ Minimal runnable project scaffold.
 **Priority:** `P0` (must-have) · `P1` (important) · `P2` (nice-to-have)
 **Size:** `S` (small, may be batched) · `M` (medium, gets an Opus planning phase)
 
-Dependencies are respected — a REQ only starts when all `Abhängig von` entries are `done`.
+Dependencies are respected — a REQ only starts when all `Depends on` entries are `done`.
 
 ---
 

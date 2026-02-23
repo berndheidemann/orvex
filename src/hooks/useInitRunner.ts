@@ -204,11 +204,11 @@ export function useInitRunner(
       )
     );
 
-    const phaseLabel = phaseId === "prd" ? "PRD" : "Architektur";
+    const phaseLabel = phaseId === "prd" ? "PRD" : "Architecture";
 
     for (let roundIdx = 0; roundIdx < numRounds; roundIdx++) {
       setRoundStatus(phaseId, roundIdx, "running");
-      setActiveLabel(`${phaseLabel} · Runde ${roundIdx + 1} · ${agents.length} Agenten parallel…`);
+      setActiveLabel(`${phaseLabel} · Round ${roundIdx + 1} · ${agents.length} agents in parallel…`);
       agents.forEach((_, agentIdx) =>
         setAgentStatus(phaseId, roundIdx, agentIdx, "running")
       );
@@ -251,10 +251,10 @@ export function useInitRunner(
       setRoundStatus(phaseId, roundIdx, "done");
       setLiveLines(formatRoundSummary(roundIdx + 1, agents, roundOutputs));
       lineBufferRef.current = "";
-      setActiveLabel(`${phaseLabel} · Runde ${roundIdx + 1} abgeschlossen`);
+      setActiveLabel(`${phaseLabel} · Round ${roundIdx + 1} complete`);
     }
 
-    const synthLabel = `${phaseLabel} · Synthese`;
+    const synthLabel = `${phaseLabel} · Synthesis`;
     setActiveLabel(synthLabel);
     setRoundStatus(phaseId, numRounds, "running");
     setAgentStatus(phaseId, numRounds, 0, "running");
@@ -277,7 +277,7 @@ export function useInitRunner(
     const finalContent = agentWroteFile ? contentAfterSynth : synthContent;
 
     if (!finalContent.trim()) {
-      throw new Error(`Synthese hat keinen Inhalt produziert`);
+      throw new Error(`Synthesis produced no content`);
     }
     await Deno.writeTextFile(outputPath, finalContent);
 
@@ -451,7 +451,7 @@ export function useInitRunner(
         } else {
           await Deno.writeTextFile(
             ARCH_OUTPUT_PATH,
-            "# Architektur-Entscheidungen\n\n(noch keine — Projekt frisch gestartet)\n",
+            "# Architecture Decisions\n\n(none yet — project just started)\n",
           );
           setPhaseStatus("arch", "done");
         }

@@ -1,41 +1,41 @@
-# Architektur-Entscheidungen
+# Architecture Decisions
 
-> Monolithischer Full-Stack-Prozess (Fastify 5 + React 19/Vite 6 + SQLite WAL) mit explizitem LLMGateway, Interface-basierten Adaptern und Offline-First-Verhalten — lauffähig mit einem einzigen Befehl.
+> Monolithic full-stack process (Fastify 5 + React 19/Vite 6 + SQLite WAL) with an explicit LLMGateway, interface-based adapters, and offline-first behavior — runnable with a single command.
 
-## Überblick
+## Overview
 
-Der Portfolio Manager ist ein Single-User-Werkzeug, das als monolithischer Node.js 22-Prozess lokal ausgeführt wird. Fastify 5 bedient sowohl die REST-API (inkl. SSE) als auch die statischen Assets der React-19-SPA; SQLite 3 mit WAL-Modus ist die einzige Persistenzschicht ohne externe Infrastruktur. Alle LLM-Calls laufen ausschließlich durch einen zentralen `LLMGateway`-Singleton, der CostGuard, Token-Logging, Prompt-Versionierung und Provider-Abstraktion vereint. Die Architektur priorisiert Einfachheit und Testbarkeit — über ein Recording-Pattern für LLM-Calls und Contract-Tests gegen jede PRD-Verifikationsvorgabe — über abstrakte Flexibilität. Vollständige Offline-Funktionalität für gespeicherte Daten ist eine harte Invariante; externe API-Ausfälle degradieren einzelne Features, blockieren aber nie den App-Start.
+The Portfolio Manager is a single-user tool that runs locally as a monolithic Node.js 22 process. Fastify 5 serves both the REST API (including SSE) and the static assets of the React 19 SPA; SQLite 3 with WAL mode is the sole persistence layer with no external infrastructure. All LLM calls run exclusively through a central `LLMGateway` singleton that combines CostGuard, token logging, prompt versioning, and provider abstraction. The architecture prioritizes simplicity and testability — via a recording pattern for LLM calls and contract tests against every PRD verification requirement — over abstract flexibility. Full offline functionality for stored data is a hard invariant; external API failures degrade individual features but never block the app from starting.
 
-## Tech-Stack
+## Tech Stack
 
-| Schicht | Technologie | Begründung |
+| Layer | Technology | Rationale |
 |---|---|---|
-| Runtime | Node.js 22 LTS + TypeScript 5.7 strict | LTS-Stabilität; TypeScript strict ab Tag 1 verhindert Typ-Drift |
-| Backend | Fastify 5 | Performant, schema-validiert, pino-nativ, Plugin-System für saubere Modularität |
-| Frontend | React 19 + Vite 6 (SPA) | Concurrent-Features; Vite für schnelles HMR und optimierten Build |
-| Datenbank | SQLite 3 (WAL) via better-sqlite3 | Zero-Infrastruktur; WAL erlaubt concurrent Reads während Research-Writes; synchron — kein Serializer nötig |
-| ORM | Drizzle ORM + drizzle-kit | TypeScript-First, Schema als Single Source of Truth für alle Typen |
-| LLM-Abstraktion | Vercel AI SDK 4.x (innerhalb LLMGateway) | `generateObject()` mit Zod-Schema eliminiert manuelles JSON-Parsing; Provider-Wechsel per Einzeiler |
-| Web-Recherche | Tavily API hinter WebSearchAdapter | Qualitativ für Finanzrecherche; Interface erlaubt Austausch ohne Service-Änderung |
-| Kurs-API | yahoo-finance2 hinter QuoteProvider | Kostenlos, Batch-Abruf mehrerer Ticker |
-| ISIN-Lookup | OpenFIGI API (on-demand) | Kostenlos; dreistufig: Yahoo → OpenFIGI (ISIN→Ticker) → Yahoo |
-| Styling | Tailwind CSS 4 + shadcn/ui | Utility-First, konsistente Komponenten ohne Design-Overhead |
-| Client State | TanStack Query v5 | Server-State-Caching, Refetch-Logik, optimal für API-zentrische SPA |
-| Client Routing | react-router-dom v7 | 4 explizite Routen, kein File-based Routing nötig |
-| Charts | Recharts | Ausreichend für Mini-Charts und Kennzahlen-Historien |
-| Status-Updates | Server-Sent Events (SSE) | Unidirektionaler Push für Research-Status; kein WebSocket-Overhead |
-| Test (Unit/Contract) | Vitest 3 (`vitest.config.ts`) | Schnelle Feedback-Loop, kein I/O |
-| Test (Integration) | Vitest 3 (`vitest.config.integration.ts`) | In-Memory-SQLite mit Migrationen, separater Pool |
-| Test (E2E) | Playwright 1.50 (workers=1) | SQLite-safe, Full-Stack gegen echten Server |
-| Logging | pino (Fastify-Default) + pino-roll | Strukturiertes JSON, Log-Rotation (max 50 MB, 3 Dateien, `data/logs/`) |
-| Env-Validierung | Zod | Typsicheres Parsen von `process.env`; fehlende Keys → Degraded Mode statt Crash |
+| Runtime | Node.js 22 LTS + TypeScript 5.7 strict | LTS stability; TypeScript strict from day one prevents type drift |
+| Backend | Fastify 5 | Performant, schema-validated, pino-native, plugin system for clean modularity |
+| Frontend | React 19 + Vite 6 (SPA) | Concurrent features; Vite for fast HMR and optimized build |
+| Database | SQLite 3 (WAL) via better-sqlite3 | Zero infrastructure; WAL allows concurrent reads during research writes; synchronous — no serializer needed |
+| ORM | Drizzle ORM + drizzle-kit | TypeScript-first, schema as single source of truth for all types |
+| LLM Abstraction | Vercel AI SDK 4.x (within LLMGateway) | `generateObject()` with Zod schema eliminates manual JSON parsing; provider switch in one line |
+| Web Research | Tavily API behind WebSearchAdapter | High quality for financial research; interface allows replacement without service changes |
+| Quote API | yahoo-finance2 behind QuoteProvider | Free, batch fetching of multiple tickers |
+| ISIN Lookup | OpenFIGI API (on-demand) | Free; three-stage: Yahoo → OpenFIGI (ISIN→Ticker) → Yahoo |
+| Styling | Tailwind CSS 4 + shadcn/ui | Utility-first, consistent components without design overhead |
+| Client State | TanStack Query v5 | Server-state caching, refetch logic, optimal for API-centric SPA |
+| Client Routing | react-router-dom v7 | 4 explicit routes, no file-based routing needed |
+| Charts | Recharts | Sufficient for mini-charts and metrics histories |
+| Status Updates | Server-Sent Events (SSE) | Unidirectional push for research status; no WebSocket overhead |
+| Test (Unit/Contract) | Vitest 3 (`vitest.config.ts`) | Fast feedback loop, no I/O |
+| Test (Integration) | Vitest 3 (`vitest.config.integration.ts`) | In-memory SQLite with migrations, separate pool |
+| Test (E2E) | Playwright 1.50 (workers=1) | SQLite-safe, full-stack against real server |
+| Logging | pino (Fastify default) + pino-roll | Structured JSON, log rotation (max 50 MB, 3 files, `data/logs/`) |
+| Env Validation | Zod | Type-safe parsing of `process.env`; missing keys → degraded mode instead of crash |
 
-**Dissenz-Punkte (2:1-Mehrheitsentscheidungen):**
-- **Vercel AI SDK vs. direkter OpenAI SDK:** Arch + SenDev für Vercel AI SDK innerhalb Gateway wegen `generateObject()`-Typsicherheit; DevOps für direkten SDK. → **Vercel AI SDK** (2:1).
-- **Retry vs. Circuit Breaker:** Arch + SenDev für `withRetry`; DevOps hat Position in R3 revidiert. → **withRetry + Backoff** (Konsens R3).
-- **DbWriter PQueue vs. `transaction()`:** Arch + SenDev gegen PQueue (synchrone Writes brauchen keinen Serializer); DevOps hält an PQueue fest. → **`transaction()` reicht** (2:1).
+**Dissenting Points (2:1 majority decisions):**
+- **Vercel AI SDK vs. direct OpenAI SDK:** Arch + SenDev for Vercel AI SDK within Gateway due to `generateObject()` type safety; DevOps for direct SDK. → **Vercel AI SDK** (2:1).
+- **Retry vs. Circuit Breaker:** Arch + SenDev for `withRetry`; DevOps revised position in R3. → **withRetry + Backoff** (consensus R3).
+- **DbWriter PQueue vs. `transaction()`:** Arch + SenDev against PQueue (synchronous writes don't need a serializer); DevOps maintains PQueue position. → **`transaction()` is sufficient** (2:1).
 
-## Systemarchitektur
+## System Architecture
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -43,31 +43,31 @@ Der Portfolio Manager ist ein Single-User-Werkzeug, das als monolithischer Node.
 │  React 19 + TanStack Query + shadcn/ui + Recharts              │
 │  react-router-dom v7 · SSE-Listener (Auto-Reconnect)           │
 │  Error Boundaries (Route-Level + StockCard-Level)              │
-│  OfflineBanner · PrivacyConsentDialog (einmalig, First Start)  │
+│  OfflineBanner · PrivacyConsentDialog (once, First Start)      │
 └───────────────────────┬────────────────────────────────────────┘
                         │ HTTP + SSE  (127.0.0.1:3000)
 ┌───────────────────────▼────────────────────────────────────────┐
 │         Fastify 5  (127.0.0.1:3000 ONLY)                       │
 │                                                                │
-│  API Routes (~10 Endpunkte, Fastify-Plugins)                   │
+│  API Routes (~10 endpoints, Fastify plugins)                   │
 │  POST /api/depot · GET /api/search · GET /api/costs            │
 │  GET|POST /api/depot/:id/research · /metrics · /moat           │
 │  POST /api/depot/:id/analysis · GET /api/health                │
 │  GET /api/depot/:id/history · GET /api/events (SSE)            │
 │  POST /api/settings/reload-env                                 │
 │                                                                │
-│  Service Layer  (Constructor Injection, kein DI-Container)     │
+│  Service Layer  (Constructor Injection, no DI container)       │
 │  DepotSvc · QuoteSvc · ResearchSvc · MetricsSvc                │
 │  MoatSvc · AnalysisSvc · SearchSvc · CostSvc                  │
 │                                                                │
 │  Infrastructure Layer                                          │
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │ LLMGateway  (Singleton)                                  │  │
-│  │  ├─ CostGuard        Budget-Check VOR jedem Call         │  │
+│  │  ├─ CostGuard        Budget check BEFORE every call      │  │
 │  │  ├─ Vercel AI SDK 4.x  generateText / generateObject     │  │
-│  │  ├─ Token-Logging    → cost_log  (NACH jedem Call)       │  │
+│  │  ├─ Token-Logging    → cost_log  (AFTER every call)      │  │
 │  │  ├─ Model-Router     fast→gpt-4o-mini / capable→gpt-4o   │  │
-│  │  ├─ completeBatch()  Budget vorab für parallele Calls     │  │
+│  │  ├─ completeBatch()  Reserve budget upfront for parallel  │  │
 │  │  └─ RecordingWrapper Test: record / playback             │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │                                                                │
@@ -80,16 +80,16 @@ Der Portfolio Manager ist ein Single-User-Werkzeug, das als monolithischer Node.
 │                                                                │
 │  ┌──────────────────┐ ┌──────────────────┐                     │
 │  │ ResearchQueue    │ │ SSE Emitter      │                     │
-│  │ In-Process       │ │ Event-Bus für    │                     │
-│  │ max 2 concurrent │ │ Status-Updates   │                     │
-│  │ dedup 5-Min      │ │                  │                     │
+│  │ In-Process       │ │ Event-Bus for    │                     │
+│  │ max 2 concurrent │ │ Status Updates   │                     │
+│  │ dedup 5-min      │ │                  │                     │
 │  └──────────────────┘ └──────────────────┘                     │
 │                                                                │
 │  DB (Drizzle ORM) → SQLite WAL + FTS5 Triggers                 │
-│  Datei: data/portfolio.db  ·  Backups: data/backups/ (max 5)   │
+│  File: data/portfolio.db  ·  Backups: data/backups/ (max 5)    │
 └────────────────────────────────────────────────────────────────┘
 
-Startup-Sequenz:
+Startup Sequence:
   .env (Zod) → SQLite + PRAGMAs → Backup → Migrate →
   Zombie-Cleanup → Health-Probe (non-blocking) → listen()
 
@@ -98,30 +98,30 @@ Graceful Shutdown (SIGINT / SIGTERM):
   Jobs → pending → SSE close → Backup → SQLite close → Exit 0
 ```
 
-## Projektstruktur
+## Project Structure
 
 ```
 portfolio_manager/
-├── package.json                       # Einziges package.json
+├── package.json                       # Single package.json
 ├── package-lock.json                  # Committed; npm ci in CI
 ├── tsconfig.json                      # Base: strict, paths: { @shared }
 ├── tsconfig.server.json               # extends base, target: ES2022
 ├── vite.config.ts                     # SPA build + dev proxy (/api → :3001)
-├── vitest.config.ts                   # Unit- + Contract-Tests (kein I/O)
-├── vitest.config.integration.ts       # Integration-Tests (In-Memory-SQLite)
+├── vitest.config.ts                   # Unit + Contract tests (no I/O)
+├── vitest.config.integration.ts       # Integration tests (In-Memory SQLite)
 ├── playwright.config.ts               # E2E: webServer, workers=1, DB_PATH=test.db
 ├── drizzle.config.ts
 ├── .env.example
 ├── .gitignore                         # .env, data/, dist/, logs/
 ├── src/
 │   ├── server/
-│   │   ├── index.ts                   # listen() + Startup-Sequenz + Graceful Shutdown
-│   │   ├── app.ts                     # buildApp() — testbar ohne listen()
+│   │   ├── index.ts                   # listen() + startup sequence + graceful shutdown
+│   │   ├── app.ts                     # buildApp() — testable without listen()
 │   │   ├── db/
-│   │   │   ├── schema.ts              # Drizzle Schema (Single Source of Truth für Typen)
+│   │   │   ├── schema.ts              # Drizzle Schema (single source of truth for types)
 │   │   │   ├── client.ts              # SQLite init, WAL, Pragmas, Auto-Migrate, Backup
 │   │   │   └── migrations/
-│   │   ├── routes/                    # Fastify-Plugins, je eine Datei pro Ressource
+│   │   ├── routes/                    # Fastify plugins, one file per resource
 │   │   │   ├── depot.ts  search.ts  research.ts
 │   │   │   ├── metrics.ts  moat.ts  analysis.ts
 │   │   │   ├── history.ts  costs.ts  health.ts
@@ -132,49 +132,49 @@ portfolio_manager/
 │   │   │   └── search.service.ts  cost.service.ts
 │   │   ├── infra/
 │   │   │   ├── llm-gateway.ts         # Singleton: CostGuard + Vercel AI SDK + Logging
-│   │   │   ├── llm-gateway.recorder.ts   # Record/Playback für Tests
-│   │   │   ├── web-search.ts          # Tavily hinter WebSearchProvider-Interface
-│   │   │   ├── quote-adapter.ts       # Yahoo hinter QuoteProvider-Interface
+│   │   │   ├── llm-gateway.recorder.ts   # Record/Playback for tests
+│   │   │   ├── web-search.ts          # Tavily behind WebSearchProvider interface
+│   │   │   ├── quote-adapter.ts       # Yahoo behind QuoteProvider interface
 │   │   │   ├── isin-resolver.ts       # OpenFIGI
-│   │   │   ├── research-queue.ts      # In-Process Queue, max 2 concurrent
+│   │   │   ├── research-queue.ts      # In-process queue, max 2 concurrent
 │   │   │   ├── sse-emitter.ts         # SSE Event-Bus
-│   │   │   ├── env.ts                 # Zod-Env-Validierung
-│   │   │   └── retry.ts               # withRetry() Utility
-│   │   ├── prompts/                   # Versionierte Prompt-Dateien
+│   │   │   ├── env.ts                 # Zod env validation
+│   │   │   └── retry.ts               # withRetry() utility
+│   │   ├── prompts/                   # Versioned prompt files
 │   │   │   ├── research-quarterly.v1.ts
 │   │   │   ├── research-news.v1.ts
 │   │   │   ├── moat-assessment.v1.ts
 │   │   │   └── analysis-perspectives.v1.ts
 │   │   └── shared/
-│   │       └── errors.ts              # Domänen-Fehlerklassen
+│   │       └── errors.ts              # Domain error classes
 │   ├── client/
-│   │   ├── index.html                 # Vite-Entrypoint
+│   │   ├── index.html                 # Vite entrypoint
 │   │   ├── main.tsx
 │   │   ├── App.tsx                    # Router + QueryClientProvider
 │   │   ├── pages/
 │   │   │   ├── Dashboard.tsx
-│   │   │   ├── StockDetail.tsx        # Timeline + Kennzahlen + Moat + Analyse
-│   │   │   └── Settings.tsx           # Budget, API-Keys, Kostenübersicht, Privacy
+│   │   │   ├── StockDetail.tsx        # Timeline + Metrics + Moat + Analysis
+│   │   │   └── Settings.tsx           # Budget, API keys, cost overview, privacy
 │   │   ├── components/
 │   │   │   ├── ErrorBoundary.tsx      # Route-Level + StockCard-Level
 │   │   │   ├── StockSearch.tsx  StockCard.tsx  Timeline.tsx
 │   │   │   ├── MetricsTable.tsx  MiniChart.tsx  MoatRadar.tsx
 │   │   │   ├── AnalysisReport.tsx  CostBadge.tsx  OfflineBanner.tsx
 │   │   ├── hooks/
-│   │   │   ├── useApi.ts              # TanStack Query Hooks
-│   │   │   └── useSSE.ts              # SSE mit Auto-Reconnect
+│   │   │   ├── useApi.ts              # TanStack Query hooks
+│   │   │   └── useSSE.ts              # SSE with auto-reconnect
 │   │   └── lib/
 │   │       └── api-client.ts
 │   └── shared/
-│       └── types.ts                   # Drizzle-abgeleitete Typen (Server + Client)
+│       └── types.ts                   # Drizzle-derived types (server + client)
 ├── data/                              # gitignored
 │   ├── portfolio.db  backups/  logs/
 ├── tests/
-│   ├── setup.ts                       # createTestDb(), createTestApp(), Seed-Fixtures
-│   ├── contracts/                     # PRD-Verifikation als TDD-Anker
+│   ├── setup.ts                       # createTestDb(), createTestApp(), seed fixtures
+│   ├── contracts/                     # PRD verification as TDD anchors
 │   │   ├── depot.contract.test.ts  research.contract.test.ts
 │   │   ├── metrics.contract.test.ts  costs.contract.test.ts
-│   ├── __recordings__/                # LLM-Response-Recordings (committed, in Git)
+│   ├── __recordings__/                # LLM response recordings (committed, in Git)
 │   │   ├── research/  analysis/  moat/
 │   └── integration/
 └── e2e/
@@ -182,10 +182,10 @@ portfolio_manager/
     ├── dashboard.spec.ts  stock-detail.spec.ts  add-stock.spec.ts
 ```
 
-## Datenmodell
+## Data Model
 
 ```sql
--- ===== Kern =====
+-- ===== Core =====
 
 stocks (
   id                  TEXT PRIMARY KEY,   -- ULID
@@ -195,10 +195,10 @@ stocks (
   isin                TEXT,
   currency            TEXT NOT NULL,
   added_at            TEXT NOT NULL,
-  last_visited_at     TEXT,              -- Letzter Klick auf Detailseite
-  last_price          REAL,              -- Fallback bei API-Ausfall
+  last_visited_at     TEXT,              -- Last click on detail page
+  last_price          REAL,              -- Fallback on API failure
   last_price_at       TEXT,
-  price_at_last_visit REAL,              -- Baseline für "Seit letztem Besuch"-Vergleich
+  price_at_last_visit REAL,              -- Baseline for "since last visit" comparison
   UNIQUE(ticker, exchange)
 );
 
@@ -214,39 +214,39 @@ transactions (
   created_at  TEXT NOT NULL
 );
 
--- ===== Recherche =====
+-- ===== Research =====
 
 research_items (
   id             TEXT PRIMARY KEY,
   stock_id       TEXT REFERENCES stocks ON DELETE CASCADE,
   type           TEXT CHECK(type IN ('quarterly_report','news')),
-  period         TEXT,                -- 'Q3 2024' (NULL für News)
+  period         TEXT,                -- 'Q3 2024' (NULL for news)
   title          TEXT,
-  content        TEXT NOT NULL,       -- Markdown (konsistent für spätere Embedding-Pipeline)
+  content        TEXT NOT NULL,       -- Markdown (consistent for future embedding pipeline)
   source_url     TEXT,
   source_name    TEXT,
   fetched_at     TEXT NOT NULL,
   status         TEXT CHECK(status IN ('complete','partial','error')),
   error_detail   TEXT,
-  prompt_version TEXT,                -- z.B. 'research-quarterly-v1.0'
-  is_current     INTEGER DEFAULT 1,   -- 1 = aktiv, 0 = superseded
+  prompt_version TEXT,                -- e.g. 'research-quarterly-v1.0'
+  is_current     INTEGER DEFAULT 1,   -- 1 = active, 0 = superseded
   supersedes     TEXT REFERENCES research_items,
-  raw_data       TEXT                 -- JSON-Rohdaten
+  raw_data       TEXT                 -- JSON raw data
 );
 
--- Partieller Unique Index: nur ein aktiver Eintrag pro Stock+Type+Period
+-- Partial unique index: only one active entry per stock+type+period
 CREATE UNIQUE INDEX idx_research_current
   ON research_items(stock_id, type, period)
   WHERE is_current = 1;
 
--- ===== Kennzahlen =====
+-- ===== Metrics =====
 
 metrics (
   id                 TEXT PRIMARY KEY,
   stock_id           TEXT REFERENCES stocks ON DELETE CASCADE,
   name               TEXT NOT NULL,
   quarter            TEXT NOT NULL,
-  value              REAL,            -- NULL = nicht verfügbar (≠ 0)
+  value              REAL,            -- NULL = not available (≠ 0)
   currency           TEXT,
   source_url         TEXT,
   source_name        TEXT,
@@ -258,7 +258,7 @@ metrics (
   UNIQUE(stock_id, name, quarter)
 );
 
--- ===== Burggraben =====
+-- ===== Moat =====
 
 moat_assessments (
   id             TEXT PRIMARY KEY,
@@ -270,14 +270,11 @@ moat_assessments (
   reasoning      TEXT,
   source         TEXT CHECK(source IN ('ai','user')),
   created_at     TEXT NOT NULL,
-  API Error: Claude's response exceeded the 32000 output token maximum. To configure this behavior, set the CLAUDE_CODE_MAX_OUTPUT_TOKENS environment variable.Continuing from the data model (moat_assessments):
-
-```sql
   prompt_version TEXT,
   supersedes     TEXT REFERENCES moat_assessments
 );
 
--- ===== KI-Analyse =====
+-- ===== AI Analysis =====
 
 analysis_reports (
   id                 TEXT PRIMARY KEY,
@@ -287,8 +284,8 @@ analysis_reports (
   completed_at       TEXT,
   perspectives       TEXT,            -- JSON: [{role, content, datapointsReferenced, dataGaps}]
   summary            TEXT,
-  consensus_points   TEXT,            -- JSON Array
-  dissent_points     TEXT,            -- JSON Array
+  consensus_points   TEXT,            -- JSON array
+  dissent_points     TEXT,            -- JSON array
   rounds_completed   INTEGER DEFAULT 0,
   max_rounds         INTEGER DEFAULT 5,
   prompt_version     TEXT,
@@ -296,7 +293,7 @@ analysis_reports (
   actual_cost_eur    REAL
 );
 
--- ===== Kosten =====
+-- ===== Costs =====
 
 cost_log (
   id             TEXT PRIMARY KEY,
@@ -307,10 +304,10 @@ cost_log (
   model          TEXT NOT NULL,
   estimated_eur  REAL NOT NULL,
   created_at     TEXT NOT NULL,
-  completed      INTEGER DEFAULT 1    -- 0 = abgebrochen (anteilig erfasst)
+  completed      INTEGER DEFAULT 1    -- 0 = cancelled (partially recorded)
 );
 
--- ===== Volltextsuche =====
+-- ===== Full-Text Search =====
 
 search_documents (
   id           TEXT PRIMARY KEY,
@@ -351,12 +348,12 @@ BEGIN
   INSERT OR REPLACE INTO search_documents(id, stock_id, source_table,
     source_id, doc_type, period, title, body, created_at)
   VALUES (NEW.id, NEW.stock_id, 'analysis_reports', NEW.id,
-    'analysis', NULL, 'KI-Analyse', NEW.summary, NEW.completed_at);
+    'analysis', NULL, 'AI Analysis', NEW.summary, NEW.completed_at);
   INSERT INTO search_index(rowid, title, body)
-  VALUES (last_insert_rowid(), 'KI-Analyse', NEW.summary);
+  VALUES (last_insert_rowid(), 'AI Analysis', NEW.summary);
 END;
 
--- Trigger: Superseded-Einträge aus Suchindex entfernen
+-- Trigger: remove superseded entries from search index
 CREATE TRIGGER research_supersede AFTER UPDATE ON research_items
 WHEN NEW.is_current = 0
 BEGIN
@@ -364,18 +361,18 @@ BEGIN
     WHERE source_table = 'research_items' AND source_id = NEW.id;
 END;
 
--- ===== App-State =====
+-- ===== App State =====
 
 settings (
   key   TEXT PRIMARY KEY,
-  value TEXT NOT NULL               -- JSON-String
+  value TEXT NOT NULL               -- JSON string
 );
--- Initiale Werte:
+-- Initial values:
 -- { key: 'last_dashboard_visit',   value: '"2025-01-01T00:00:00Z"' }
 -- { key: 'budget_limit_eur',       value: '20' }
 -- { key: 'privacy_consent_given',  value: 'false' }
 
--- ===== SQLite-Pragmas (beim DB-Open gesetzt) =====
+-- ===== SQLite Pragmas (set on DB open) =====
 PRAGMA journal_mode = WAL;
 PRAGMA busy_timeout = 5000;
 PRAGMA foreign_keys = ON;
@@ -384,18 +381,18 @@ PRAGMA synchronous = NORMAL;
 
 ---
 
-## ADR-001: Monolithischer Full-Stack-Prozess (2026-02-22)
+## ADR-001: Monolithic Full-Stack Process (2026-02-22)
 
-**Kontext:** Ein Analyse-Tool für Privatanleger, das lokal mit einem einzigen Befehl starten soll (REQ-006). Alternativen: Monorepo mit separaten Prozessen, Docker-Compose, Next.js als Full-Stack-Framework.
+**Context:** An analysis tool for private investors that should start locally with a single command (REQ-006). Alternatives: monorepo with separate processes, Docker Compose, Next.js as a full-stack framework.
 
-**Entscheidung:** Fastify 5 serviert API + statische Vite-Build-Assets in einem einzigen Node.js-Prozess auf `127.0.0.1:3000`. Kein Docker, kein Monorepo, kein Reverse Proxy. Im Dev-Modus laufen Vite (Port 5173) und Fastify (Port 3001) separat, verbunden über Vites `/api`-Proxy.
+**Decision:** Fastify 5 serves the API + static Vite build assets in a single Node.js process on `127.0.0.1:3000`. No Docker, no monorepo, no reverse proxy. In dev mode, Vite (port 5173) and Fastify (port 3001) run separately, connected via Vite's `/api` proxy.
 
-**Begründung:** `npm start` bedeutet ein Befehl, ein Prozess, ein Port. Für ein Single-User-Local-Tool ist jede Infrastruktur-Ebene über diesem Minimum reiner Overhead ohne Nutzen. Fastifys Plugin-System ermöglicht strukturierte Modularität ohne externe Build-Kopplung. `buildApp()` in `app.ts` ist von `listen()` in `index.ts` getrennt — das macht Fastify mit `.inject()` in Tests aufrufbar ohne Netzwerkstack.
+**Rationale:** `npm start` means one command, one process, one port. For a single-user local tool, every infrastructure layer above this minimum is pure overhead without benefit. Fastify's plugin system enables structured modularity without external build coupling. `buildApp()` in `app.ts` is separated from `listen()` in `index.ts` — this makes Fastify callable with `.inject()` in tests without a network stack.
 
-**Konsequenzen:**
-- `npm start` → `node dist/server/index.js`, bindet auf `127.0.0.1:3000`, serviert `dist/client/`
-- `npm run dev` → `concurrently` startet `tsx watch src/server/index.ts` (Port 3001) und `vite` (Port 5173); SSE-Proxy braucht Header `Accept: text/event-stream` explizit gesetzt
-- Build-Scripts:
+**Consequences:**
+- `npm start` → `node dist/server/index.js`, binds to `127.0.0.1:3000`, serves `dist/client/`
+- `npm run dev` → `concurrently` starts `tsx watch src/server/index.ts` (port 3001) and `vite` (port 5173); SSE proxy requires `Accept: text/event-stream` header set explicitly
+- Build scripts:
 ```jsonc
 {
   "dev":       "concurrently -n api,web -c blue,green \"tsx watch src/server/index.ts\" \"vite\"",
@@ -412,38 +409,38 @@ PRAGMA synchronous = NORMAL;
   "validate":  "npm run typecheck && npm run lint && npm run test && npm run test:contracts && npm run test:integration && npm run build"
 }
 ```
-- Playwright-Konfiguration: `reuseExistingServer: !process.env.CI`; Readiness-Check gegen `/api/health`, nicht gegen Root-URL; `DB_PATH=./data/test.db` via `env`-Feld im `webServer`-Block
+- Playwright configuration: `reuseExistingServer: !process.env.CI`; readiness check against `/api/health`, not against root URL; `DB_PATH=./data/test.db` via `env` field in `webServer` block
 
 ---
 
-## ADR-002: SQLite WAL-Modus mit better-sqlite3 (2026-02-22)
+## ADR-002: SQLite WAL Mode with better-sqlite3 (2026-02-22)
 
-**Kontext:** Lokale Single-User-Persistenz ohne externe Infrastruktur. Anforderungen: concurrent Reads während laufender Research-Writes (mehrere Queue-Jobs gleichzeitig), zuverlässige ACID-Guarantees, FTS5 für Volltextsuche, Backup-Strategie.
+**Context:** Local single-user persistence without external infrastructure. Requirements: concurrent reads during active research writes (multiple queue jobs simultaneously), reliable ACID guarantees, FTS5 for full-text search, backup strategy.
 
-**Entscheidung:** SQLite 3 mit WAL-Modus via `better-sqlite3`. Kein PQueue-Write-Serializer. Backup via SQLites `.backup()`-API vor jeder Migration. PRAGMA-Konfiguration wie im Datenmodell.
+**Decision:** SQLite 3 with WAL mode via `better-sqlite3`. No PQueue write serializer. Backup via SQLite's `.backup()` API before each migration. PRAGMA configuration as in the data model.
 
-**Begründung:** `better-sqlite3` ist synchron — jeder `.run()`-Call blockiert bis zum Abschluss. In einem Single-Process-Node.js-Server können sich zwei synchrone Writes physisch nicht überlappen; `SQLITE_BUSY` tritt ausschließlich bei Mehrprozess-Szenarien auf, die hier nicht existieren. Ein PQueue-Wrapper um synchrone Calls erzeugt Promise-Overhead für ein nicht-existierendes Problem. Drizzles `transaction()`-Wrapper ist atomar und ausreichend. `PRAGMA busy_timeout = 5000` fängt den theoretischen Randfall (Playwright mit mehreren Workers gegen dieselbe DB) als Sicherheitsnetz ab. WAL-Modus ist Pflicht, weil Research-Queue-Writes und Dashboard-Reads gleichzeitig auftreten.
+**Rationale:** `better-sqlite3` is synchronous — every `.run()` call blocks until completion. In a single-process Node.js server, two synchronous writes cannot physically overlap; `SQLITE_BUSY` occurs exclusively in multi-process scenarios, which do not exist here. A PQueue wrapper around synchronous calls creates Promise overhead for a non-existent problem. Drizzle's `transaction()` wrapper is atomic and sufficient. `PRAGMA busy_timeout = 5000` handles the theoretical edge case (Playwright with multiple workers against the same DB) as a safety net. WAL mode is required because research queue writes and dashboard reads occur simultaneously.
 
-**Konsequenzen:**
-- Automatisches Backup (`sqlite.backup(path)`) vor jeder Migration in `data/backups/`; Rotation auf max 5 Dateien
-- Backup-Fehler: Warn-Log, kein Start-Abbruch
-- Zombie-Recovery beim Start: `UPDATE research_items SET status='pending' WHERE status='running'` und analog für `analysis_reports`
-- Crash-sichere partielle Ergebnisse durch UPSERT innerhalb jedes einzelnen Research-Schritts
-- FTS5-Sync ausschließlich über SQLite-Trigger (kein manueller Sync-Code in Services), s. ADR-011
+**Consequences:**
+- Automatic backup (`sqlite.backup(path)`) before each migration into `data/backups/`; rotation to max 5 files
+- Backup failure: warn log, no startup abort
+- Zombie recovery on startup: `UPDATE research_items SET status='pending' WHERE status='running'` and analogously for `analysis_reports`
+- Crash-safe partial results via UPSERT within each individual research step
+- FTS5 sync exclusively via SQLite triggers (no manual sync code in services), see ADR-011
 
 ---
 
-## ADR-003: LLMGateway als einziger Zugangspunkt zu LLM-Calls (2026-02-22)
+## ADR-003: LLMGateway as Single Entry Point for LLM Calls (2026-02-22)
 
-**Kontext:** LLM-Calls verursachen Kosten, brauchen Versionierung, müssen in Tests ohne echte API-Keys reproduzierbar sein und dürfen Budget-Limits nicht überschreiten. Drei parallele Calls (REQ-008) erzeugen eine Race Condition am Budget-Limit.
+**Context:** LLM calls incur costs, require versioning, must be reproducible in tests without real API keys, and must not exceed budget limits. Three parallel calls (REQ-008) create a race condition on the budget limit.
 
-**Entscheidung:** Singleton-Klasse `LLMGateway` in `src/server/infra/llm-gateway.ts` als einziger Export-Punkt für LLM-Operationen. Kein Service importiert `openai`, `@anthropic-ai/sdk` oder `ai` direkt. Drei öffentliche Methoden: `complete()`, `completeBatch()`, `estimateTokens()`.
+**Decision:** Singleton class `LLMGateway` in `src/server/infra/llm-gateway.ts` as the sole export point for LLM operations. No service imports `openai`, `@anthropic-ai/sdk`, or `ai` directly. Three public methods: `complete()`, `completeBatch()`, `estimateTokens()`.
 
 ```typescript
 class LLMGateway {
   async complete(opts: LLMRequest): Promise<LLMResponse> { ... }
 
-  // Reserviert Budget für alle Calls vorab — verhindert Race Condition
+  // Reserves budget for all calls upfront — prevents race condition
   async completeBatch(requests: LLMRequest[]): Promise<LLMResponse[]> {
     const totalEstimate = requests.reduce(
       (sum, r) => sum + this.estimateTokens(r.messages), 0
@@ -455,27 +452,27 @@ class LLMGateway {
 }
 ```
 
-**Begründung:** Zentralisierung garantiert lückenlose Geltung von CostGuard (Budget-Check vor jedem Call), Token-Logging (nach jedem Call) und Recording-Pattern (für Tests). `completeBatch()` löst das Race-Condition-Problem bei drei parallelen Analyse-Calls: Das Gesamtbudget wird atomar vorab geprüft und reserviert — kein drittes Call schlägt durch, wenn das Budget nur für zwei reicht. Model-Router: `model: 'fast'` → gpt-4o-mini für strukturierte Extraktion; `model: 'capable'` → gpt-4o für qualitative Analyse.
+**Rationale:** Centralization guarantees complete enforcement of CostGuard (budget check before every call), token logging (after every call), and recording pattern (for tests). `completeBatch()` solves the race condition problem with three parallel analysis calls: the total budget is atomically checked and reserved upfront — no third call goes through when the budget only covers two. Model router: `model: 'fast'` → gpt-4o-mini for structured extraction; `model: 'capable'` → gpt-4o for qualitative analysis.
 
-**Konsequenzen:**
-- Jeder LLM-Call protokolliert in `cost_log` — auch abgebrochene (`completed=0`, anteilig)
-- `prompt_version` ist Pflichtparameter auf jedem Call; fehlt er, wirft der Gateway einen Fehler
-- Recording-Mode via Env: `LLM_RECORD=true` → echte Calls + Aufzeichnung; `NODE_ENV=test` → Playback; `npm run dev` → Passthrough
-- Kostenschätzung vor Start: 1,5×-Puffer für mögliche Retries; im UI als "bis zu X EUR" kommuniziert
-- Privacy-Consent-Check: Gateway prüft `settings.privacy_consent_given` synchron vor jedem externen Call (s. ADR-012)
+**Consequences:**
+- Every LLM call is logged in `cost_log` — including cancelled ones (`completed=0`, partial)
+- `prompt_version` is a required parameter on every call; if missing, the gateway throws an error
+- Recording mode via env: `LLM_RECORD=true` → real calls + recording; `NODE_ENV=test` → playback; `npm run dev` → passthrough
+- Cost estimate before start: 1.5× buffer for possible retries; communicated in UI as "up to X EUR"
+- Privacy consent check: gateway checks `settings.privacy_consent_given` synchronously before every external call (see ADR-012)
 
 ---
 
-## ADR-004: Vercel AI SDK 4.x innerhalb des LLMGateway (2026-02-22)
+## ADR-004: Vercel AI SDK 4.x Within the LLMGateway (2026-02-22)
 
-**Kontext:** Wahl der LLM-Execution-Engine innerhalb des LLMGateway. Optionen: Vercel AI SDK 4.x vs. direkter `openai`-SDK. Der Gateway abstrahiert den Provider ohnehin — die Frage ist, was intern verwendet wird.
+**Context:** Choice of LLM execution engine within the LLMGateway. Options: Vercel AI SDK 4.x vs. direct `openai` SDK. The gateway abstracts the provider anyway — the question is what is used internally.
 
-**Entscheidung:** Vercel AI SDK 4.x intern im `LLMGateway`. Nicht als globale Abhängigkeit sichtbar, nicht außerhalb des Gateway importiert.
+**Decision:** Vercel AI SDK 4.x internally in the `LLMGateway`. Not visible as a global dependency, not imported outside the gateway.
 
-**Begründung:** `generateObject()` mit Zod-Schema ist für Kennzahlen-Extraktion (REQ-003, REQ-004) entscheidend:
+**Rationale:** `generateObject()` with Zod schema is critical for metrics extraction (REQ-003, REQ-004):
 
 ```typescript
-// generateObject() → typsicheres Objekt, kein manuelles JSON.parse
+// generateObject() → type-safe object, no manual JSON.parse
 const { object } = await generateObject({
   model: openai('gpt-4o-mini'),
   schema: z.object({
@@ -485,38 +482,38 @@ const { object } = await generateObject({
   }),
   prompt: extractionPrompt,
 });
-// object ist vollständig typsicher, Zod-validiert
+// object is fully type-safe, Zod-validated
 ```
 
-Der direkte OpenAI SDK erfordert `response_format: { type: 'json_schema' }` + manuelles Parsen + manuelle Zod-Validierung — mehr Eigencode mit denselben Fehlerquellen. Provider-Wechsel bleibt ein Einzeiler (`createAnthropic()` statt `createOpenAI()`). Für Streaming-UX in Phase 2 liefert das AI SDK `streamText()` mit Token-Callbacks, ohne dass wir eigenes Chunking implementieren müssen.
+The direct OpenAI SDK requires `response_format: { type: 'json_schema' }` + manual parsing + manual Zod validation — more custom code with the same failure modes. Provider switching remains a one-liner (`createAnthropic()` instead of `createOpenAI()`). For streaming UX in phase 2, the AI SDK provides `streamText()` with token callbacks without requiring us to implement custom chunking.
 
-**Konsequenzen:**
-- Breaking Changes im Vercel AI SDK sind lokale Gateway-Refactorings, kein Impact auf Services
-- `generateText()` für freie Texte (Moat-Einschätzungen, Analyse-Perspektiven); `generateObject()` für strukturierte Datenextraktion (Kennzahlen)
-
----
-
-## ADR-005: In-Process Job Queue für Webrecherche (2026-02-22)
-
-**Kontext:** Research-Jobs laufen asynchron und dürfen die UI nicht blockieren (REQ-003). Gleichzeitig sollen maximal 2 Jobs concurrent laufen, um API-Rate-Limits nicht zu triggern. Doppelte Requests für dieselbe Aktie müssen dedupliziert werden.
-
-**Entscheidung:** Promise-basierte In-Process-Queue (`src/server/infra/research-queue.ts`) mit max. 2 concurrent Jobs. Deduplizierung: gleicher Stock + Typ + 5-Minuten-Fenster = Job wird ignoriert. SSE-Emitter sendet Status-Events pro Job-Fortschritt. Crash Recovery beim Start.
-
-**Begründung:** Eine externe Queue (Redis, BullMQ) wäre Infrastruktur-Overkill für ein Single-User-Tool mit gelegentlichen Manual-Triggers. Die realistische Queue-Tiefe (max. 20 Aktien × 4 Quartale = 80 Jobs) passt bequem in den Prozess-Speicher. Partielle Ergebnisse werden per UPSERT nach jedem erfolgreich abgeschlossenen Sub-Task gespeichert — ein Job-Crash verliert nicht alle bereits abgerufenen Quartale.
-
-**Konsequenzen:**
-- Research-Status pro Aktie: `Recherche läuft` / `Aktuell` / `Teilweise geladen` / `Fehler bei [Quelle X]`
-- Automatischer Retry bei transienten Fehlern: max 3×, exponentielles Backoff (1s/3s/9s) per `withRetry()`
-- Fehlgeschlagene Quellen werden namentlich angezeigt, nicht generisch als "Fehler"
-- Graceful Shutdown: Queue draint, max 10s; danach laufende Jobs → `status='pending'`, Teilergebnisse bereits gespeichert
+**Consequences:**
+- Breaking changes in the Vercel AI SDK are local gateway refactorings, with no impact on services
+- `generateText()` for free-form text (moat assessments, analysis perspectives); `generateObject()` for structured data extraction (metrics)
 
 ---
 
-## ADR-006: Research-Versionierung mit is_current + supersedes (2026-02-22)
+## ADR-005: In-Process Job Queue for Web Research (2026-02-22)
 
-**Kontext:** Re-Recherche soll alte Ergebnisse nicht überschreiben — die Timeline-Historie muss erhalten bleiben. Gleichzeitig muss garantiert werden, dass nur ein aktiver Eintrag pro Stock+Type+Period existiert. Ein normaler UNIQUE-Constraint würde beim Einfügen des neuen Eintrags brechen, solange der alte noch existiert.
+**Context:** Research jobs run asynchronously and must not block the UI (REQ-003). At the same time, at most 2 jobs should run concurrently to avoid triggering API rate limits. Duplicate requests for the same stock must be deduplicated.
 
-**Entscheidung:** Soft-Delete-Pattern mit `is_current INTEGER DEFAULT 1`. Beim Re-Research innerhalb einer SQLite-Transaktion: alten Eintrag auf `is_current=0` setzen, neuen mit `is_current=1` und `supersedes=old.id` einfügen. Partieller Unique Index erzwingt Eindeutigkeit nur für aktive Einträge:
+**Decision:** Promise-based in-process queue (`src/server/infra/research-queue.ts`) with max. 2 concurrent jobs. Deduplication: same stock + type + 5-minute window = job is ignored. SSE emitter sends status events per job progress. Crash recovery on startup.
+
+**Rationale:** An external queue (Redis, BullMQ) would be infrastructure overkill for a single-user tool with occasional manual triggers. The realistic queue depth (max. 20 stocks × 4 quarters = 80 jobs) fits comfortably in process memory. Partial results are saved via UPSERT after each successfully completed sub-task — a job crash does not lose all already-fetched quarters.
+
+**Consequences:**
+- Research status per stock: `Research running` / `Current` / `Partially loaded` / `Error at [Source X]`
+- Automatic retry on transient errors: max 3×, exponential backoff (1s/3s/9s) via `withRetry()`
+- Failed sources are shown by name, not generically as "Error"
+- Graceful shutdown: queue drains, max 10s; then running jobs → `status='pending'`, partial results already saved
+
+---
+
+## ADR-006: Research Versioning with is_current + supersedes (2026-02-22)
+
+**Context:** Re-research should not overwrite old results — the timeline history must be preserved. At the same time, it must be guaranteed that only one active entry exists per stock+type+period. A normal UNIQUE constraint would break when inserting the new entry while the old one still exists.
+
+**Decision:** Soft-delete pattern with `is_current INTEGER DEFAULT 1`. During re-research within a SQLite transaction: set old entry to `is_current=0`, insert new one with `is_current=1` and `supersedes=old.id`. Partial unique index enforces uniqueness only for active entries:
 
 ```sql
 CREATE UNIQUE INDEX idx_research_current
@@ -524,26 +521,26 @@ CREATE UNIQUE INDEX idx_research_current
   WHERE is_current = 1;
 ```
 
-**Begründung:** Der partielle Index ist die eleganteste SQLite-Lösung: Die Datenbank erzwingt die Constraint ohne Anwendungslogik, erlaubt aber mehrere Einträge mit gleichen Werten, solange nur einer aktiv ist. Gleiches Pattern gilt für `moat_assessments`. Timeline-Queries sind einfach (`WHERE is_current = 1`); Versions-Drill-Down zeigt alle Einträge ohne `is_current`-Filter.
+**Rationale:** The partial index is the most elegant SQLite solution: the database enforces the constraint without application logic, but allows multiple entries with the same values as long as only one is active. The same pattern applies to `moat_assessments`. Timeline queries are simple (`WHERE is_current = 1`); version drill-down shows all entries without an `is_current` filter.
 
-**Konsequenzen:**
-- Timeline zeigt immer `WHERE is_current = 1`
-- Drill-Down: `WHERE stock_id = ? AND type = ? AND period = ? ORDER BY fetched_at DESC`
-- FTS5-Trigger entfernt superseded Einträge automatisch aus dem Suchindex (s. ADR-011)
-- `prompt_version` bleibt auf jedem Eintrag dauerhaft erhalten — auch auf superseded Rows
+**Consequences:**
+- Timeline always shows `WHERE is_current = 1`
+- Drill-down: `WHERE stock_id = ? AND type = ? AND period = ? ORDER BY fetched_at DESC`
+- FTS5 trigger automatically removes superseded entries from the search index (see ADR-011)
+- `prompt_version` is permanently retained on every entry — including superseded rows
 
 ---
 
-## ADR-007: Interface-basierte externe Adapter (2026-02-22)
+## ADR-007: Interface-Based External Adapters (2026-02-22)
 
-**Kontext:** Drei externe APIs (yahoo-finance2, Tavily, OpenFIGI) müssen in Tests durch Mocks ersetzbar und in Production gegen alternative Anbieter austauschbar sein, ohne Services zu ändern.
+**Context:** Three external APIs (yahoo-finance2, Tavily, OpenFIGI) must be replaceable by mocks in tests and swappable against alternative providers in production without changing services.
 
-**Entscheidung:** Alle externen APIs hinter TypeScript-Interfaces. Production-Implementierungen in `src/server/infra/`. Mock-Implementierungen in `tests/`. Interface-Injektion per Constructor in Services (kein DI-Container, explizite Verdrahtung in `buildApp()`).
+**Decision:** All external APIs behind TypeScript interfaces. Production implementations in `src/server/infra/`. Mock implementations in `tests/`. Interface injection via constructor in services (no DI container, explicit wiring in `buildApp()`).
 
 ```typescript
 interface QuoteProvider {
   getQuote(ticker: string, exchange: string): Promise<Quote | null>;
-  getQuotes(tickers: TickerExchange[]): Promise<Quote[]>;  // Batch von Anfang an
+  getQuotes(tickers: TickerExchange[]): Promise<Quote[]>;  // Batch from the start
 }
 
 interface WebSearchProvider {
@@ -551,110 +548,110 @@ interface WebSearchProvider {
 }
 ```
 
-**Begründung:** Provider-Wechsel = neue Implementierung, keine Service-Änderung. Offline-Fallback (ADR-009) ist eine weitere Implementierung, die `last_price`-Daten aus SQLite zurückgibt. Mock-Implementierungen für alle Provider existieren ab Iteration 0 (Scaffolding) — Services sind testbar, bevor echte API-Keys konfiguriert sind.
+**Rationale:** Provider switch = new implementation, no service change. Offline fallback (ADR-009) is another implementation that returns `last_price` data from SQLite. Mock implementations for all providers exist from iteration 0 (scaffolding) — services are testable before real API keys are configured.
 
-**Konsequenzen:**
-- Kein direkter Import von `yahoo-finance2` oder `tavily` in Services
-- `QuoteProvider` implementiert Batch-Abruf von Anfang an
-- ISIN-Auflösung dreistufig: Yahoo-Suche → bei ISIN: OpenFIGI → Yahoo mit zurückgegebenem Ticker
-
----
-
-## ADR-008: Prompt-Versionierung (2026-02-22)
-
-**Kontext:** Prompts ändern sich über die Zeit. LLM-Outputs sind nicht deterministisch. Ohne Versionierung ist bei einem Incident unklar, welcher Prompt welchen gespeicherten Datenpunkt erzeugt hat.
-
-**Entscheidung:** Prompts als versionierte TypeScript-Dateien (`prompts/research-quarterly.v1.ts`). Jeder generierte Datenpunkt referenziert die Version im Feld `prompt_version`. Recording-Key für Tests enthält `prompt_version` — ein Prompt-Update erzwingt automatisch Re-Recording (alter Key wird nicht gefunden → Playback-Test schlägt fehl).
-
-**Begründung:** Diagnostik bei Incidents: "Warum sehen Q3-Zusammenfassungen anders aus als Q2?" → Prompt-Version vergleichen. Die Kopplung von Recording-Key an `prompt_version` ist die automatische Cache-Invalidierung: Es gibt keinen manuellen Schritt "Recordings löschen nach Prompt-Änderung" — der Build erinnert daran.
-
-**Konsequenzen:**
-- Prompt-Dateien werden niemals überschrieben; neue Version = neue Datei (`research-quarterly.v2.ts`)
-- Versions-String-Format: `{feature}-v{major}.{minor}`, z.B. `research-quarterly-v1.0`
-- Recording-Key: `{promptVersion}/{ticker}-{period}` — deterministisch, nicht vom Prompt-Inhalt abhängig
+**Consequences:**
+- No direct import of `yahoo-finance2` or `tavily` in services
+- `QuoteProvider` implements batch fetching from the start
+- ISIN resolution is three-stage: Yahoo search → for ISIN: OpenFIGI → Yahoo with returned ticker
 
 ---
 
-## ADR-009: Offline-Degradation (2026-02-22)
+## ADR-008: Prompt Versioning (2026-02-22)
 
-**Kontext:** Alle drei externen APIs (LLM, Yahoo Finance, Tavily) können ausfallen. Der Nutzer muss seine gespeicherten Daten immer einsehen können — Offline bedeutet Read-Only, nicht Fehlerseite.
+**Context:** Prompts change over time. LLM outputs are not deterministic. Without versioning, it is unclear during an incident which prompt produced which stored data point.
 
-**Entscheidung:** Health-Probe beim App-Start (non-blocking, parallel) bestimmt den initialen Feature-Status. Fehler pro Adapter setzen den jeweiligen Status auf `degraded`. Der App-Start wird durch keinen API-Ausfall blockiert. Frontend pollt `/api/health` alle 60s.
+**Decision:** Prompts as versioned TypeScript files (`prompts/research-quarterly.v1.ts`). Every generated data point references the version in the `prompt_version` field. Recording keys for tests contain `prompt_version` — a prompt update automatically forces re-recording (old key not found → playback test fails).
 
-**Begründung:** Das Offline-First-Prinzip ist eine harte Invariante: Gespeicherte Daten sind immer verfügbar. Externe Ausfälle sind für ein Analyse-Werkzeug normal (Märkte haben geschlossen, KI-Dienste haben Wartungsfenster). Ein blockierter Start würde den Nutzer von seinen eigenen Daten aussperren.
+**Rationale:** Diagnostics during incidents: "Why do Q3 summaries look different from Q2?" → compare prompt version. The coupling of the recording key to `prompt_version` is the automatic cache invalidation: there is no manual step "delete recordings after prompt change" — the build reminds you.
 
-**Konsequenzen:**
-- `last_price` + `last_price_at` auf `stocks` als Offline-Fallback für Kurse; Anzeige: "Stand: [Datum] — Aktualisierung fehlgeschlagen"
-- KI-Features deaktiviert wenn `privacy_consent_given=false` oder kein `OPENAI_API_KEY` in `.env`
-- Frontend-OfflineBanner: grün (unsichtbar) / gelb ("Kurse nicht aktuell") / rot ("Offline — gespeicherte Daten")
-- `/api/health` Response-Shape: `{ status, db, externals: {llm, yahoo, tavily}, queue: {pending, running}, budget: {usedPercent, limitEur}, lastBackup }`
+**Consequences:**
+- Prompt files are never overwritten; new version = new file (`research-quarterly.v2.ts`)
+- Version string format: `{feature}-v{major}.{minor}`, e.g. `research-quarterly-v1.0`
+- Recording key: `{promptVersion}/{ticker}-{period}` — deterministic, not dependent on prompt content
 
 ---
 
-## ADR-010: Parallele Analyse-Perspektiven + sequentieller Summarizer (2026-02-22)
+## ADR-009: Offline Degradation (2026-02-22)
 
-**Kontext:** REQ-008 beschreibt einen strukturierten Bericht aus drei Perspektiven mit konsolidierter Zusammenfassung. Das PRD nennt "maximal N Runden (Default 5)" als Diskussionsmodell. Timing: Das UJ-004-Fenster "30–60s" muss eingehalten werden.
+**Context:** All three external APIs (LLM, Yahoo Finance, Tavily) can fail. The user must always be able to view their stored data — offline means read-only, not an error page.
 
-**Entscheidung:** 2-Phasen-Implementierung statt N Debattenrunden:
-- **Phase 1 (parallel, ~15s):** Fundamentalanalyst, Burggraben-Experte, Bären-Perspektive analysieren unabhängig voneinander dieselbe gespeicherte Datenbasis via `completeBatch()`
-- **Phase 2 (sequentiell, ~10s):** Summarizer-Agent erzeugt Konsens/Dissenz-Zusammenfassung aus den drei Perspektiv-Outputs
+**Decision:** Health probe on app startup (non-blocking, parallel) determines the initial feature status. Errors per adapter set the respective status to `degraded`. App startup is never blocked by any API failure. Frontend polls `/api/health` every 60s.
+
+**Rationale:** The offline-first principle is a hard invariant: stored data is always available. External failures are normal for an analysis tool (markets are closed, AI services have maintenance windows). A blocked startup would lock the user out of their own data.
+
+**Consequences:**
+- `last_price` + `last_price_at` on `stocks` as offline fallback for prices; display: "As of: [date] — update failed"
+- AI features disabled when `privacy_consent_given=false` or no `OPENAI_API_KEY` in `.env`
+- Frontend OfflineBanner: green (invisible) / yellow ("Prices not current") / red ("Offline — stored data")
+- `/api/health` response shape: `{ status, db, externals: {llm, yahoo, tavily}, queue: {pending, running}, budget: {usedPercent, limitEur}, lastBackup }`
+
+---
+
+## ADR-010: Parallel Analysis Perspectives + Sequential Summarizer (2026-02-22)
+
+**Context:** REQ-008 describes a structured report from three perspectives with a consolidated summary. The PRD mentions "maximum N rounds (default 5)" as a discussion model. Timing: the UJ-004 window "30–60s" must be met.
+
+**Decision:** 2-phase implementation instead of N debate rounds:
+- **Phase 1 (parallel, ~15s):** Fundamental analyst, moat expert, bear perspective analyze the same stored data base independently via `completeBatch()`
+- **Phase 2 (sequential, ~10s):** Summarizer agent generates consensus/dissent summary from the three perspective outputs
 
 ```
-[Datenbasis] → parallel → [Fundamentalanalyst]  ──┐
-                        → [Burggraben-Experte]  ──┼→ [Summarizer] → Bericht
-                        → [Bären-Perspektive]   ──┘
+[Data base] → parallel → [Fundamental Analyst]  ──┐
+                       → [Moat Expert]          ──┼→ [Summarizer] → Report
+                       → [Bear Perspective]      ──┘
 ```
 
-**Begründung:** Die drei Perspektiven greifen auf identische Daten zu — sie haben keine gegenseitigen Abhängigkeiten, Parallelisierung ist korrekt. Konsens- und Dissenz-Punkte identifiziert der Summarizer aus den drei Outputs; das erfordert keine sequentielle Debatte. Timing: ~25s statt ~55s bei vollständig sequential. `completeBatch()` im LLMGateway reserviert Budget für alle drei Calls vorab (s. ADR-003). Das `max_rounds`-Feld bleibt im Schema für Phase 2 (optionales Debattenformat), ist in V1 aber semantisch unused.
+**Rationale:** The three perspectives access identical data — they have no mutual dependencies, parallelization is correct. Consensus and dissent points are identified by the summarizer from the three outputs; this does not require a sequential debate. Timing: ~25s instead of ~55s for fully sequential. `completeBatch()` in the LLMGateway reserves the budget for all three calls upfront (see ADR-003). The `max_rounds` field remains in the schema for phase 2 (optional debate format), but is semantically unused in V1.
 
-**Konsequenzen:**
-- `rounds_completed` auf `analysis_reports` ist in V1 immer `1`
-- Nutzer kann laufende Analyse abbrechen; beide Phasen werden terminiert; Teilergebnis gespeichert
-- Gate für Analyse-Button: ≥2 Quartale mit `status='complete'`; Datenlücken erscheinen als `dataGaps`-Array in den Perspektiv-JSONs
+**Consequences:**
+- `rounds_completed` on `analysis_reports` is always `1` in V1
+- User can cancel a running analysis; both phases are terminated; partial result saved
+- Gate for analysis button: ≥2 quarters with `status='complete'`; data gaps appear as `dataGaps` array in perspective JSONs
 
-**Einschränkt:** REQ-008 — das PRD-Konzept "maximal N Runden (konfigurierbar, Default 5)" wird in V1 als festes 2-Phasen-Pattern implementiert, nicht als konfigurierbare Debattenschleife.
-
----
-
-## ADR-011: FTS5-Synchronisation via SQLite-Trigger (2026-02-22)
-
-**Kontext:** REQ-005 fordert Volltextsuche über alle gespeicherten Daten sowie übergreifende Suche über mehrere Aktien. FTS5 ist ein virtueller SQLite-Table mit eigenem Storage. Neue Inhalte aus `research_items` und `analysis_reports` müssen zuverlässig im Suchindex landen.
-
-**Entscheidung:** SQLite-Trigger synchronisieren Daten automatisch von Quelltabellen in `search_documents` (materialisierte Brücke) und dann in den FTS5 Virtual Table `search_index`. Application-Code führt keinen `INSERT INTO search_index`-Call durch.
-
-**Begründung:** Manueller Sync im Service-Code wird bei jedem neuen Datentyp vergessen. SQLite-Trigger garantieren Konsistenz strukturell und atomar — innerhalb derselben Transaktion wie der auslösende Write. Die `search_documents`-Brückentabelle ist notwendig, weil FTS5-Content-Tables keine normalen JOINs erlauben: übergreifende Suche (`search_index JOIN search_documents JOIN stocks`) ist damit möglich.
-
-**Konsequenzen:**
-- Drei Trigger: `research_ai` (AFTER INSERT, nur wenn `is_current=1`), `analysis_ai` (AFTER UPDATE, nur wenn `status='complete'`), `research_supersede` (AFTER UPDATE, wenn `is_current=0` → DELETE aus `search_documents`)
-- Übergreifende Suche: `SELECT s.ticker, sd.* FROM search_index JOIN search_documents sd USING(rowid) JOIN stocks s ON sd.stock_id = s.id WHERE search_index MATCH ?`
-- Performance-Ziel (REQ-005): Suche < 3s bei > 1.000 gespeicherten Dokumenten
+**Restricts:** REQ-008 — the PRD concept "maximum N rounds (configurable, default 5)" is implemented in V1 as a fixed 2-phase pattern, not as a configurable debate loop.
 
 ---
 
-## ADR-012: Privacy-Consent vor erstem LLM-Call (2026-02-22)
+## ADR-011: FTS5 Synchronization via SQLite Trigger (2026-02-22)
 
-**Kontext:** Ticker, Zeiträume und Research-Ergebnisse werden an OpenAI und Tavily gesendet. Das PRD enthält keine explizite Datenschutz-Anforderung, aber das Senden von Nutzerdaten an externe Services ohne Kenntnis und Einwilligung ist inakzeptabel.
+**Context:** REQ-005 requires full-text search across all stored data as well as cross-stock search. FTS5 is a virtual SQLite table with its own storage. New content from `research_items` and `analysis_reports` must reliably land in the search index.
 
-**Entscheidung:** `settings.privacy_consent_given` muss `true` sein, bevor der LLMGateway einen externen Call erlaubt. First-Start-Dialog (modal, blockierend) informiert über die Datenflüsse. Consent ist dauerhaft in `settings` gespeichert — kein Dialog bei jedem Start.
+**Decision:** SQLite triggers automatically synchronize data from source tables into `search_documents` (materialized bridge) and then into the FTS5 virtual table `search_index`. Application code does not execute any `INSERT INTO search_index` calls.
 
-Dialog-Text: *"Diese App sendet Aktienticker und Zeiträume an OpenAI und Tavily für Recherche und Analyse. Kaufdaten, Stückzahlen und persönliche Daten werden niemals gesendet."*
+**Rationale:** Manual sync in service code gets forgotten with every new data type. SQLite triggers guarantee consistency structurally and atomically — within the same transaction as the triggering write. The `search_documents` bridge table is necessary because FTS5 content tables do not allow normal JOINs: cross-stock search (`search_index JOIN search_documents JOIN stocks`) is thus possible.
 
-**Begründung:** Die architektonische Platzierung im LLMGateway garantiert lückenlose Enforcement — kein Service kann die Prüfung umgehen. Kaufdaten (`shares`, `price`, `fees`) werden als Gateway-Invariante strukturell nie in LLM-Prompts eingebettet, unabhängig vom Consent-Status.
-
-**Konsequenzen:**
-- Ohne Consent: Dashboard und alle Read-Features funktionieren vollständig; KI-Features zeigen "Erst nach Einwilligung verfügbar"
-- Settings-Seite erlaubt Consent-Widerruf; danach sind LLM-Features sofort deaktiviert
-- Pre-Commit-Hook (`secretlint`) scannt Prompt-Dateien auf versehentliche Secrets
-
-**Einschränkt:** REQ-003 (automatische Recherche bei Neuaufnahme), REQ-007 (KI-generierte Burggraben-Bewertung), REQ-008 (KI-Analysebericht) — alle sind erst nach expliziter Einwilligung aktiv.
+**Consequences:**
+- Three triggers: `research_ai` (AFTER INSERT, only when `is_current=1`), `analysis_ai` (AFTER UPDATE, only when `status='complete'`), `research_supersede` (AFTER UPDATE, when `is_current=0` → DELETE from `search_documents`)
+- Cross-stock search: `SELECT s.ticker, sd.* FROM search_index JOIN search_documents sd USING(rowid) JOIN stocks s ON sd.stock_id = s.id WHERE search_index MATCH ?`
+- Performance target (REQ-005): search < 3s with > 1,000 stored documents
 
 ---
 
-## ADR-013: Retry mit exponentiellem Backoff — kein Circuit Breaker (2026-02-22)
+## ADR-012: Privacy Consent Before First LLM Call (2026-02-22)
 
-**Kontext:** Drei externe APIs können transient ausfallen. Das PRD fordert max. 3 automatische Retries (REQ-003). Ein formaler Circuit Breaker mit Zustandsmaschine (`closed/half-open/open`) wurde diskutiert und abgelehnt.
+**Context:** Tickers, time periods, and research results are sent to OpenAI and Tavily. The PRD contains no explicit privacy requirement, but sending user data to external services without knowledge and consent is unacceptable.
 
-**Entscheidung:** Einfaches `withRetry` mit exponentiellem Backoff. Kein globaler Circuit-Breaker-State. Fallback-Verhalten ist pro Adapter definiert.
+**Decision:** `settings.privacy_consent_given` must be `true` before the LLMGateway allows an external call. First-start dialog (modal, blocking) informs about the data flows. Consent is permanently stored in `settings` — no dialog on every startup.
+
+Dialog text: *"This app sends stock tickers and time periods to OpenAI and Tavily for research and analysis. Purchase data, share quantities, and personal data are never sent."*
+
+**Rationale:** The architectural placement in the LLMGateway guarantees complete enforcement — no service can bypass the check. Purchase data (`shares`, `price`, `fees`) is structurally never embedded in LLM prompts as a gateway invariant, regardless of consent status.
+
+**Consequences:**
+- Without consent: dashboard and all read features work fully; AI features show "Available only after consent"
+- Settings page allows consent withdrawal; LLM features are immediately disabled afterwards
+- Pre-commit hook (`secretlint`) scans prompt files for accidental secrets
+
+**Restricts:** REQ-003 (automatic research on new addition), REQ-007 (AI-generated moat assessment), REQ-008 (AI analysis report) — all are only active after explicit consent.
+
+---
+
+## ADR-013: Retry with Exponential Backoff — No Circuit Breaker (2026-02-22)
+
+**Context:** Three external APIs can fail transiently. The PRD requires max. 3 automatic retries (REQ-003). A formal circuit breaker with state machine (`closed/half-open/open`) was discussed and rejected.
+
+**Decision:** Simple `withRetry` with exponential backoff. No global circuit breaker state. Fallback behavior is defined per adapter.
 
 ```typescript
 async function withRetry<T>(
@@ -668,20 +665,20 @@ async function withRetry<T>(
 ): Promise<T>
 ```
 
-**Begründung:** Single-User, manuelle Trigger, 5–20 API-Calls pro Session — ein Circuit Breaker erreicht bei dieser Nutzungsfrequenz seinen `half-open`-State praktisch nie. Eine korrekte Implementierung (~200–300 Zeilen + State-Persistence + Tests) ist unverhältnismäßig zum Nutzen. Bei echtem API-Ausfall zeigt das Fehlerbadge nach dem ersten Retry-Zyklus den Status; der Nutzer entscheidet. Retries werden als separate `cost_log`-Einträge (`operation_type='retry'`) erfasst; die Vorab-Kostenschätzung enthält einen 1,5×-Puffer.
+**Rationale:** Single user, manual triggers, 5–20 API calls per session — a circuit breaker practically never reaches its `half-open` state at this usage frequency. A correct implementation (~200–300 lines + state persistence + tests) is disproportionate to the benefit. On a real API failure, the error badge shows the status after the first retry cycle; the user decides. Retries are recorded as separate `cost_log` entries (`operation_type='retry'`); the upfront cost estimate includes a 1.5× buffer.
 
-**Konsequenzen:**
-- Fallback pro Adapter: Yahoo → `last_price` + Warn-Badge; LLM → Fehlerstatus + Retry-Button; Tavily → partielle Ergebnisse mit Status `partial`
-- Phase 2 (optionaler Hintergrund-Cronjob): Circuit Breaker kann zu diesem Zeitpunkt lokal nachgerüstet werden
-- `busy_timeout = 5000` als SQLite-Sicherheitsnetz — kein Retry-Pattern für DB-Operationen nötig
+**Consequences:**
+- Fallback per adapter: Yahoo → `last_price` + warn badge; LLM → error status + retry button; Tavily → partial results with status `partial`
+- Phase 2 (optional background cron job): circuit breaker can be retrofitted locally at that point
+- `busy_timeout = 5000` as SQLite safety net — no retry pattern needed for DB operations
 
 ---
 
-## ADR-014: Env-Validierung mit Zod beim App-Start (2026-02-22)
+## ADR-014: Env Validation with Zod on App Startup (2026-02-22)
 
-**Kontext:** Fehlende oder falsch formatierte Umgebungsvariablen führen zu schwer diagnostizierbaren Laufzeitfehlern. API-Keys sind optional (Degraded Mode), aber andere Werte brauchen sinnvolle Defaults.
+**Context:** Missing or incorrectly formatted environment variables lead to hard-to-diagnose runtime errors. API keys are optional (degraded mode), but other values need sensible defaults.
 
-**Entscheidung:** Zod-Schema parst `process.env` synchron als ersten Schritt beim Start in `src/server/infra/env.ts`. Fehlende API-Keys sind kein fataler Fehler.
+**Decision:** Zod schema parses `process.env` synchronously as the first step on startup in `src/server/infra/env.ts`. Missing API keys are not a fatal error.
 
 ```typescript
 const envSchema = z.object({
@@ -698,89 +695,89 @@ export type Env = z.infer<typeof envSchema>;
 export const env = envSchema.parse(process.env);
 ```
 
-**Begründung:** Typsicheres `process.env`-Parsen verhindert stille Konfigurationsfehler. Fehlender `OPENAI_API_KEY` → App startet im Degraded Mode mit klarem UI-Hinweis statt kryptischem Fehler beim ersten LLM-Call. `.env.example` dokumentiert alle Variablen mit Kommentaren.
+**Rationale:** Type-safe `process.env` parsing prevents silent configuration errors. Missing `OPENAI_API_KEY` → app starts in degraded mode with a clear UI notice instead of a cryptic error on the first LLM call. `.env.example` documents all variables with comments.
 
-**Konsequenzen:**
-- Keys werden nie gecacht — jeder LLM-Call liest aus `env` frisch (unterstützt Key-Rotation)
-- `POST /api/settings/reload-env`: liest Keys neu aus `process.env` ohne App-Neustart (für Key-Rotation im laufenden Betrieb)
-- Alle API-Keys werden niemals in Logs, DB, Frontend-Responses oder LLM-Prompts exponiert
+**Consequences:**
+- Keys are never cached — every LLM call reads fresh from `env` (supports key rotation)
+- `POST /api/settings/reload-env`: reads keys fresh from `process.env` without app restart (for key rotation in a running instance)
+- All API keys are never exposed in logs, DB, frontend responses, or LLM prompts
 
 ---
 
-## ADR-015: Startup-Sequenz und Graceful Shutdown (2026-02-22)
+## ADR-015: Startup Sequence and Graceful Shutdown (2026-02-22)
 
-**Kontext:** Start- und Stop-Verhalten müssen deterministisch und crash-sicher sein. Unklare Reihenfolge erzeugt schwer diagnostizierbare Fehler. Nur echte Infrastruktur-Fehler (korrupte DB, Port belegt) sollen den Start blockieren.
+**Context:** Startup and stop behavior must be deterministic and crash-safe. Unclear ordering creates hard-to-diagnose errors. Only real infrastructure failures (corrupt DB, port in use) should block startup.
 
-**Entscheidung:**
+**Decision:**
 
-**Startup-Sequenz (`src/server/index.ts`):**
+**Startup Sequence (`src/server/index.ts`):**
 
 ```
-1. env (Zod) parsen
-   → Schema-Verletzung (ungültige Typen): Exit 1
+1. Parse env (Zod)
+   → Schema violation (invalid types): Exit 1
 
-2. SQLite öffnen + PRAGMAs setzen
-   → DB-Datei existiert nicht: erstellen + migrieren
-   → DB-Datei korrupt: letztes Backup wiederherstellen, Warn-Log, weitermachen
-   → PRAGMA fehlgeschlagen: Exit 1
+2. Open SQLite + set PRAGMAs
+   → DB file does not exist: create + migrate
+   → DB file corrupt: restore last backup, warn log, continue
+   → PRAGMA failed: Exit 1
 
-3. Backup erstellen (VOR Migration)
-   → Kein Speicher: Warn-Log, kein Exit
+3. Create backup (BEFORE migration)
+   → No storage: warn log, no exit
 
-4. Drizzle-Migrationen ausführen
-   → Fehler: Exit 1, Backup-Pfad in Fehlermeldung
+4. Run Drizzle migrations
+   → Error: Exit 1, backup path in error message
 
-5. Zombie-Recovery (idempotent, kein Fehlerfall)
+5. Zombie recovery (idempotent, not an error case)
    → research_items: status='running' → 'pending'
    → analysis_reports: status='running' → 'pending'
 
-6. Health-Probe (parallel, non-blocking)
-   → LLM / Yahoo / Tavily je 1 leichtgewichtiger Call
-   → Fehler: warn + Feature-Status 'degraded' — KEIN Exit
+6. Health probe (parallel, non-blocking)
+   → LLM / Yahoo / Tavily one lightweight call each
+   → Error: warn + feature status 'degraded' — NO exit
 
 7. Fastify listen(127.0.0.1, PORT)
-   → Port belegt: Exit 1, Meldung "Port {PORT} bereits belegt"
+   → Port in use: Exit 1, message "Port {PORT} already in use"
 
-8. Log: "Portfolio Manager bereit — http://127.0.0.1:{PORT}"
-   → Degraded-Hinweise auflisten: "⚠ OpenAI nicht erreichbar — KI-Features deaktiviert"
+8. Log: "Portfolio Manager ready — http://127.0.0.1:{PORT}"
+   → List degraded notices: "⚠ OpenAI not reachable — AI features disabled"
 ```
 
 **Graceful Shutdown (SIGINT / SIGTERM):**
 
 ```
-1. Fastify.close() — neue Requests ablehnen
-2. Research-Queue: max 10s drainieren
-   → Timeout: laufende Jobs → status='pending', Teilergebnisse per UPSERT gespeichert
-3. SSE-Connections schließen
-4. Backup erstellen (nur wenn seit letztem Backup Schreiboperationen stattfanden)
-5. SQLite Connection schließen
+1. Fastify.close() — reject new requests
+2. Research queue: drain max 10s
+   → Timeout: running jobs → status='pending', partial results saved via UPSERT
+3. Close SSE connections
+4. Create backup (only if write operations occurred since last backup)
+5. Close SQLite connection
 6. Exit 0
 ```
 
-**Logging-Konvention (pino):**
+**Logging convention (pino):**
 
-| Level | Verwendung |
+| Level | Usage |
 |---|---|
-| `error` | Unbehandelter Fehler, fataler Start-Fehler, Migration fehlgeschlagen |
-| `warn` | Degraded State, Retry-Versuch, 80%-Budget-Schwelle, API nicht erreichbar |
-| `info` | Geschäftsereignis: Aktie hinzugefügt, Recherche gestartet/abgeschlossen, Analyse generiert |
-| `debug` | SQL-Query-Time, HTTP-Request, Token-Zählung, Cache-Hit/Miss |
+| `error` | Unhandled error, fatal startup error, migration failed |
+| `warn` | Degraded state, retry attempt, 80% budget threshold, API not reachable |
+| `info` | Business event: stock added, research started/completed, analysis generated |
+| `debug` | SQL query time, HTTP request, token count, cache hit/miss |
 
-Niemals in Logs: API-Keys, Kaufdaten, vollständige Prompt-Texte oder LLM-Responses, persönliche Daten.
+Never in logs: API keys, purchase data, full prompt texts or LLM responses, personal data.
 
-**Sicherheits-Konfiguration:** Fastify mit `@fastify/helmet` (Security-Header), Rate-Limiting (10 req/s pro Route, Schutz gegen lokale Malware/Extensions), CORS nur `127.0.0.1:3000`. Input-Validierung über Fastify JSON Schema für alle API-Inputs: Ticker alphanumerisch max 10 Zeichen, ISIN exakt 12 alphanumerisch, numerische Range-Checks.
+**Security configuration:** Fastify with `@fastify/helmet` (security headers), rate limiting (10 req/s per route, protection against local malware/extensions), CORS only `127.0.0.1:3000`. Input validation via Fastify JSON Schema for all API inputs: ticker alphanumeric max 10 characters, ISIN exactly 12 alphanumeric, numeric range checks.
 
-**Konsequenzen:**
-- `buildApp()` in `app.ts` ist ohne `listen()` testbar — Fastify `.inject()` braucht keinen Netzwerkstack
-- Nur DB-Fehler und Port-Konflikte sind fatal; alle externen API-Ausfälle nie
+**Consequences:**
+- `buildApp()` in `app.ts` is testable without `listen()` — Fastify `.inject()` does not need a network stack
+- Only DB errors and port conflicts are fatal; all external API failures never are
 
 ---
 
-## ADR-016: Type-Flow von Drizzle-Schema bis Client (2026-02-22)
+## ADR-016: Type Flow from Drizzle Schema to Client (2026-02-22)
 
-**Kontext:** Drizzle generiert TypeScript-Typen aus dem Schema. Ohne explizite Ableitungsstrategie entstehen drei separate Typ-Definitionen (DB, API-Route, Client), die manuell synchronisiert werden müssen. Schema-Änderungen propagieren dann nicht automatisch.
+**Context:** Drizzle generates TypeScript types from the schema. Without an explicit derivation strategy, three separate type definitions arise (DB, API route, client) that must be manually synchronized. Schema changes then do not propagate automatically.
 
-**Entscheidung:** `src/shared/types.ts` als Single Source of Truth. Alle Typen werden aus dem Drizzle-Schema abgeleitet; API-Response-Typen sind zusammengesetzte Ableitungen, keine manuellen Interfaces.
+**Decision:** `src/shared/types.ts` as single source of truth. All types are derived from the Drizzle schema; API response types are composed derivations, not manual interfaces.
 
 ```typescript
 // src/shared/types.ts
@@ -791,7 +788,7 @@ export type Stock       = InferSelectModel<typeof stocks>;
 export type ResearchItem = InferSelectModel<typeof researchItems>;
 export type Metric      = InferSelectModel<typeof metrics>;
 
-// API-Response-Typen als Ableitungen
+// API response types as derivations
 export type StockWithQuote = Stock & {
   currentPrice:     number | null;
   priceTimestamp:   string | null;
@@ -805,44 +802,44 @@ export type DepotOverview = {
 };
 ```
 
-**Begründung:** Schema-Änderung → TypeScript-Fehler in allen Konsumenten → keine stille Typ-Drift. Ohne diese Pipeline dupliziert ein AI-Agent bei iterativer Implementierung zwangsläufig Typen und erzeugt bei Schema-Änderungen inkonsistente Zustände.
+**Rationale:** Schema change → TypeScript errors in all consumers → no silent type drift. Without this pipeline, an AI agent will inevitably duplicate types during iterative implementation and create inconsistent states on schema changes.
 
-**Konsequenzen:**
-- `tsconfig.json` konfiguriert `paths: { "@shared/*": ["src/shared/*"] }`
-- `vite.config.ts` konfiguriert `resolve.alias: { '@shared': path.resolve(__dirname, 'src/shared') }`
-- Client importiert: `import type { Stock } from '@shared/types'`
-- Kein `@types/`-Package nötig, kein Code-Generator außer Drizzle selbst
+**Consequences:**
+- `tsconfig.json` configures `paths: { "@shared/*": ["src/shared/*"] }`
+- `vite.config.ts` configures `resolve.alias: { '@shared': path.resolve(__dirname, 'src/shared') }`
+- Client imports: `import type { Stock } from '@shared/types'`
+- No `@types/` package needed, no code generator other than Drizzle itself
 
 ---
 
-## ADR-017: Testing-Strategie (2026-02-22)
+## ADR-017: Testing Strategy (2026-02-22)
 
-**Kontext:** LLM-Calls in Tests müssen ohne echte API-Keys reproduzierbar sein. Contract-Tests müssen PRD-Verifikationsvorgaben automatisch prüfen. Unit- und Integration-Tests müssen getrennte Feedback-Loops haben. CI darf keine API-Kosten verursachen.
+**Context:** LLM calls in tests must be reproducible without real API keys. Contract tests must automatically verify PRD requirements. Unit and integration tests must have separate feedback loops. CI must not incur API costs.
 
-**Entscheidung:** Vier Test-Ebenen mit explizit getrennten Configs:
+**Decision:** Four test levels with explicitly separate configs:
 
-| Ebene | Tool | Config | Trigger | Ziel |
+| Level | Tool | Config | Trigger | Goal |
 |---|---|---|---|---|
-| Contract | Vitest | `vitest.config.ts` | Vor Implementierung (TDD), nach API-Änderung | PRD-Verifikation, API-Stabilität |
-| Unit | Vitest | `vitest.config.ts` | Nach jeder Codeänderung | Geschäftslogik, Berechnungen, Prompt-Builder |
-| Integration | Vitest | `vitest.config.integration.ts` | Nach jedem abgeschlossenen REQ | API-Routes + SQLite + Mock-Provider |
-| E2E | Playwright (workers=1) | `playwright.config.ts` | Nach UJ-relevanten Änderungen | User Journeys gegen Full-Stack |
+| Contract | Vitest | `vitest.config.ts` | Before implementation (TDD), after API change | PRD verification, API stability |
+| Unit | Vitest | `vitest.config.ts` | After every code change | Business logic, calculations, prompt builders |
+| Integration | Vitest | `vitest.config.integration.ts` | After every completed REQ | API routes + SQLite + mock providers |
+| E2E | Playwright (workers=1) | `playwright.config.ts` | After UJ-relevant changes | User journeys against full stack |
 
-**Recording-Pattern für LLM-Tests:**
+**Recording pattern for LLM tests:**
 
 ```
-npm run test              → Playback aus __recordings__/ (kostenlos, deterministisch)
-LLM_RECORD=true npm test  → Echte Calls + Aufzeichnung in __recordings__/
+npm run test              → Playback from __recordings__/ (free, deterministic)
+LLM_RECORD=true npm test  → Real calls + recording into __recordings__/
 ```
 
-Recording-Key: `{promptVersion}/{ticker}-{period}` — deterministisch, nicht vom Prompt-Inhalt abhängig (der enthält aktienspezifische Daten, die zwischen Testläufen variieren). Recordings sind in Git committed — CI braucht keine API-Keys.
+Recording key: `{promptVersion}/{ticker}-{period}` — deterministic, not dependent on prompt content (which contains stock-specific data that varies between test runs). Recordings are committed to Git — CI does not need API keys.
 
-**Contract-Test-Beispiel:**
+**Contract test example:**
 
 ```typescript
 // tests/contracts/depot.contract.test.ts
 describe('PRD Verification REQ-001', () => {
-  test('POST /api/depot → Response-Shape', async () => {
+  test('POST /api/depot → Response shape', async () => {
     const app = await createTestApp();
     const res = await app.inject({
       method: 'POST', url: '/api/depot',
@@ -859,7 +856,7 @@ describe('PRD Verification REQ-001', () => {
 });
 ```
 
-**Integration-Test-Setup:**
+**Integration test setup:**
 
 ```typescript
 // tests/setup.ts
@@ -879,7 +876,7 @@ export async function createTestApp(opts?: { seed?: string }) {
 }
 ```
 
-**Vitest-Konfiguration Integration:**
+**Vitest integration configuration:**
 
 ```typescript
 // vitest.config.integration.ts
@@ -888,29 +885,29 @@ export default defineConfig({
     include: ['tests/**/*.test.ts', 'src/**/*.integration.test.ts'],
     globalSetup: ['tests/setup.ts'],
     pool: 'forks',
-    poolOptions: { forks: { singleFork: true } },  // SQLite-Isolation
+    poolOptions: { forks: { singleFork: true } },  // SQLite isolation
   },
 });
 ```
 
-**Konsequenzen:**
-- `npm run validate` ist der Agent-Heartbeat: typecheck + lint + unit + contract + integration + build — rot = REQ nicht abgeschlossen
-- Contract-Tests werden vor der Implementierung geschrieben (TDD-Anker für jeden API-Endpunkt)
-- Agent-Workflow pro REQ: Contract-Test → rot → Implementierung → grün → Integration-Test → grün → validate
+**Consequences:**
+- `npm run validate` is the agent heartbeat: typecheck + lint + unit + contract + integration + build — red = REQ not completed
+- Contract tests are written before implementation (TDD anchor for every API endpoint)
+- Agent workflow per REQ: contract test → red → implementation → green → integration test → green → validate
 
 ---
 
-## ADR-018: Client-Routing und Error Boundaries (2026-02-22)
+## ADR-018: Client Routing and Error Boundaries (2026-02-22)
 
-**Kontext:** Die SPA braucht ein Routing-Schema. Render-Fehler in einer Komponente dürfen nicht das gesamte Dashboard oder die gesamte App abstürzen — besonders relevant, weil `yahoo-finance2` inkonsistente Response-Shapes für verschiedene Märkte liefern kann.
+**Context:** The SPA needs a routing scheme. Render errors in one component must not crash the entire dashboard or the entire app — especially relevant because `yahoo-finance2` can deliver inconsistent response shapes for different markets.
 
-**Entscheidung:** `react-router-dom v7` mit vier explizit konfigurierten Routen. Error Boundaries auf Route-Level und auf `StockCard`-Level.
+**Decision:** `react-router-dom v7` with four explicitly configured routes. Error boundaries at route level and at `StockCard` level.
 
 ```
 /                           → Dashboard.tsx
-/stock/:id                  → StockDetail.tsx  (Timeline + Kennzahlen + Moat + Analyse)
+/stock/:id                  → StockDetail.tsx  (Timeline + Metrics + Moat + Analysis)
 /stock/:id/analysis/:aId    → AnalysisReport.tsx
-/settings                   → Settings.tsx  (Budget, API-Keys, Kostenübersicht, Privacy)
+/settings                   → Settings.tsx  (Budget, API keys, cost overview, privacy)
 ```
 
 ```tsx
@@ -925,25 +922,25 @@ export default defineConfig({
   ...
 </Routes>
 
-// StockCard wird zusätzlich mit eigener Boundary gewrappt:
+// StockCard is additionally wrapped with its own boundary:
 <StockCardErrorBoundary key={stock.id}>
   <StockCard stock={stock} />
 </StockCardErrorBoundary>
 ```
 
-**Begründung:** 4 Routen, explizite Konfiguration — kein File-based Routing nötig (das wäre TanStack Router oder Next.js-Komplexität für minimalen Nutzen). Ein Crash in der Kennzahlen-Komponente darf nicht das Dashboard töten; eine fehlerhafte XETRA-Kurs-Response darf nicht die AAPL-Card zerstören.
+**Rationale:** 4 routes, explicit configuration — no file-based routing needed (that would be TanStack Router or Next.js complexity for minimal benefit). A crash in the metrics component must not kill the dashboard; a faulty XETRA price response must not destroy the AAPL card.
 
-**Konsequenzen:**
-- Vite Dev-Proxy: `/api/*` → `http://127.0.0.1:3001`; SSE-Proxy mit explizit gesetztem `Accept: text/event-stream`-Header via `configure`-Callback
-- `@shared`-Alias konfiguriert in `vite.config.ts` unter `resolve.alias` und in `tsconfig.json` unter `paths` — beide müssen konsistent sein
+**Consequences:**
+- Vite dev proxy: `/api/*` → `http://127.0.0.1:3001`; SSE proxy with explicitly set `Accept: text/event-stream` header via `configure` callback
+- `@shared` alias configured in `vite.config.ts` under `resolve.alias` and in `tsconfig.json` under `paths` — both must be consistent
 
 ---
 
-## ADR-019: "Seit letztem Besuch"-Algorithmus (2026-02-22)
+## ADR-019: "Since Last Visit" Algorithm (2026-02-22)
 
-**Kontext:** REQ-006 und UJ-002 fordern eine kontextuelle Zusammenfassung beim Dashboard-Öffnen nach einer Pause. Der Algorithmus hat ein kritisches Detail: Der Baseline-Timestamp darf erst nach dem Laden aktualisiert werden, nicht beim Öffnen.
+**Context:** REQ-006 and UJ-002 require a contextual summary when the dashboard is opened after a pause. The algorithm has a critical detail: the baseline timestamp must only be updated after the data is loaded, not when opening.
 
-**Entscheidung:** `settings.last_dashboard_visit` speichert den Timestamp des letzten Besuchs. `stocks.price_at_last_visit` speichert den Kurs als Baseline für den Kursvergleich. Timestamp-Update erfolgt nach dem Laden der Daten.
+**Decision:** `settings.last_dashboard_visit` stores the timestamp of the last visit. `stocks.price_at_last_visit` stores the price as a baseline for the price comparison. Timestamp update occurs after the data has loaded.
 
 ```typescript
 async function computeSinceLastVisit(lastVisit: Date): Promise<SinceLastVisit> {
@@ -957,16 +954,16 @@ async function computeSinceLastVisit(lastVisit: Date): Promise<SinceLastVisit> {
   const priceChanges = await getStocksWithPriceChange({
     since: lastVisit,
     thresholdPercent: 5,
-    // Vergleich: currentPrice vs. price_at_last_visit
+    // Comparison: currentPrice vs. price_at_last_visit
   });
 
-  // NACH dem Laden aktualisieren — nicht beim Öffnen.
-  // Sonst gehen "neue" Einträge bei Seiten-Refresh sofort verloren.
+  // Update AFTER loading — not on open.
+  // Otherwise "new" entries are lost immediately on page refresh.
   await db.update(settings)
     .set({ value: new Date().toISOString() })
     .where(eq(settings.key, 'last_dashboard_visit'));
 
-  // Kurs als neue Baseline speichern
+  // Save price as new baseline
   for (const stock of allStocks) {
     await db.update(stocks)
       .set({ priceAtLastVisit: stock.lastPrice })
@@ -977,125 +974,125 @@ async function computeSinceLastVisit(lastVisit: Date): Promise<SinceLastVisit> {
 }
 ```
 
-**Konsequenzen:**
-- Kursvergleich: `(currentPrice - price_at_last_visit) / price_at_last_visit * 100 >= 5`
-- Kein Cronjob — Lazy-Refresh bei App-Start wenn Recherche einer Aktie > 30 Tage alt und ein neues Quartal verfügbar ist
-- Erster Besuch: `last_dashboard_visit` nicht gesetzt → Banner "Willkommen!" statt "Seit letztem Besuch"
+**Consequences:**
+- Price comparison: `(currentPrice - price_at_last_visit) / price_at_last_visit * 100 >= 5`
+- No cron job — lazy refresh on app start when a stock's research is > 30 days old and a new quarter is available
+- First visit: `last_dashboard_visit` not set → banner "Welcome!" instead of "Since last visit"
 
 ---
 
-## Implementierungsreihenfolge
+## Implementation Order
 
 ```
-Iteration 0: Scaffolding  [BLOCKER für alles Weitere]
-  → package.json (alle Dependencies), TypeScript strict, Vite-Proxy-Config
-  → Fastify-Grundgerüst: index.ts (listen) + app.ts (buildApp, testbar)
-  → Vollständiges Drizzle-Schema + alle Migrationen + FTS5-Trigger
-  → SQLite init (WAL, Pragmas, Auto-Migrate, Backup-Logik)
-  → LLMGateway-Skeleton (Mock-Provider, CostGuard-Interface, Recording-Infrastruktur)
-  → Alle Adapter-Interfaces + Mock-Implementierungen (QuoteProvider, WebSearchProvider)
-  → React-App-Shell (Router, QueryClient, leeres Dashboard)
-  → src/shared/types.ts mit Drizzle-Ableitungen
-  → Health-Endpoint, Zod-Env-Validierung, Privacy-Consent-Platzhalter (Settings)
-  → Contract-Test-Template, Vitest-Configs (Unit + Integration), Playwright-Config
+Iteration 0: Scaffolding  [BLOCKER for everything else]
+  → package.json (all dependencies), TypeScript strict, Vite proxy config
+  → Fastify skeleton: index.ts (listen) + app.ts (buildApp, testable)
+  → Complete Drizzle schema + all migrations + FTS5 triggers
+  → SQLite init (WAL, Pragmas, Auto-Migrate, backup logic)
+  → LLMGateway skeleton (mock provider, CostGuard interface, recording infrastructure)
+  → All adapter interfaces + mock implementations (QuoteProvider, WebSearchProvider)
+  → React app shell (Router, QueryClient, empty dashboard)
+  → src/shared/types.ts with Drizzle derivations
+  → Health endpoint, Zod env validation, privacy consent placeholder (Settings)
+  → Contract test template, Vitest configs (Unit + Integration), Playwright config
   → ESLint, Prettier, package-lock.json committed
-  GATE: npm run validate → grün; App startet; /api/health antwortet mit HTTP 200
+  GATE: npm run validate → green; app starts; /api/health responds with HTTP 200
 
-Iteration 1: REQ-001 + REQ-002  (Depot + Kurse)
-  → Contract-Tests für /api/depot und /api/depot/:id/quote (TDD-Anker, zuerst)
-  → DepotService + QuoteService + YahooQuoteProvider (Batch-Abruf)
-  → StockSearch-Autocomplete (Debounce, Fuzzy-Match, OpenFIGI für ISIN)
-  → Dashboard-Grundlayout, StockCard mit Error Boundary
-  GATE: Contract-Tests grün + E2E (UJ-001 partiell)
+Iteration 1: REQ-001 + REQ-002  (Depot + Quotes)
+  → Contract tests for /api/depot and /api/depot/:id/quote (TDD anchor, first)
+  → DepotService + QuoteService + YahooQuoteProvider (batch fetch)
+  → StockSearch autocomplete (debounce, fuzzy match, OpenFIGI for ISIN)
+  → Dashboard base layout, StockCard with Error Boundary
+  GATE: Contract tests green + E2E (UJ-001 partial)
 
-Iteration 2: REQ-003  (Webrecherche)
-  → Contract-Tests für /api/depot/:id/research
-  → TavilySearchProvider + echtes LLMGateway + CostGuard live
-  → ResearchService + Research-Queue + SSE-Status-Events
-  → is_current + supersedes-Logik + FTS5-Trigger verifizieren
-  → Erste LLM-Recordings erstellen (LLM_RECORD=true npm run test:record)
-  → Privacy-Consent-Dialog (First Start, modal)
-  GATE: Contract-Tests + Integration + E2E (UJ-001 komplett)
+Iteration 2: REQ-003  (Web research)
+  → Contract tests for /api/depot/:id/research
+  → TavilySearchProvider + real LLMGateway + CostGuard live
+  → ResearchService + research queue + SSE status events
+  → is_current + supersedes logic + verify FTS5 triggers
+  → Create first LLM recordings (LLM_RECORD=true npm run test:record)
+  → Privacy consent dialog (first start, modal)
+  GATE: Contract tests + integration + E2E (UJ-001 complete)
 
-Iteration 3: REQ-004  (Kennzahlen)
-  → Contract-Tests für /api/depot/:id/metrics
-  → MetricsService (generateObject() mit Zod-Schema → typsichere Extraktion)
-  → MetricsTable + MiniChart + Trend-Indikatoren + Anomalie-Highlighting (≥20%)
-  GATE: Contract-Tests + E2E (UJ-003 partiell)
+Iteration 3: REQ-004  (Metrics)
+  → Contract tests for /api/depot/:id/metrics
+  → MetricsService (generateObject() with Zod schema → type-safe extraction)
+  → MetricsTable + MiniChart + trend indicators + anomaly highlighting (≥20%)
+  GATE: Contract tests + E2E (UJ-003 partial)
 
-Iteration 4: REQ-005  (Timeline + Suche)
+Iteration 4: REQ-005  (Timeline + Search)
   → SearchService (FTS5 via search_documents JOIN)
-  → Timeline-Komponente mit Quartals-Ankern, leere Quartale explizit markiert
-  → Filter nach Datentyp, Volltextsuche, übergreifende Suche
-  GATE: Performance-Test (< 3s bei 1.000 Dokumenten)
+  → Timeline component with quarter anchors, empty quarters explicitly marked
+  → Filter by data type, full-text search, cross-stock search
+  GATE: Performance test (< 3s with 1,000 documents)
 
 Iteration 5: REQ-006  (Dashboard)
-  → Aufmerksamkeits-Sortierung (neue Daten, Anomalien, Kurs > 5%)
-  → "Seit letztem Besuch"-Algorithmus (ADR-019)
-  → OfflineBanner (polling /api/health alle 60s), Onboarding-Hinweis
+  → Attention sorting (new data, anomalies, price > 5%)
+  → "Since last visit" algorithm (ADR-019)
+  → OfflineBanner (polling /api/health every 60s), onboarding notice
   GATE: E2E (UJ-002)
 
-Iteration 6: REQ-009  (Kosten-UI)
-  → Budget-Einstellungen in settings-Tabelle, CostBadge-Komponente
-  → Kostenübersicht-Seite (Tag/Woche/Monat), 80%-Warnung via SSE
-  GATE: Contract-Tests für /api/costs/summary
+Iteration 6: REQ-009  (Cost UI)
+  → Budget settings in settings table, CostBadge component
+  → Cost overview page (day/week/month), 80% warning via SSE
+  GATE: Contract tests for /api/costs/summary
 
-Iteration 7: REQ-007  (Burggraben)
-  → MoatService + LLM-generierte Initialbewertung
-  → Nutzer-Overrides mit Änderungshistorie (supersedes-Pattern)
-  GATE: Contract-Tests + E2E
+Iteration 7: REQ-007  (Moat)
+  → MoatService + LLM-generated initial assessment
+  → User overrides with change history (supersedes pattern)
+  GATE: Contract tests + E2E
 
-[GATE: REQ-008a — Klick-Prototyp mit 3–5 Nutzern testen, manuelles Approval erforderlich]
+[GATE: REQ-008a — test click prototype with 3–5 users, manual approval required]
 
-Iteration 8a: REQ-008a  (Analyse-UI-Prototyp)
-  → AnalysisReport-Komponente mit statischen Dummy-Daten
-  → Kein Backend, keine LLM-Calls
-  OUTPUT: Klickbarer Prototyp für Nutzertests
+Iteration 8a: REQ-008a  (Analysis UI prototype)
+  → AnalysisReport component with static dummy data
+  → No backend, no LLM calls
+  OUTPUT: Clickable prototype for user tests
 
-Iteration 8b: REQ-008b  (Analyse-Backend)  [NUR nach Prototyp-Validierung]
-  → AnalysisService: Phase 1 parallel (completeBatch()) + Phase 2 Summarizer
-  → Contract-Tests + Timeline-Archivierung
-  GATE: Contract-Tests + E2E (UJ-004)
+Iteration 8b: REQ-008b  (Analysis backend)  [ONLY after prototype validation]
+  → AnalysisService: phase 1 parallel (completeBatch()) + phase 2 summarizer
+  → Contract tests + timeline archiving
+  GATE: Contract tests + E2E (UJ-004)
 
-Iteration 9: REQ-010  (Transaktionen/Performance) — P2
+Iteration 9: REQ-010  (Transactions/Performance) — P2
 ```
 
 ---
 
-## Architektur-Invarianten
+## Architecture Invariants
 
-Checkliste für jede Iteration — Verletzungen sind Release-Blocker:
+Checklist for every iteration — violations are release blockers:
 
-1. **Kein LLM-Call außerhalb des LLMGateway.** Kein Service importiert `openai`, `@anthropic-ai/sdk` oder `ai` direkt.
-2. **Kein externer API-Call ohne Interface.** Yahoo, Tavily, OpenFIGI — alles hinter Adapter-Interfaces; kein direkter Import von `yahoo-finance2` in Services.
-3. **`prompt_version` auf jedem generierten Datenpunkt.** Kein LLM-Output ohne Versionsstempel.
-4. **`is_current`-Flag auf versionierten Entitäten.** Kein blindes UPSERT; immer Versionskette mit `supersedes`-FK.
-5. **FTS5-Sync via Trigger, nicht Application-Code.** Kein manueller `INSERT INTO search_index` im Service-Code.
-6. **Privacy-Consent vor erstem externem LLM-Call.** LLMGateway prüft `settings.privacy_consent_given` synchron.
-7. **Kosten auch bei Abbruch erfassen.** Kein abgebrochener LLM-Call ohne `cost_log`-Eintrag (`completed=0`).
-8. **`127.0.0.1`, nicht `0.0.0.0`.** Fastify bindet ausschließlich auf Loopback.
-9. **Content ist Markdown, kein HTML.** `research_items.content` konsistent strukturiert für spätere Embedding-Pipeline (Phase 2).
-10. **Backup vor Migration.** Automatisch, keine manuelle Aktion nötig.
-11. **`npm run validate` grün vor jedem abgeschlossenen REQ.** Typecheck + Lint + Unit + Contract + Integration + Build.
-12. **Kaufdaten niemals in LLM-Prompts.** `shares`, `price`, `fees` werden architektonisch nie an externe APIs gesendet.
-13. **Contract-Tests vor Implementierung schreiben.** TDD-Anker für jeden API-Endpunkt definiert, bevor der erste Service-Code entsteht.
-14. **Typen aus Drizzle ableiten, nicht manuell definieren.** `src/shared/types.ts` als Single Source of Truth.
+1. **No LLM call outside the LLMGateway.** No service imports `openai`, `@anthropic-ai/sdk`, or `ai` directly.
+2. **No external API call without an interface.** Yahoo, Tavily, OpenFIGI — everything behind adapter interfaces; no direct import of `yahoo-finance2` in services.
+3. **`prompt_version` on every generated data point.** No LLM output without a version stamp.
+4. **`is_current` flag on versioned entities.** No blind UPSERT; always a version chain with `supersedes` FK.
+5. **FTS5 sync via trigger, not application code.** No manual `INSERT INTO search_index` in service code.
+6. **Privacy consent before first external LLM call.** LLMGateway checks `settings.privacy_consent_given` synchronously.
+7. **Record costs even on cancellation.** No cancelled LLM call without a `cost_log` entry (`completed=0`).
+8. **`127.0.0.1`, not `0.0.0.0`.** Fastify binds exclusively to loopback.
+9. **Content is Markdown, not HTML.** `research_items.content` consistently structured for future embedding pipeline (phase 2).
+10. **Backup before migration.** Automatic, no manual action required.
+11. **`npm run validate` green before every completed REQ.** Typecheck + lint + unit + contract + integration + build.
+12. **Purchase data never in LLM prompts.** `shares`, `price`, `fees` are architecturally never sent to external APIs.
+13. **Write contract tests before implementation.** TDD anchor for every API endpoint defined before the first service code is written.
+14. **Derive types from Drizzle, do not define manually.** `src/shared/types.ts` as single source of truth.
 
 ---
 
-## Widerspruchs-Auflösungen
+## Contradiction Resolutions
 
-| # | Widerspruch | Auflösung | Konsens |
+| # | Contradiction | Resolution | Consensus |
 |---|---|---|---|
-| W1 | REQ-005 leere Quartale vs. REQ-008 Agenten-Datenbasis | Gate: ≥2 Quartale `status=complete` für Analyse-Button; Lücken als `dataGaps`-Array in Perspektiv-JSONs | Alle drei |
-| W2 | REQ-009 P1 vs. Kosten ab erstem Research (REQ-003) | CostGuard als LLMGateway-Infrastruktur ab Iteration 0; REQ-009 ergänzt nur die UI | Alle drei |
-| W3 | UJ-001 "60s" vs. 4 Quartalsberichte | Streaming-UX: Basisdaten < 5s sichtbar, Quartale progressiv per SSE nachgeliefert | Alle drei |
-| W4 | REQ-003 Auto-Recherche vs. REQ-009 Kostentransparenz | Hinzufügen-Dialog zeigt Schätzung ("bis zu 0,12 EUR inkl. Retry-Puffer") | Alle drei |
-| W5 | "Kein Cronjob" vs. "Seit letztem Besuch" aktuell halten | Lazy-Refresh bei App-Start wenn Recherche > 30 Tage alt und neues Quartal verfügbar | Architekt |
-| W6 | REQ-006 "375px" vs. Datendichte (REQ-004, REQ-007) | Mobile: kompakte Karten mit Top-3-Kennzahlen; Drill-Down scrollbar | Alle drei |
-| W7 | Datenschutz fehlt im PRD | First-Start-Dialog; keine Kaufdaten an LLM; kein Tracking (ADR-012) | Alle drei |
-| W8 | Migrations-/Update-Strategie fehlt im PRD | Auto-Migrate bei Start; Backup VOR Migration; nur additive Schema-Änderungen | Alle drei |
-| W9 | REQ-003 "Retry 3×" vs. REQ-009 Kostentransparenz | Kostenschätzung mit 1,5×-Puffer; Retries als separate `cost_log`-Einträge (`operation_type='retry'`) | Architekt + DevOps |
-| W10 | UNIQUE-Constraint vs. supersedes auf research_items | Partieller Index `WHERE is_current = 1` — löst das Constraint-Problem strukturell (ADR-006) | Alle drei |
-| W11 | FTS5-Sync-Mechanik unspezifiziert | SQLite-Trigger + `search_documents`-Brücke als materialisierter Index (ADR-011) | Alle drei |
-| W12 | CostGuard Race-Condition bei parallelen Analyse-Calls | `completeBatch()` reserviert Gesamtbudget atomar vorab (ADR-003, ADR-010) | Architekt + SenDev |
+| W1 | REQ-005 empty quarters vs. REQ-008 agent data base | Gate: ≥2 quarters `status=complete` for analysis button; gaps as `dataGaps` array in perspective JSONs | All three |
+| W2 | REQ-009 P1 vs. costs from first research (REQ-003) | CostGuard as LLMGateway infrastructure from iteration 0; REQ-009 only adds the UI | All three |
+| W3 | UJ-001 "60s" vs. 4 quarterly reports | Streaming UX: base data visible < 5s, quarters delivered progressively via SSE | All three |
+| W4 | REQ-003 auto-research vs. REQ-009 cost transparency | Add dialog shows estimate ("up to 0.12 EUR incl. retry buffer") | All three |
+| W5 | "No cron job" vs. keeping "since last visit" current | Lazy refresh on app start when research > 30 days old and new quarter available | Architect |
+| W6 | REQ-006 "375px" vs. data density (REQ-004, REQ-007) | Mobile: compact cards with top-3 metrics; drill-down scrollable | All three |
+| W7 | Privacy missing from PRD | First-start dialog; no purchase data to LLM; no tracking (ADR-012) | All three |
+| W8 | Migration/update strategy missing from PRD | Auto-migrate on startup; backup BEFORE migration; additive schema changes only | All three |
+| W9 | REQ-003 "Retry 3×" vs. REQ-009 cost transparency | Cost estimate with 1.5× buffer; retries as separate `cost_log` entries (`operation_type='retry'`) | Architect + DevOps |
+| W10 | UNIQUE constraint vs. supersedes on research_items | Partial index `WHERE is_current = 1` — resolves the constraint problem structurally (ADR-006) | All three |
+| W11 | FTS5 sync mechanism unspecified | SQLite triggers + `search_documents` bridge as materialized index (ADR-011) | All three |
+| W12 | CostGuard race condition on parallel analysis calls | `completeBatch()` reserves total budget atomically upfront (ADR-003, ADR-010) | Architect + SenDev |
