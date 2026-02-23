@@ -229,6 +229,77 @@ AWKEOF
   echo -e "  ${DIM}Initialized $STATUS_JSON from $PRD_FILE${RESET}"
 }
 
+# Sync new REQs from PRD.md into an existing status.json without touching
+# existing entries. Called at startup after init_status_json.
+sync_status_json() {
+  [ -f "$STATUS_JSON" ] || return
+  [ -f "$PRD_FILE" ]    || return
+
+  local awk_tmp
+  awk_tmp=$(mktemp)
+  cat > "$awk_tmp" << 'AWKEOF'
+/^### REQ-/ {
+  if (req != "") printf "%s\t%s\t%s\t%s\t%s\n", req, status, prio, size, deps
+  req = $2; sub(/:$/, "", req); sub(/:/, "", req)
+  status = "open"; prio = "P2"; size = "M"; deps = "---"
+}
+/^- [*][*]Status/ {
+  s = $0; sub(/.*Status:[*][*] */, "", s); sub(/[[:space:]]*$/, "", s); status = s
+}
+/^- [*][*]Priorit/ {
+  s = $0; sub(/.*t:[*][*] */, "", s); sub(/[[:space:]]*$/, "", s); prio = s
+}
+/^- [*][*]Gr/ {
+  s = $0; sub(/.*e:[*][*] */, "", s); sub(/[[:space:]]*$/, "", s); size = s
+}
+/^- [*][*]Abh/ {
+  s = $0; sub(/.*von:[*][*] */, "", s); sub(/[[:space:]]*$/, "", s); deps = s
+}
+END {
+  if (req != "") printf "%s\t%s\t%s\t%s\t%s\n", req, status, prio, size, deps
+}
+AWKEOF
+
+  local new_entries added=0
+  new_entries=$(awk -f "$awk_tmp" "$PRD_FILE" | jq -Rn '
+    [inputs | split("\t") | select(length >= 5)] |
+    map({
+      key: .[0],
+      value: {
+        status: "open",
+        priority: .[2],
+        size: .[3],
+        deps: (
+          .[4] |
+          if . == "\u2014" or . == "---" or . == "-" or . == "" then []
+          else [split(",") | .[] | gsub("^\\s+|\\s+$"; "") | select(startswith("REQ-"))]
+          end
+        )
+      }
+    }) | from_entries
+  ')
+
+  # Merge: add keys from PRD that are missing in status.json (keep existing untouched)
+  local merged
+  merged=$(jq -n \
+    --argjson existing "$(cat "$STATUS_JSON")" \
+    --argjson prd "$new_entries" \
+    '$prd + $existing')
+
+  local prd_count existing_count
+  prd_count=$(echo "$new_entries" | jq 'length')
+  existing_count=$(jq 'length' "$STATUS_JSON")
+
+  echo "$merged" > "$STATUS_JSON"
+  added=$(jq 'length' "$STATUS_JSON")
+  local delta=$(( added - existing_count ))
+  if [ "$delta" -gt 0 ]; then
+    echo -e "  ${YELLOW}Synced $delta new REQ(s) from PRD.md into status.json${RESET}"
+  fi
+
+  rm -f "$awk_tmp"
+}
+
 count_open_reqs() {
   jq '[.[] | select(.status == "open")] | length' "$STATUS_JSON" 2>/dev/null || echo "0"
 }
@@ -860,6 +931,7 @@ echo -e "${BOLD}Kinema Agent Loop${RESET}  ${DIM}model=${MODEL}  max=$([ "$MAX_I
 
 # ── Pre-loop: init + recovery + branch ──────────────────────
 init_status_json
+sync_status_json
 
 echo -e "${DIM}REQs: $(count_done_reqs)/$(count_total_reqs) done, $(count_open_reqs) open${RESET}"
 echo ""
