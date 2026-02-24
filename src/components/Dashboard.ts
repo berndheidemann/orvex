@@ -423,6 +423,9 @@ export function Dashboard(): React.ReactElement {
       // center active entry in viewport
       reqViewStart = Math.max(0, activeEntryIdx - Math.floor(maxReqVisible / 2));
       reqViewStart = Math.min(reqViewStart, entries.length - maxReqVisible);
+    } else {
+      // no active REQ: show end of list (newest entries visible)
+      reqViewStart = entries.length - maxReqVisible;
     }
   }
   const reqViewEnd = Math.min(reqViewStart + maxReqVisible, entries.length);

@@ -510,7 +510,7 @@ Manuell: Loop mit `./loop_dev.sh 1` starten → nach Iteration zeigt TUI Overlay
 
 - **Priority:** P1
 - **Size:** S
-- **Status:** open
+- **Status:** done
 - **Depends on:** —
 
 #### Problem
@@ -519,12 +519,12 @@ Manuell: Loop mit `./loop_dev.sh 1` starten → nach Iteration zeigt TUI Overlay
 
 #### Acceptance Criteria
 
-- [ ] `currentReq` wird in `useEventsReader` beim `iteration:end`-Event auf `null` gesetzt
-- [ ] Der Status-Bar-Counter zeigt `Math.max(currentIter, lastCompletedIter)`, wobei `lastCompletedIter` aus dem letzten Eintrag in `iterEntries` (iterations.jsonl) stammt
-- [ ] Der Activity-Feed-Header zeigt ebenfalls den korrekten Iter-Wert (gleiche `displayIter`-Variable)
-- [ ] Wenn eine neue Iteration startet (currentIter steigt), scrollt der Activity Feed automatisch zu den neuesten Einträgen (scrollOffset reset auf 0)
-- [ ] `deno check src/main.ts` fehlerfrei
-- [ ] Alle bestehenden Tests grün
+- [x] `currentReq` wird in `useEventsReader` beim `iteration:end`-Event auf `null` gesetzt
+- [x] Der Status-Bar-Counter zeigt `Math.max(currentIter, lastCompletedIter)`, wobei `lastCompletedIter` aus dem letzten Eintrag in `iterEntries` (iterations.jsonl) stammt
+- [x] Der Activity-Feed-Header zeigt ebenfalls den korrekten Iter-Wert (gleiche `displayIter`-Variable)
+- [x] Wenn eine neue Iteration startet (currentIter steigt), scrollt der Activity Feed automatisch zu den neuesten Einträgen (scrollOffset reset auf 0)
+- [x] `deno check src/main.ts` fehlerfrei
+- [x] Alle bestehenden Tests grün
 
 #### Verification
 
@@ -538,7 +538,7 @@ Manuell: Loop starten, zwischen zwei Iterationen prüfen ob Header sofort zurüc
 
 - **Priority:** P1
 - **Size:** S
-- **Status:** open
+- **Status:** done
 - **Depends on:** —
 
 #### Problem
@@ -547,14 +547,14 @@ Die linke Spalte des Dashboards rendert alle Requirements ohne Höhenbeschränku
 
 #### Acceptance Criteria
 
-- [ ] Die Req-Liste rendert maximal `Math.floor((rows - FEED_OVERHEAD) / 2)` Einträge gleichzeitig (viewport-basiertes Rendering)
-- [ ] Das Viewport folgt automatisch dem aktiven (in_progress) REQ — dieser wird in der Mitte des Viewports gezeigt
-- [ ] Gibt es keinen in_progress-REQ, scrollt das Viewport automatisch ans Ende (neueste REQs sichtbar)
-- [ ] Scroll-Indikatoren: `↑ N more` oben wenn Einträge darüber verborgen sind, `↓ N more` unten wenn Einträge darunter verborgen sind
-- [ ] Das Layout verschiebt sich bei 22+ Requirements nicht mehr nach unten
-- [ ] Kein neuer Keyboard-Handler nötig (Auto-Scroll, kein manueller Scroll via Keys)
-- [ ] `deno check src/main.ts` fehlerfrei
-- [ ] Alle bestehenden Tests grün
+- [x] Die Req-Liste rendert maximal `Math.floor((rows - FEED_OVERHEAD) / 2)` Einträge gleichzeitig (viewport-basiertes Rendering)
+- [x] Das Viewport folgt automatisch dem aktiven (in_progress) REQ — dieser wird in der Mitte des Viewports gezeigt
+- [x] Gibt es keinen in_progress-REQ, scrollt das Viewport automatisch ans Ende (neueste REQs sichtbar)
+- [x] Scroll-Indikatoren: `↑ N more` oben wenn Einträge darüber verborgen sind, `↓ N more` unten wenn Einträge darunter verborgen sind
+- [x] Das Layout verschiebt sich bei 22+ Requirements nicht mehr nach unten
+- [x] Kein neuer Keyboard-Handler nötig (Auto-Scroll, kein manueller Scroll via Keys)
+- [x] `deno check src/main.ts` fehlerfrei
+- [x] Alle bestehenden Tests grün
 
 #### Verification
 

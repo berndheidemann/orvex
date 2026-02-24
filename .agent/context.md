@@ -4,34 +4,31 @@
 > Enthält den aktuellen Stand für die nächste Iteration.
 
 ## Status
-- Projekt: REQ-000–REQ-017, RF-001–RF-005 abgeschlossen
-- Nächstes REQ: RF-006 oder RF-007 (beide P1, size S, keine deps)
+- Projekt: REQ-000–REQ-017, RF-001–RF-007 abgeschlossen
+- Nächstes REQ: RF-008 oder CONT-EXPL-001 (prüfen in PRD)
 - Blocker: keine
 
 ## Was existiert
-- REQ-017 done: `CompletionOverlay` in `src/components/Dashboard.ts`
-  - 6 Stop-Kinds (all_done/max_iterations/timeout/low_activity/no_actionable_req/unknown)
-  - Summary-Zeile: Laufzeit · Kosten · Iterationen · REQ-Fortschritt
-  - Haiku-Diagnose via `runClaude` (guard-Flag, AbortController, stiller Fallback)
-  - `q` → `exit()` aus `useApp()` → sauberer TUI-Exit
-  - `detectStopKind()` filtert events[] nach letztem system:event
-- RF-005 done: `RunnerDashboard` in `src/components/InitDashboard.ts` (ADR-016)
-- RF-004 done: `src/lib/debateUtils.ts`
-- RF-003 done: `src/lib/reviewFlow.ts` + `reviewFlowUtils.ts` (ADR-015)
+- RF-007 done: Viewport-basiertes Rendering der Req-Liste in `Dashboard.ts`
+  - maxReqVisible = Math.floor((rows - FEED_OVERHEAD) / 2), min 3
+  - Zentriert auf aktiven (in_progress) REQ; ohne aktiven REQ → ans Ende scrollen
+  - ↑/↓ Indikatoren zeigen verborgene Einträge an
+- RF-006 done: Stale-Counter-Fix in `useEventsReader.ts` + `Dashboard.ts`
+  - setCurrentReq(null) bei iteration:end
+  - displayIter = Math.max(currentIter, lastCompletedIter) aus iterations.jsonl
+  - ActivityFeed bekommt displayIter; auto-scroll-to-bottom bei iter-Wechsel
+- RF-005 done: RunnerDashboard in src/components/InitDashboard.ts (ADR-016)
+- REQ-017 done: CompletionOverlay in Dashboard.ts
 - 163 Tests total, alle grün; deno check clean
 
-## Architektur-Hinweise (REQ-017)
-- Overlay: `loopRunning === false && currentIter > 0` → early return vor editingContext
-- Kostenberechnung (entries, historicalCost, costStr, totalReqs, doneReqs) jetzt VOR allen
-  early returns in Dashboard() — ermöglicht Overlay-Zugriff auf diese Werte
-- "Loop gestoppt" Zeile aus normalem Dashboard entfernt (Overlay ersetzt es)
-- useApp().exit() statt Deno.exit(0) → sauberer TUI-Teardown via main.ts cleanup()
-- HAIKU_MODEL = "claude-haiku-4-5-20251001"
+## Architektur-Hinweise (RF-006/RF-007)
+- FEED_OVERHEAD = 11 (in Dashboard.ts) — wird für maxReqVisible genutzt
+- displayIter wird nicht ins useEventsReader exportiert — Berechnung liegt in Dashboard
+- ActivityFeed nutzt currentIter-Prop (= displayIter aus Dashboard) für auto-scroll-trigger
 
 ## Bekannte Offene Punkte
-- RF-006: Fix stale iter counter and currentReq in Dashboard (P1, S)
-- RF-007: Details unbekannt — PRD lesen
+- RF-008 (Details unbekannt) — PRD lesen
+- CONT-EXPL-001 (P2, M) — niederste Priorität
 
-## Refactoring Check REQ-017
-- Dashboard.ts: ~150 neue Zeilen (Overlay + Helpers). Klare Verantwortung.
-- Keine Duplikation, kein neues technisches Schulden.
+## Refactoring Check RF-006/RF-007 (S-Batch, <5 Dateien)
+- Keine Duplikation, keine neuen technischen Schulden.
