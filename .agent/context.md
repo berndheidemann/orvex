@@ -4,39 +4,28 @@
 > Enthält den aktuellen Stand für die nächste Iteration.
 
 ## Status
-- Projekt: REQ-000–REQ-013 abgeschlossen
+- Projekt: REQ-000–REQ-013 abgeschlossen (Validator bestätigt)
 - Nächstes REQ: REQ-014 (P1, M) — EduInitDashboard Komponente — Depends on REQ-013
 - Blocker: keine
+- Validator-Ergebnis: PASS — alle 4 validierten REQs (010–013) bestehen ACs
 
 ## Was existiert
-- loop_dev.sh — Orchestrator + FIFO/Pause-Kontrolle (REQ-009)
-- deno.json — Tasks: dev, build, check, test; Dependencies: ink@5, react@18
-- src/main.ts — Ink-TUI, zeigt Orvex-Header + Dashboard
-- src/types.ts — PhaseState.id: `"prd" | "arch" | "didaktik"` (drehbuch entfernt, ADR-003)
-- src/lib/phaseRunner.ts — NEU: PhaseSink, PhaseConfig, runDebatePhase; Agent-Typ hier definiert
-- src/lib/initAgents.ts — Agent re-exportiert von phaseRunner; runPhase re-export; CONT-guard
-- src/lib/reviewUtils.ts — parseSections() + buildRewritePrompt("section") (ADR-007/008)
+- loop_dev.sh — CONT-REQ AWK-Patterns funktionieren (sync/init_status_json)
+- src/lib/reviewUtils.ts — parseReqs (CONT-Support), parseSections, buildRewritePrompt("section")
 - src/lib/eduAgents.ts — 6 Edu-Personas, makeEduPhases, 3 Prompt-Builder
-- src/hooks/useInitRunner.ts — REFACTORED: delegiert an runDebatePhase via PhaseSink
-- src/hooks/useEduInitRunner.ts — NEU (REQ-013): 5-Phasen-Edu-State-Machine
-  - Phase 0: learning-context.md schreiben (kein Claude-Aufruf)
-  - Phase 1: Didaktik-Debate → LERNSITUATION.md; Review (parseSections)
-  - Phase 1.5: Single-shot runClaude (buildDrehbuchPrompt) → lernpfad.md
-  - Phase 2: EDU-PRD-Debate → PRD.md; Review (parseReqs mit CONT-Support)
-  - Phase 3: Arch-Debate → architecture.md; Review (parseAdrs)
-  - Nach Abschluss: REQ-000 injizieren (CONT-prefix guard aktiv)
-  - Idempotenz: lernsituationExists=true → Phase 1 wird übersprungen
-- 153 Tests total, alle grün
+- src/lib/phaseRunner.ts — runDebatePhase + PhaseSink interface
+- src/hooks/useEduInitRunner.ts — 5-Phasen-Edu-State-Machine (vollständig)
+- src/hooks/useInitRunner.ts — delegiert an runDebatePhase via PhaseSink
+- templates/LERNSITUATION.md + AGENT_EDU.md — vorhanden
+- 153 Tests total, alle grün; Build + deno check sauber
 
-## Bekannte Architekturentscheidungen
-- ADR-001 (arch.md): phaseRunner.ts als zentrales Orchestrierungsmodul
-- ADR-002 (arch.md): PhaseSink als Callback-Interface zwischen Runner und Hook
-- ADR-003 (arch.md): "drehbuch" aus PhaseState.id entfernt
-- ADR-006 (arch.md): CONT-prefix guard in injectSpikeIntoStatus
-- ADR-007/008 (arch.md): parseSections + buildRewritePrompt("section") in reviewUtils.ts
+## Bekannte Probleme für Sonnet
+1. **get_next_req_block (loop_dev.sh:414):** Nested-^-Bug + keine CONT-Terminierung (ADR-005).
+   Nicht in REQ-011 ACs, aber relevant für REQ-016 (Loop mit CONT-REQs).
+   Fix: Zwei separate AWK-Bedingungen statt einer (siehe ADR-005).
+2. **REQ-016 Priority war korrupt** — Validator hat `"- **Priority:** P1"` auf `"P1"` korrigiert.
 
-## Erkenntnisse aus REQ-013
-- Agent definiert in phaseRunner.ts (nicht initAgents.ts) — Zirkelimporte vermieden
-- makeSink() als useCallback in useEduInitRunner — closes über React state setters
-- RSUpdater-Typannotation auf synced setters nötig (strict: true in tsconfig)
-- Refactoring Check: kein neues technisches Debt
+## Nächste Prioritäten
+1. REQ-014 (EduInitDashboard): EduSetup-Form + SynthDoneUI/ReviewUI "lernsituation" Extension
+2. REQ-016 (PROMPT_FILE): loop_dev.sh Auto-Detect — inkl. get_next_req_block Fix (ADR-005)
+3. REQ-015 (edu-init Subcommand): Depends on REQ-014
