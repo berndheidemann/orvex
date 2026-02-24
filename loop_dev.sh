@@ -187,7 +187,7 @@ init_status_json() {
   local awk_tmp
   awk_tmp=$(mktemp)
   cat > "$awk_tmp" << 'AWKEOF'
-/^### REQ-/ {
+/^### (REQ|CONT)-/ {
   if (req != "") printf "%s\t%s\t%s\t%s\t%s\n", req, status, prio, size, deps
   req = $2; sub(/:$/, "", req); sub(/:/, "", req)
   status = "open"; prio = "P2"; size = "M"; deps = "---"
@@ -219,7 +219,7 @@ AWKEOF
         deps: (
           .[4] |
           if . == "\u2014" or . == "---" or . == "-" or . == "" then []
-          else [split(",") | .[] | gsub("^\\s+|\\s+$"; "") | select(startswith("REQ-"))]
+          else [split(",") | .[] | gsub("^\\s+|\\s+$"; "") | select(startswith("REQ-") or startswith("CONT-"))]
           end
         )
       }
@@ -239,7 +239,7 @@ sync_status_json() {
   local awk_tmp
   awk_tmp=$(mktemp)
   cat > "$awk_tmp" << 'AWKEOF'
-/^### REQ-/ {
+/^### (REQ|CONT)-/ {
   if (req != "") printf "%s\t%s\t%s\t%s\t%s\n", req, status, prio, size, deps
   req = $2; sub(/:$/, "", req); sub(/:/, "", req)
   status = "open"; prio = "P2"; size = "M"; deps = "---"
@@ -273,7 +273,7 @@ AWKEOF
         deps: (
           .[4] |
           if . == "\u2014" or . == "---" or . == "-" or . == "" then []
-          else [split(",") | .[] | gsub("^\\s+|\\s+$"; "") | select(startswith("REQ-"))]
+          else [split(",") | .[] | gsub("^\\s+|\\s+$"; "") | select(startswith("REQ-") or startswith("CONT-"))]
           end
         )
       }

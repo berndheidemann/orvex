@@ -20,7 +20,7 @@ export interface RoundState {
 }
 
 export interface PhaseState {
-  id: "prd" | "arch";
+  id: "prd" | "arch" | "didaktik" | "drehbuch";
   label: string;
   outputPath: string;
   status: PhaseStatus;
