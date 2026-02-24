@@ -4,30 +4,32 @@
 > Enthält den aktuellen Stand für die nächste Iteration.
 
 ## Status
-- Projekt: REQ-000–REQ-017, RF-001–RF-008 abgeschlossen
-- Nächstes REQ: RF-009 (P1, M) — REQ-Fokus-Modus Detail-Ansicht
+- Projekt: REQ-000–REQ-017, RF-001–RF-009 abgeschlossen
+- Nächstes REQ: CONT-EXPL-001 (P2, M) — einziges offenes REQ
 - Blocker: keine
 
 ## Was existiert
-- RF-008 done: Requirements-Liste nach Status gruppiert in `Dashboard.ts`
-  - activeEntries (open/in_progress/blocked) oben, doneEntries unten
-  - Separator "─── done ───" zwischen Gruppen (nur wenn beide nicht leer)
-  - Viewport-Logik (RF-007) operiert auf groupedEntries — Active-REQ-Fokus korrekt
-  - hasSeparator guard: separator nur wenn beide Gruppen > 0
+- RF-009 done: REQ-Fokus-Modus im Dashboard
+  - `useReqDetails` hook: liest PRD.md, parsed alle REQ/RF/CONT-Blöcke (parseReqBlocks)
+  - `ReqDetailPane` Komponente: scrollbarer Detail-Inhalt mit isActive-gating
+  - Dashboard: focusMode/focusCursor/focusTarget State; `r`-key togglet Modus
+  - ActivityFeed: isActive prop, display:none in focus mode (state preserved)
+  - Viewport folgt Cursor in focus mode; inverse Highlight für Cursor-Row
+  - Hint-Zeile aktualisiert sich je Modus
+  - 174 Tests total, alle grün; deno check clean
+- RF-008 done: Requirements-Liste nach Status gruppiert
 - RF-007 done: Viewport-basiertes Rendering der Req-Liste
 - RF-006 done: Stale-Counter-Fix + displayIter
-- REQ-017 done: CompletionOverlay in Dashboard.ts
-- 163 Tests total, alle grün; deno check clean
+- REQ-017 done: CompletionOverlay
 
-## Architektur-Hinweise (RF-008)
-- groupedEntries ersetzt entries im Viewport (activeEntryIdx, reqViewStart, visibleEntries)
-- entries (ungrouped) bleibt für totalReqs/doneReqs Counter und activeEntry/activeReqId
-- Separator-Logik im flatMap: globalIdx = reqViewStart + localIdx; separator wenn globalIdx === activeEntries.length
-- FEED_OVERHEAD = 11 (in Dashboard.ts) — wird für maxReqVisible genutzt
+## Architektur-Hinweise (RF-009)
+- display:"none" auf Box hält Komponente gemountet (React-State erhalten)
+- useInput mit isActive gating: mehrere useInput-Aufrufe koexistieren in Ink
+- parseReqBlocks nutzt matchAll mit globalem Regex für alle Heading-Typen
+- focusMode useInput kommt VOR den early-returns (React Hook Rule)
 
 ## Bekannte Offene Punkte
-- RF-009 (P1, M) — Two-Mode Dashboard: r-key wechselt Fokus-Modus, Detail-Pane rechts
 - CONT-EXPL-001 (P2, M) — niederste Priorität
 
-## Refactoring Check RF-008 (S, <5 Dateien)
+## Refactoring Check RF-009 (M, 5 Dateien)
 - Keine Duplikation, keine neuen technischen Schulden.
