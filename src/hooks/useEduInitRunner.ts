@@ -223,20 +223,44 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
     const ctrl = new AbortController();
     ctrlRef.current = ctrl;
 
-    const learningContextContent = [
-      `# Lernkontext`,
-      ``,
-      `- **Fach:** ${fach}`,
-      `- **Thema:** ${thema}`,
-      `- **Jahrgangsstufe:** ${jahrgangsstufe}`,
-      `- **Vorwissen:** ${vorwissen}`,
-      `- **Unterrichtszeit:** ${zeitMinuten} Minuten`,
-      `- **Besondere Anforderungen:** ${heterogenitaet || "(keine)"}`,
-    ].join("\n");
-
     (async () => {
       try {
         // ── Phase 0: Write learning-context.md ─────────────────────
+        // Scan project directory for additional context files (.md / .txt)
+        // — same principle as the normal orvex agent reading all project files.
+        const EXCLUDED = new Set([
+          "learning-context.md", "LERNSITUATION.md", "lernpfad.md",
+          "PRD.md", "architecture.md", "AGENT.md", "VALIDATOR.md",
+          "REFACTOR.md", "REFACTOR_TEMPLATE.md",
+        ]);
+        const extraParts: string[] = [];
+        try {
+          for await (const entry of Deno.readDir(".")) {
+            if (!entry.isFile) continue;
+            if (EXCLUDED.has(entry.name)) continue;
+            const ext = entry.name.split(".").pop()?.toLowerCase() ?? "";
+            if (ext !== "md" && ext !== "txt") continue;
+            const content = await Deno.readTextFile(entry.name).catch(() => "");
+            if (content.trim()) {
+              extraParts.push(`## ${entry.name}\n\n${content.trim()}`);
+            }
+          }
+        } catch { /* readDir not available or empty dir — ignore */ }
+
+        const learningContextContent = [
+          `# Lernkontext`,
+          ``,
+          `- **Fach:** ${fach}`,
+          `- **Thema:** ${thema}`,
+          `- **Jahrgangsstufe:** ${jahrgangsstufe}`,
+          `- **Vorwissen:** ${vorwissen}`,
+          `- **Unterrichtszeit:** ${zeitMinuten} Minuten`,
+          `- **Besondere Anforderungen:** ${heterogenitaet || "(keine)"}`,
+          ...(extraParts.length > 0
+            ? [``, `---`, ``, `# Weitere Projektdateien`, ``, extraParts.join("\n\n---\n\n")]
+            : []),
+        ].join("\n");
+
         await Deno.writeTextFile("learning-context.md", learningContextContent);
 
         // ── Phase 1: Didaktik-Debate → LERNSITUATION.md ─────────────
