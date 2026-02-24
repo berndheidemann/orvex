@@ -16,8 +16,8 @@ TEMPLATES_DIR="$FRAMEWORK_DIR/templates"
 # ── Edu-Init logic ────────────────────────────────────────────
 do_edu_init() {
   if ! git -C . rev-parse --git-dir > /dev/null 2>&1; then
-    echo "❌  Not a git repository. Please run 'orvex edu-init' from a git repo."
-    exit 1
+    echo "  Git-Repository nicht gefunden — initialisiere mit git init..."
+    git init
   fi
 
   mkdir -p .agent
