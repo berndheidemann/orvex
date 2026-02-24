@@ -255,7 +255,7 @@ Enter wechselt zum nächsten Feld. Nach dem letzten Feld: Zusammenfassung + Best
 
 ### REQ-015: edu-init Subcommand + Binary
 
-- **Status:** open
+- **Status:** done
 - **Priority:** P1
 - **Size:** S
 - **Depends on:** REQ-014
@@ -270,11 +270,11 @@ Integration in den orvex Entry-Point und Neucompilierung.
 `deno task build` → neues `orvex-tui` Binary.
 
 #### Acceptance Criteria
-- [ ] `./orvex edu-init` startet ohne Fehler und zeigt Phase-0-Input-Screen (EduSetup)
-- [ ] `./orvex init` startet weiterhin unverändert (InitDashboard mit InitSetup)
-- [ ] `./orvex` (ohne Subcommand) startet Loop weiterhin unverändert
-- [ ] `deno task build` läuft ohne Fehler durch
-- [ ] Produziertes `orvex-tui` Binary startet mit `--edu-init` und zeigt Phase-0-Screen
+- [x] `./orvex edu-init` startet ohne Fehler und zeigt Phase-0-Input-Screen (EduSetup)
+- [x] `./orvex init` startet weiterhin unverändert (InitDashboard mit InitSetup)
+- [x] `./orvex` (ohne Subcommand) startet Loop weiterhin unverändert
+- [x] `deno task build` läuft ohne Fehler durch
+- [x] Produziertes `orvex-tui` Binary startet mit `--edu-init` und zeigt Phase-0-Screen
 
 #### Verification
 `deno task build` → exit code 0
