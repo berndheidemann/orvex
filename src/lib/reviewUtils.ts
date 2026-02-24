@@ -1,13 +1,19 @@
 import type { ReviewItem } from "../types.ts";
 
+const REQ_HEADING = /(?:REQ-\d+|CONT-[A-Z]+-\d+[A-Z]*)/;
+
 export function parseReqs(prdContent: string): ReviewItem[] {
-  const parts = prdContent.split(/(?=^### REQ-\d+)/m);
+  const splitPattern = new RegExp(`(?=^### ${REQ_HEADING.source})`, "m");
+  const filterPattern = new RegExp(`^### ${REQ_HEADING.source}`);
+  const matchPattern = new RegExp(`^### (${REQ_HEADING.source})\\s*[-:—–]?\\s*(.*)`);
+
+  const parts = prdContent.split(splitPattern);
   return parts
-    .filter((p) => /^### REQ-\d+/.test(p.trimStart()))
+    .filter((p) => filterPattern.test(p.trimStart()))
     .map((p) => {
       const trimmed = p.trimEnd();
       const firstLine = trimmed.split("\n")[0] ?? "";
-      const match = firstLine.match(/^### (REQ-\d+)\s*[-:—–]?\s*(.*)/);
+      const match = firstLine.match(matchPattern);
       return {
         id: match?.[1] ?? "REQ-???",
         title: match?.[2]?.trim() ?? "",

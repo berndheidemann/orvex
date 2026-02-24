@@ -79,6 +79,60 @@ Deno.test("parseReqs: parses REQ with hyphen separator", () => {
   assertEquals(items[0].title, "Login");
 });
 
+Deno.test("parseReqs: erkennt CONT-EXPL-001 korrekt", () => {
+  const prd = `### CONT-EXPL-001: Erklaerungstext\nContent`;
+  const items = parseReqs(prd);
+  assertEquals(items.length, 1);
+  assertEquals(items[0].id, "CONT-EXPL-001");
+  assertEquals(items[0].title, "Erklaerungstext");
+});
+
+Deno.test("parseReqs: erkennt CONT-DIFF-001A mit Buchstaben-Suffix", () => {
+  const prd = `### CONT-DIFF-001A: Differenzierung\nContent`;
+  const items = parseReqs(prd);
+  assertEquals(items.length, 1);
+  assertEquals(items[0].id, "CONT-DIFF-001A");
+  assertEquals(items[0].title, "Differenzierung");
+});
+
+Deno.test("parseReqs: erkennt alle CONT-Typen korrekt", () => {
+  const prd = [
+    "### CONT-EXPL-001: Erklaerung",
+    "Content EXPL",
+    "### CONT-TASK-001: Aufgabe",
+    "Content TASK",
+    "### CONT-DIAG-001: Diagramm",
+    "Content DIAG",
+    "### CONT-DIFF-001A: Differenzierung",
+    "Content DIFF",
+  ].join("\n");
+  const items = parseReqs(prd);
+  assertEquals(items.length, 4);
+  assertEquals(items[0].id, "CONT-EXPL-001");
+  assertEquals(items[1].id, "CONT-TASK-001");
+  assertEquals(items[2].id, "CONT-DIAG-001");
+  assertEquals(items[3].id, "CONT-DIFF-001A");
+});
+
+Deno.test("parseReqs: REQ-NNN bleibt unverändert in gemischtem PRD", () => {
+  const prd = [
+    "### CONT-EXPL-001: Erklaerung",
+    "Content EXPL",
+    "### REQ-001: User Login",
+    "Users log in.",
+    "### CONT-TASK-001: Aufgabe",
+    "Content TASK",
+    "### REQ-002: Dashboard",
+    "Shows data.",
+  ].join("\n");
+  const items = parseReqs(prd);
+  assertEquals(items.length, 4);
+  assertEquals(items[0].id, "CONT-EXPL-001");
+  assertEquals(items[1].id, "REQ-001");
+  assertEquals(items[2].id, "CONT-TASK-001");
+  assertEquals(items[3].id, "REQ-002");
+});
+
 // ── parseAdrs ──────────────────────────────────────────────────
 
 const SAMPLE_ARCH = `# Architecture Decisions

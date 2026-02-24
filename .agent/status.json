@@ -1,4 +1,53 @@
 {
+  "REQ-010": {
+    "status": "in_progress",
+    "priority": "P0",
+    "size": "S",
+    "deps": []
+  },
+  "REQ-011": {
+    "status": "in_progress",
+    "priority": "P0",
+    "size": "S",
+    "deps": []
+  },
+  "REQ-012": {
+    "status": "open",
+    "priority": "P0",
+    "size": "M",
+    "deps": []
+  },
+  "REQ-013": {
+    "status": "open",
+    "priority": "P1",
+    "size": "M",
+    "deps": [
+      "REQ-010",
+      "REQ-012"
+    ]
+  },
+  "REQ-014": {
+    "status": "open",
+    "priority": "P1",
+    "size": "M",
+    "deps": [
+      "REQ-013"
+    ]
+  },
+  "REQ-015": {
+    "status": "open",
+    "priority": "P1",
+    "size": "S",
+    "deps": [
+      "REQ-014"
+    ]
+  },
+  "REQ-016": {
+    "status": "open",
+    "priority": "- **Priority:** P1",
+    "size": "M",
+    "deps": []
+  },
   "REQ-001": {
     "status": "done",
     "priority": "P0",
