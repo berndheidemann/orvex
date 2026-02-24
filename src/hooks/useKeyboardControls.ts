@@ -73,7 +73,17 @@ export function useKeyboardControls(): ControlState {
         setQuitting(true);
         // Send SIGTERM to the loop process so it can clean up gracefully.
         // The loop writes its PID to .agent/loop.lock and handles TERM via trap.
-        Deno.readTextFile(`${AGENT_DIR}/loop.lock`)
+        // We then poll until the lock file disappears (loop stopped) before
+        // calling exit(), so the background process is truly gone when the TUI closes.
+        const LOCK = `${AGENT_DIR}/loop.lock`;
+        const MAX_WAIT_MS = 10_000;
+        const pollUntilGone = (deadline: number) => {
+          if (Date.now() > deadline) { exit(); return; }
+          Deno.stat(LOCK)
+            .then(() => setTimeout(() => pollUntilGone(deadline), 200))
+            .catch(() => exit()); // lock gone → loop stopped
+        };
+        Deno.readTextFile(LOCK)
           .then((pid) => {
             const trimmed = pid.trim();
             if (trimmed) {
@@ -82,9 +92,9 @@ export function useKeyboardControls(): ControlState {
                 stdin: "null", stdout: "null", stderr: "null",
               }).spawn();
             }
+            setTimeout(() => pollUntilGone(Date.now() + MAX_WAIT_MS), 200);
           })
-          .catch(() => { /* lock file missing = loop not running, just exit */ })
-          .finally(() => setTimeout(() => exit(), 300));
+          .catch(() => exit()); // no lock file → loop not running, exit immediately
         break;
       }
 
