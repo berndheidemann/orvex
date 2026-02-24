@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Text, useInput } from "ink";
+import { Box, Text, useApp, useInput } from "ink";
 import { useStatusPoller } from "../hooks/useStatusPoller.ts";
 import { useElapsedTime } from "../hooks/useElapsedTime.ts";
 import { useIterationsReader } from "../hooks/useIterationsReader.ts";
@@ -12,7 +12,9 @@ import { ContextEditor } from "./ContextEditor.ts";
 import { ProgressBar } from "./ProgressBar.ts";
 import { STATUS_COLORS } from "../types.ts";
 import type { IterationEntry } from "../types.ts";
-import type { ToolCall } from "../events.ts";
+import type { ToolCall, SystemEvent, LoopEvent } from "../events.ts";
+import { AGENT_DIR } from "../lib/agentDir.ts";
+import { runClaude } from "../lib/runClaude.ts";
 
 const { createElement: h, useState, useEffect, useRef } = React;
 
@@ -204,6 +206,128 @@ function ActivityFeed(props: {
   );
 }
 
+// --- Completion Overlay ---
+
+type StopKind =
+  | "all_done"
+  | "max_iterations"
+  | "timeout"
+  | "low_activity"
+  | "no_actionable_req"
+  | "unknown";
+
+const STOP_CONFIG: Record<StopKind, { color: string; headline: string }> = {
+  all_done:          { color: "green",  headline: "✅  Alle Requirements erfüllt" },
+  max_iterations:    { color: "yellow", headline: "⏹  Maximale Iterationen erreicht" },
+  timeout:           { color: "yellow", headline: "⏱  Timeout" },
+  low_activity:      { color: "yellow", headline: "💤  Loop inaktiv" },
+  no_actionable_req: { color: "yellow", headline: "⚠  Kein ausführbares Requirement" },
+  unknown:           { color: "red",    headline: "⛔  Loop unerwartet beendet" },
+};
+
+const HAIKU_MODEL = "claude-haiku-4-5-20251001";
+
+const KNOWN_STOP_KINDS: readonly string[] = [
+  "all_done", "max_iterations", "timeout", "low_activity", "no_actionable_req",
+];
+
+function detectStopKind(events: LoopEvent[]): StopKind {
+  const systemEvts = events.filter(
+    (ev): ev is SystemEvent => ev.type === "system:event",
+  );
+  const last = systemEvts[systemEvts.length - 1];
+  if (!last) return "unknown";
+  return KNOWN_STOP_KINDS.includes(last.kind) ? (last.kind as StopKind) : "unknown";
+}
+
+function CompletionOverlay(props: {
+  kind: StopKind;
+  elapsed: string;
+  costStr: string;
+  currentIter: number;
+  doneReqs: number;
+  totalReqs: number;
+}): React.ReactElement {
+  const { kind, elapsed, costStr, currentIter, doneReqs, totalReqs } = props;
+  const { exit } = useApp();
+  const [diagnosis, setDiagnosis] = useState<string | null>(null);
+  const [diagLoading, setDiagLoading] = useState<boolean>(kind !== "all_done");
+  const calledRef = useRef(false);
+
+  useInput((input) => {
+    if (input === "q") {
+      exit();
+    }
+  });
+
+  useEffect(() => {
+    if (kind === "all_done" || calledRef.current) return;
+    calledRef.current = true;
+
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        let lastLines = "";
+        try {
+          const content = await Deno.readTextFile(`${AGENT_DIR}/events.jsonl`);
+          const lines = content.split("\n").filter((l: string) => l.trim().length > 0);
+          lastLines = lines.slice(-40).join("\n");
+        } catch { /* file not found — use empty */ }
+
+        const prompt = [
+          "You are a loop diagnostics assistant. Given the last events from an agentic development loop,",
+          "explain in 2–3 German sentences why the loop stopped. Be concise and specific.",
+          `Stop reason reported: ${kind}`,
+          "Last events (JSONL):",
+          lastLines,
+        ].join("\n");
+
+        const text = await runClaude(prompt, () => {}, controller.signal, HAIKU_MODEL, 1);
+        setDiagnosis(text.trim());
+      } catch { /* silent fallback */ } finally {
+        setDiagLoading(false);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [kind]);
+
+  const cfg = STOP_CONFIG[kind];
+  const summaryLine = `Laufzeit: ${elapsed}  ·  Kosten: ${costStr}  ·  Iterationen: ${currentIter}  ·  REQs: ${doneReqs}/${totalReqs} done`;
+
+  return h(
+    Box,
+    { flexDirection: "column", padding: 2 },
+    h(
+      Text,
+      { bold: true, color: cfg.color as Parameters<typeof Text>[0]["color"] },
+      cfg.headline,
+    ),
+    h(
+      Box,
+      { marginTop: 1 },
+      h(Text, { dimColor: true }, summaryLine),
+    ),
+    kind !== "all_done"
+      ? h(
+          Box,
+          { marginTop: 1, flexDirection: "column" },
+          diagLoading
+            ? h(Text, { color: "yellow" }, "⏳  Analysiere…")
+            : diagnosis !== null
+            ? h(Text, {}, diagnosis)
+            : null,
+        )
+      : null,
+    h(
+      Box,
+      { marginTop: 2 },
+      h(Text, { dimColor: true }, "[q] beenden"),
+    ),
+  );
+}
+
 export function Dashboard(): React.ReactElement {
   const { data, error } = useStatusPoller();
   const loopRunning = useLoopRunning();
@@ -223,6 +347,19 @@ export function Dashboard(): React.ReactElement {
   } = useEventsReader();
   const { columns, rows } = useTerminalSize();
 
+  const entries = Object.entries(data);
+  // Sum costs from iterations.jsonl (historical) + live events cost
+  const historicalCost = iterEntries.reduce((sum: number, e: IterationEntry) => {
+    const c = parseFloat(String(e["cost"] ?? "0"));
+    return sum + (isNaN(c) ? 0 : c);
+  }, 0);
+  // Use whichever is larger (live cost accumulates per event, historical per completed iteration)
+  const totalCost = Math.max(historicalCost, totalLiveCost);
+  const costStr = `$${totalCost.toFixed(4)}`;
+  // REQ progress counters
+  const totalReqs = entries.length;
+  const doneReqs = entries.filter(([, r]) => r.status === "done").length;
+
   if (quitting) {
     return h(
       Box,
@@ -232,22 +369,23 @@ export function Dashboard(): React.ReactElement {
     );
   }
 
+  if (loopRunning === false && currentIter > 0) {
+    return h(CompletionOverlay, {
+      kind: detectStopKind(events),
+      elapsed,
+      costStr,
+      currentIter,
+      doneReqs,
+      totalReqs,
+    });
+  }
+
   if (editingContext) {
     return h(ContextEditor, { onClose: closeEditor });
   }
 
-  const entries = Object.entries(data);
   const activeEntry = entries.find(([, req]) => req.status === "in_progress");
   const activeReqId = activeEntry ? activeEntry[0] : null;
-
-  // Sum costs from iterations.jsonl (historical) + live events cost
-  const historicalCost = iterEntries.reduce((sum: number, e: IterationEntry) => {
-    const c = parseFloat(String(e["cost"] ?? "0"));
-    return sum + (isNaN(c) ? 0 : c);
-  }, 0);
-  // Use whichever is larger (live cost accumulates per event, historical per completed iteration)
-  const totalCost = Math.max(historicalCost, totalLiveCost);
-  const costStr = `$${totalCost.toFixed(4)}`;
 
   // Extract tool:call events and current model (needed for phase gate below)
   const toolEvents = events.filter((ev): ev is ToolCall => ev.type === "tool:call");
@@ -258,10 +396,6 @@ export function Dashboard(): React.ReactElement {
   // Bar bleibt leer bis zum ersten Tool-Call (kein Vorspringen auf Schritt 2).
   const currentPhase = toolEvents.length > 0 ? livePhase : null;
   const phaseStep = currentPhase ? (PHASE_STEPS[currentPhase] ?? 0) : 0;
-
-  // REQ progress counters
-  const totalReqs = entries.length;
-  const doneReqs = entries.filter(([, r]) => r.status === "done").length;
 
   // Progress bar width: ~1/3 terminal width
   const barWidth = Math.max(BAR_WIDTH_MIN, Math.floor(columns / BAR_WIDTH_DIVISOR));
@@ -385,9 +519,6 @@ export function Dashboard(): React.ReactElement {
       ? h(Text, { color: "yellow" }, `Active: ${activeReqId}`)
       : null,
     error !== null ? h(Text, { color: "red" }, `⚠  ${error}`) : null,
-    loopRunning === false && currentIter > 0
-      ? h(Text, { color: "red", bold: true }, "⛔  Loop gestoppt")
-      : null,
     paused ? h(Text, { color: "yellow", bold: true }, "⏸  PAUSED") : null,
     lastAction === "skip-sent"
       ? h(Text, { color: "green" }, "✓ Skip sent")
