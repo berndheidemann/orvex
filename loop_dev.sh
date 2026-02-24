@@ -158,6 +158,22 @@ for arg in "$@"; do
   esac
 done
 
+# ── Edu-Project Auto-Detect ──────────────────────────────────────
+# If LERNSITUATION.md exists in the project dir, use AGENT_EDU.md instead of AGENT.md
+if [ -f "LERNSITUATION.md" ] && [ "$PROMPT_FILE" = "AGENT.md" ]; then
+  _LOOP_SELF="${BASH_SOURCE[0]}"
+  while [ -L "$_LOOP_SELF" ]; do _LOOP_SELF="$(readlink "$_LOOP_SELF")"; done
+  _ORVEX_DIR="$(cd "$(dirname "$_LOOP_SELF")" && pwd)"
+  _EDU_PROMPT="$_ORVEX_DIR/templates/AGENT_EDU.md"
+  if [ -f "$_EDU_PROMPT" ]; then
+    PROMPT_FILE="$_EDU_PROMPT"
+    echo -e "${CYAN}Using AGENT_EDU.md (edu project detected)${RESET}"
+  else
+    echo -e "${YELLOW}Warning: AGENT_EDU.md not found in $_ORVEX_DIR/templates — falling back to AGENT.md${RESET}"
+  fi
+  unset _LOOP_SELF _ORVEX_DIR _EDU_PROMPT
+fi
+
 if [ ! -f "$PROMPT_FILE" ]; then
   echo -e "${RED}Error: $PROMPT_FILE not found${RESET}"
   exit 1
