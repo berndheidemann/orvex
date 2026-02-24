@@ -435,6 +435,259 @@ Line count of `useEduInitRunner.ts` + `useInitRunner.ts` reduced by ≥30%
 
 ---
 
+### REQ-017: Dashboard Completion Overlay
+
+- **Status:** done
+- **Priority:** P1
+- **Size:** M
+- **Depends on:** REQ-000
+
+#### Description
+
+Wenn der Loop stoppt (`loopRunning === false` nach mindestens einer Iteration), zeigt das Dashboard ein Completion Overlay — einen Vollbild-Screen der das normale Dashboard ersetzt. Das Overlay bleibt solange sichtbar bis der User `q` drückt (dann beendet sich die TUI).
+
+**Stop-Typen und Darstellung:**
+
+| Kind | Farbe | Headline |
+|------|-------|----------|
+| `all_done` | green | ✅  Alle Requirements erfüllt |
+| `max_iterations` | yellow | ⏹  Maximale Iterationen erreicht |
+| `timeout` | yellow | ⏱  Timeout |
+| `low_activity` | yellow | 💤  Loop inaktiv |
+| `no_actionable_req` | yellow | ⚠  Kein ausführbares Requirement |
+| *(unbekannt / Loop-Crash)* | red | ⛔  Loop unerwartet beendet |
+
+**Summary-Zeile** (immer angezeigt):
+Laufzeit · Gesamtkosten · Anzahl Iterationen · Anzahl done-REQs / Gesamt-REQs
+
+**Diagnose-Block** (nur wenn Kind ≠ `all_done`):
+- Ein Haiku-Aufruf analysiert die letzten N Einträge aus `events.jsonl` (≤ 40 Zeilen)
+- Prompt auf Englisch, Output auf Deutsch, max. 3 Sätze
+- Während Haiku läuft: Spinner-Zeile "Analysiere…"
+- Ergebnis wird unter der Headline angezeigt
+- Bei Fehler (Haiku nicht verfügbar, Timeout): stiller Fallback — kein Diagnose-Block
+
+**Haiku-Aufruf:**
+`runClaude` aus `src/lib/runClaude.ts` mit Modell `haiku`, non-streaming (`stream: false`).
+Prompt-Template (Englisch):
+```
+You are a loop diagnostics assistant. Given the last events from an agentic development loop,
+explain in 2–3 German sentences why the loop stopped. Be concise and specific.
+Stop reason reported: <kind>
+Last events (JSONL):
+<letzte 40 Zeilen aus events.jsonl>
+```
+
+**Keyboard:** Im Overlay ist `q` der einzige aktive Key → beendet die TUI (`process.exit(0)` / `Deno.exit(0)`).
+
+**Implementierungshinweise:**
+- `useEventsReader` exposed bereits alle Events; das Dashboard filtert daraus das letzte `system:event` mit Kind aus der Tabelle oben
+- Fallback wenn kein `system:event` vorhanden aber Loop gestoppt: Kind = `unknown`
+- Das Overlay ist eine eigene Funktion/Komponente innerhalb von `Dashboard.ts` (kein neue Datei nötig)
+- Haiku-Aufruf: `useEffect` wenn `loopRunning === false && kind !== "all_done"`, einmalig (Guard-Flag)
+
+#### Acceptance Criteria
+
+- [x] Wenn `loopRunning === false && currentIter > 0`: Dashboard zeigt Completion Overlay statt des normalen Dashboards
+- [x] Overlay zeigt korrekte Headline + Farbe für alle 5 definierten Stop-Kinds sowie Fallback
+- [x] Summary-Zeile enthält Laufzeit, Kosten, Iterationen, REQ-Fortschritt
+- [x] Bei Kind ≠ `all_done`: Haiku-Diagnose wird geladen (Spinner während Analyse) und angezeigt
+- [x] Bei Kind = `all_done`: kein Diagnose-Block, kein Haiku-Aufruf
+- [x] Haiku-Fehler führt zu stillem Fallback (kein Diagnose-Block, kein Error-State)
+- [x] `q` beendet die TUI aus dem Overlay heraus
+- [x] `deno check src/main.ts` fehlerfrei
+- [x] Alle bestehenden Tests grün
+
+#### Verification
+
+`deno check src/main.ts` → exit code 0
+`deno test src/` → all green
+Manuell: Loop mit `./loop_dev.sh 1` starten → nach Iteration zeigt TUI Overlay statt Dashboard
+
+---
+
+### RF-006: Fix stale iter counter and currentReq in Dashboard
+
+- **Priority:** P1
+- **Size:** S
+- **Status:** open
+- **Depends on:** —
+
+#### Problem
+
+`currentIter` und `currentReq` in `useEventsReader` werden nur bei `iteration:start`-Events gesetzt, nie zurückgesetzt. Zwischen Iterationen (Refactor-Phase, Gap nach `iteration:end`) bleibt `currentReq` auf dem letzten Wert stehen — der Header zeigt z.B. "Iter 8 · REQ-016" obwohl REQ-016 längst abgeschlossen ist und der Loop bei Iter 11 arbeitet. Zudem nutzt der Status-Bar `currentIter` direkt aus Events, obwohl `iterations.jsonl` die authoritative Quelle für abgeschlossene Iterationen ist.
+
+#### Acceptance Criteria
+
+- [ ] `currentReq` wird in `useEventsReader` beim `iteration:end`-Event auf `null` gesetzt
+- [ ] Der Status-Bar-Counter zeigt `Math.max(currentIter, lastCompletedIter)`, wobei `lastCompletedIter` aus dem letzten Eintrag in `iterEntries` (iterations.jsonl) stammt
+- [ ] Der Activity-Feed-Header zeigt ebenfalls den korrekten Iter-Wert (gleiche `displayIter`-Variable)
+- [ ] Wenn eine neue Iteration startet (currentIter steigt), scrollt der Activity Feed automatisch zu den neuesten Einträgen (scrollOffset reset auf 0)
+- [ ] `deno check src/main.ts` fehlerfrei
+- [ ] Alle bestehenden Tests grün
+
+#### Verification
+
+`deno check src/main.ts` → exit code 0
+`deno test src/` → all green
+Manuell: Loop starten, zwischen zwei Iterationen prüfen ob Header sofort zurückgesetzt wird statt alten Req-Namen zu zeigen
+
+---
+
+### RF-007: Req-Pane Viewport — Scrollbar für Requirements-Liste
+
+- **Priority:** P1
+- **Size:** S
+- **Status:** open
+- **Depends on:** —
+
+#### Problem
+
+Die linke Spalte des Dashboards rendert alle Requirements ohne Höhenbeschränkung. Bei vielen REQs (>15) übersteigt die Spaltenhöhe die Terminal-Höhe und verschiebt das gesamte Layout nach unten. Es gibt keinen Scroll-Mechanismus — überlaufende Requirements sind nicht sichtbar.
+
+#### Acceptance Criteria
+
+- [ ] Die Req-Liste rendert maximal `Math.floor((rows - FEED_OVERHEAD) / 2)` Einträge gleichzeitig (viewport-basiertes Rendering)
+- [ ] Das Viewport folgt automatisch dem aktiven (in_progress) REQ — dieser wird in der Mitte des Viewports gezeigt
+- [ ] Gibt es keinen in_progress-REQ, scrollt das Viewport automatisch ans Ende (neueste REQs sichtbar)
+- [ ] Scroll-Indikatoren: `↑ N more` oben wenn Einträge darüber verborgen sind, `↓ N more` unten wenn Einträge darunter verborgen sind
+- [ ] Das Layout verschiebt sich bei 22+ Requirements nicht mehr nach unten
+- [ ] Kein neuer Keyboard-Handler nötig (Auto-Scroll, kein manueller Scroll via Keys)
+- [ ] `deno check src/main.ts` fehlerfrei
+- [ ] Alle bestehenden Tests grün
+
+#### Verification
+
+`deno check src/main.ts` → exit code 0
+`deno test src/` → all green
+Manuell: Terminal auf 24 Zeilen verkleinern, Loop mit 22+ REQs — Layout bleibt stabil, aktiver REQ sichtbar
+
+---
+
+### RF-008: Requirements-Liste nach Status gruppieren
+
+- **Priority:** P1
+- **Size:** S
+- **Status:** open
+- **Depends on:** —
+
+#### Problem
+
+Die Requirements-Liste im linken Pane des Dashboards zeigt alle REQs in ihrer PRD-Reihenfolge — `open`, `in_progress`, `blocked` und `done` gemischt. Der User muss scrollen und suchen, um zu erkennen was noch aussteht. Erledigte Requirements dominieren optisch die Liste, obwohl sie für die weitere Arbeit irrelevant sind.
+
+#### Acceptance Criteria
+
+- [ ] Die Requirements-Liste im linken Dashboard-Pane zeigt aktive REQs (Status `open`, `in_progress`, `blocked`) oben
+- [ ] `done`-REQs werden unten angezeigt, visuell durch eine Trennzeile (`─── done ───`) abgesetzt
+- [ ] Innerhalb jeder Gruppe bleibt die ursprüngliche PRD-Reihenfolge erhalten
+- [ ] Das Verhalten der bestehenden Viewport-Logik (RF-007, falls implementiert) bleibt unverändert — der Active-REQ-Fokus bezieht sich weiterhin auf die neue Reihenfolge
+- [ ] `deno check src/main.ts` fehlerfrei
+- [ ] Alle bestehenden Tests grün
+
+#### Verification
+
+`deno check src/main.ts` → exit code 0
+`deno test src/` → all green
+Manuell: Dashboard mit 5 done + 3 open REQs starten → oben 3 offene, unten Trennlinie, darunter 5 done
+
+---
+
+### RF-009: REQ-Fokus-Modus — Detail-Ansicht im Dashboard
+
+- **Priority:** P1
+- **Size:** M
+- **Status:** open
+- **Depends on:** —
+
+#### Problem
+
+Das Dashboard zeigt in der Requirements-Liste nur ID, Status und Titel (max. 30 Zeichen). Die vollständige Beschreibung, Acceptance Criteria, Priority, Size und Dependencies eines REQs sind während des Loops nicht einsehbar — der User muss die TUI verlassen und `PRD.md` manuell öffnen, um zu verstehen was der Agent gerade implementiert oder warum ein REQ blockiert ist.
+
+#### Lösung: Two-Mode Dashboard
+
+Das Dashboard kennt zwei Modi, umschaltbar mit `r`:
+
+**Normalmodus** (Standard): unverändertes Layout — Activity Feed rechts, REQ-Liste links.
+
+**REQ-Fokus-Modus**: Die REQ-Liste links bekommt einen beweglichen Cursor (Highlight). Das rechte Pane wechselt vom Activity Feed zur **REQ-Detailansicht** des selektierten REQs. Zurück zum Normalmodus via `r`.
+
+```
+┌─ Requirements ──────────┐ ┌─ REQ-017: Dashboard Completion Overlay ──┐
+│  REQ-000  [done]        │ │ Status: open  · P1  · M                   │
+│  REQ-001  [done]        │ │ Depends on: REQ-000                        │
+│ ▶ REQ-017  [open]  ◀    │ │──────────────────────────────────────────  │
+│  REQ-010  [open]        │ │ Wenn der Loop stoppt, zeigt das Dashboard  │
+│  RF-006   [open]        │ │ ein Completion Overlay…                    │
+│ ── done ──              │ │                                            │
+│  REQ-002  [done]        │ │ Acceptance Criteria:                       │
+│  REQ-003  [done]        │ │  [ ] loopRunning===false && iter>0 → Overlay│
+│                         │ │  [ ] Headline + Farbe je Stop-Kind         │
+│                         │ │  [ ] Summary: Laufzeit · Kosten · Iters    │
+│                         │ │  [ ] Haiku-Diagnose bei kind≠all_done      │
+│                         │ │                              [↑↓] scroll   │
+└─────────────────────────┘ └────────────────────────────────────────────┘
+  [r] focus mode  [↑↓] select req
+```
+
+#### Keyboard-Verhalten
+
+| Key | Normalmodus | Fokus-Modus |
+|-----|-------------|-------------|
+| `r` | → Fokus-Modus (Cursor auf in_progress-REQ oder erstem open-REQ) | → Normalmodus |
+| `↑` / `↓` | scroll Activity Feed | bewegt Cursor in REQ-Liste; Detail-Pane aktualisiert sofort |
+| `Tab` | — | wechselt Scroll-Fokus zwischen REQ-Liste und Detail-Pane |
+| `p` / `s` / `e` / `q` | unverändert | unverändert |
+
+Im Fokus-Modus scrollt `↑`/`↓` standardmäßig die REQ-Liste. Nach `Tab`-Drücken scrollt `↑`/`↓` den Detail-Inhalt (für lange Beschreibungen / viele ACs).
+
+#### Detail-Pane Inhalt
+
+Gelesen aus `PRD.md` via neuem Hook `usePrdDetails` (liest PRD einmalig, parst alle REQ-Blöcke mit vollständigem Text):
+
+```
+REQ-017: Dashboard Completion Overlay
+Status: open  ·  Priority: P1  ·  Size: M
+Depends on: REQ-000
+────────────────────────────────────────
+<vollständiger Description-Text, wrapping auf Pane-Breite>
+
+Acceptance Criteria:
+  [ ] Wenn loopRunning===false && currentIter>0 → Overlay
+  [ ] Overlay zeigt korrekte Headline + Farbe
+  [x] (bereits done-REQs zeigen ✓ statt [ ])
+  …
+```
+
+Acceptance-Criteria-Checkboxen spiegeln den aktuellen `status.json`-Stand: bei `done`-REQs werden alle ACs als `[x]` angezeigt (da der Loop sie als erfüllt behandelt hat).
+
+#### Implementierungshinweise
+
+- Neuer Hook `usePrdDetails`: liest `PRD.md` beim Mount einmalig (kein Polling), parsed jeden REQ/RF-Block in `{ id, title, description, acceptanceCriteria[], priority, size, dependsOn }`. Analog zu `usePrdTitles`, aber vollständig.
+- Neuer State `focusMode: boolean` + `cursorIdx: number` in `Dashboard.ts`
+- Im Fokus-Modus: REQ-Liste rendert Cursor-Highlight (z.B. inverse Farbe oder `▶` Prefix), rechtes Pane rendert `ReqDetail`-Komponente statt `ActivityFeed`
+- `ReqDetail` ist eine eigene Funktion in `Dashboard.ts` (kein neue Datei nötig)
+- Die Hint-Zeile unten aktualisiert sich je Modus: Normalmodus zeigt `[r] req focus`, Fokus-Modus zeigt `[r] back to feed  [↑↓] select  [Tab] scroll detail`
+
+#### Acceptance Criteria
+
+- [ ] `r` wechselt zwischen Normalmodus und Fokus-Modus; Activity Feed kehrt beim Zurückwechseln unverändert zurück
+- [ ] Im Fokus-Modus bewegt `↑`/`↓` den Cursor durch alle REQs der gruppierten Liste
+- [ ] Das Detail-Pane zeigt vollständigen Text des selektierten REQs: Metadaten, Description, Acceptance Criteria
+- [ ] Beim Eintritt in den Fokus-Modus steht der Cursor auf dem `in_progress`-REQ (falls vorhanden), sonst auf dem ersten `open`-REQ
+- [ ] `Tab` wechselt den Scroll-Fokus zwischen REQ-Liste und Detail-Pane
+- [ ] Langer Detail-Inhalt ist scrollbar (kein Clipping ohne Indikator)
+- [ ] Alle anderen Keys (`p`, `s`, `e`, `q`) bleiben in beiden Modi aktiv
+- [ ] `deno check src/main.ts` fehlerfrei
+- [ ] Alle bestehenden Tests grün
+
+#### Verification
+
+`deno check src/main.ts` → exit code 0
+`deno test src/` → all green
+Manuell: `r` drücken → Fokus-Modus; `↑`/`↓` durch REQs navigieren → Detail-Pane aktualisiert sich; `r` zurück → Activity Feed weiterhin live
+
+---
+
 ### RF-005: Deduplicate dashboard runner rendering
 
 - **Priority:** P1
