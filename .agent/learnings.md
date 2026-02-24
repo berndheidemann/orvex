@@ -73,3 +73,18 @@ Zweite Validierung: 19 done-REQs geprüft, alle ACs erfüllt. Keine Scope-Guard-
 Sonnet: Bei bash-only Änderungen trotzdem `deno test` nach Edits re-runnen (iter 008 fehlte).
 `deno check` in Preflight nicht vergessen, auch wenn nur bash-Files geändert werden (iter 009).
 Loop_dev.sh nutzt BASH_SOURCE statt FRAMEWORK_DIR — funktional äquivalent, aber ADR-013 Abweichung.
+
+### 2026-02-24 — Validator: Iter 010–013 PASS, 0 Reverts
+
+Dritte Validierung: 27 done-REQs geprüft, alle ACs erfüllt. Keine Scope-Guard-Verstöße.
+Iter-011 (RF-003) war vorbildlich: 10 neue Tests, iterative Fehlerbehebung, 4+ Verifikationsläufe.
+Iter-012 (RF-004) und Iter-013 (RF-005) haben neue Module/Komponenten ohne dedizierte Tests
+extrahiert (`debateUtils.ts`, `RunnerDashboard`). Regel: Bei Refactoring-Extraktionen mindestens
+Smoke-Tests für die neuen Exports schreiben, auch wenn bestehende Integration-Tests grün sind.
+
+### 2026-02-24 — REQ-011 AC Wording: injectSpikeReq ist TypeScript, nicht Bash
+
+PRD REQ-011 AC#3 bezeichnet `injectSpikeReq` als "bash-Funktion". Die Funktion liegt in
+`src/lib/initAgents.ts:429` (TypeScript). Funktional korrekt — nutzt `/^### REQ-\d+:/m` Regex
+und skippt natürlich CONT-Abschnitte. Bei zukünftigen PRD-Edits auf korrekte Technologie-
+Bezeichnungen in ACs achten.
