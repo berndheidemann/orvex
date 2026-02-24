@@ -158,7 +158,7 @@
     "deps": []
   },
   "RF-003": {
-    "status": "open",
+    "status": "done",
     "priority": "P1",
     "size": "M",
     "deps": []
