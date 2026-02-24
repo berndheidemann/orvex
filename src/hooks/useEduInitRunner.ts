@@ -310,13 +310,30 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
         setActiveLabel("Lernpfad · Synthese…");
         lineBufferRef.current = "";
         const drehbuchPrompt = buildDrehbuchPrompt(lernsituationForDrehbuch);
-        const drehbuchContent = await runClaude(
-          drehbuchPrompt,
-          addChunk,
-          ctrl.signal,
-          SYNTH_MODEL,
-          1,
-        );
+
+        // Synthesis-specific controller: 4-minute timeout + chain from parent abort
+        const synthCtrl = new AbortController();
+        const synthTimeout = setTimeout(() => synthCtrl.abort(), 4 * 60 * 1000);
+        const parentAbort = () => synthCtrl.abort();
+        ctrl.signal.addEventListener("abort", parentAbort, { once: true });
+
+        let drehbuchContent = "";
+        try {
+          drehbuchContent = await runClaude(
+            drehbuchPrompt,
+            addChunk,
+            synthCtrl.signal,
+            SYNTH_MODEL,
+            5,   // maxTurns 5: allow model to finish after a tool call
+          );
+        } finally {
+          clearTimeout(synthTimeout);
+          ctrl.signal.removeEventListener("abort", parentAbort);
+        }
+
+        if (synthCtrl.signal.aborted && !ctrl.signal.aborted) {
+          throw new Error("Lernpfad-Synthese: Timeout nach 4 Minuten");
+        }
         if (!drehbuchContent.trim()) {
           throw new Error("Drehbuch-Synthese produced no content");
         }

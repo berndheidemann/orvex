@@ -36,6 +36,10 @@ export async function runClaude(
   const proc = cmd.spawn();
   const decoder = new TextDecoder();
 
+  // Kill subprocess when caller aborts (e.g. user presses q, or timeout fires)
+  const killProc = () => { try { proc.kill("SIGTERM"); } catch { /* ignore */ } };
+  signal.addEventListener("abort", killProc, { once: true });
+
   await debugLog(`START model=${model}`);
 
   const writer = proc.stdin.getWriter();
