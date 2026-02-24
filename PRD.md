@@ -38,6 +38,29 @@
 
 ## Requirements
 
+### REQ-000: Walking Skeleton — Technical Foundation
+
+- **Status:** open
+- **Priority:** P0
+- **Size:** M
+- **Depends on:** ---
+
+#### Description
+Build the complete technical foundation according to `architecture.md`. No business content — infrastructure only: all dependencies installed, build system, linter, test runner configured, development server running, a minimal E2E layer through all architectural layers (e.g. a Hello-World endpoint that executes a DB query and is displayed in the frontend — without business logic).
+
+#### Acceptance Criteria
+- [ ] All dependencies installed, no version conflicts
+- [ ] Build successful (no errors, no unresolved imports)
+- [ ] Linter clean (no errors)
+- [ ] Test runner starts and passes (0 failures)
+- [ ] Development server starts without errors
+- [ ] Minimal E2E layer works: one request passes through all layers to a response
+
+#### Verification
+Derive from `architecture.md` — build command green, test runner green, dev server responds.
+
+---
+
 ### REQ-010: TypeScript-Fixes für CONT-REQ-Support
 
 - **Status:** done
@@ -90,7 +113,7 @@ grep -E "^### (REQ|CONT)-" /tmp/test_prd.md | wc -l  # → 3
 
 ### REQ-012: Edu-Agent-Personas, Prompt-Builder und Templates
 
-- **Status:** open
+- **Status:** done
 - **Priority:** P0
 - **Size:** M
 - **Depends on:** ---
@@ -132,16 +155,16 @@ Phase 1 Synthesis-Prompt erzwingt LERNSITUATION.md im definierten Schema:
      - Scaffolding-Sequenz: monoton steigender Schwierigkeitsgrad, erkennbarer Aufbau (Einstieg → Erarbeitung → Sicherung → Transfer)
 
 #### Acceptance Criteria
-- [ ] `src/lib/eduAgents.ts` exportiert alle genannten Symbole
-- [ ] `makeEduPhases(2, 2, 2)` gibt Array mit 3 PhaseState-Objekten zurück, IDs: `"didaktik"`, `"prd"`, `"arch"`
-- [ ] `buildDidaktikPrompt(0, 0, "Fach: Chemie...", [], 2)` gibt nicht-leeren String zurück
-- [ ] `buildDrehbuchPrompt("# Lernsituation...")` gibt Prompt-String zurück
-- [ ] `buildEduPrdPrompt(0, 0, "...", [], 2)` gibt Prompt-String zurück
-- [ ] Phase-1-Synthesis-Prompt enthält explizit: "Bloom", "Backward Design", "Differenzierung"
-- [ ] Alle drei Prompt-Builder-Funktionen enthalten "Output language: German"
-- [ ] `templates/LERNSITUATION.md` und `templates/AGENT_EDU.md` existieren
-- [ ] `templates/AGENT_EDU.md` enthält erweiterte Phase-4.5-Prüfkriterien (Bloom-Level-Matching, Lesbarkeitsindex, Misconception-Distraktoren)
-- [ ] `deno check src/main.ts` fehlerfrei
+- [x] `src/lib/eduAgents.ts` exportiert alle genannten Symbole
+- [x] `makeEduPhases(2, 2, 2)` gibt Array mit 3 PhaseState-Objekten zurück, IDs: `"didaktik"`, `"prd"`, `"arch"`
+- [x] `buildDidaktikPrompt(0, 0, "Fach: Chemie...", [], 2)` gibt nicht-leeren String zurück
+- [x] `buildDrehbuchPrompt("# Lernsituation...")` gibt Prompt-String zurück
+- [x] `buildEduPrdPrompt(0, 0, "...", [], 2)` gibt Prompt-String zurück
+- [x] Phase-1-Synthesis-Prompt enthält explizit: "Bloom", "Backward Design", "Differenzierung"
+- [x] Alle drei Prompt-Builder-Funktionen enthalten "Output language: German"
+- [x] `templates/LERNSITUATION.md` und `templates/AGENT_EDU.md` existieren
+- [x] `templates/AGENT_EDU.md` enthält erweiterte Phase-4.5-Prüfkriterien (Bloom-Level-Matching, Lesbarkeitsindex, Misconception-Distraktoren)
+- [x] `deno check src/main.ts` fehlerfrei
 
 #### Verification
 `deno check src/main.ts` → exit code 0
