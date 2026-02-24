@@ -146,13 +146,13 @@
     ]
   },
   "RF-001": {
-    "status": "open",
+    "status": "done",
     "priority": "P0",
     "size": "S",
     "deps": []
   },
   "RF-002": {
-    "status": "open",
+    "status": "done",
     "priority": "P0",
     "size": "S",
     "deps": []
