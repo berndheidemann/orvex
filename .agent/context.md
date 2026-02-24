@@ -4,24 +4,27 @@
 > Enthält den aktuellen Stand für die nächste Iteration.
 
 ## Status
-- Projekt: 27/28 REQs done (REQ-000–REQ-017, RF-001–RF-009)
+- Projekt: 28/28 REQs done — VOLLSTÄNDIG ABGESCHLOSSEN
 - Validator: 3. Validierung PASS — 0 Reverts, 0 Blocks
-- Einziges offenes REQ: CONT-EXPL-001 (P2, M)
-- Blocker: keine
+- Keine offenen REQs mehr
+
+## Abschlussnotiz: CONT-EXPL-001 (Phantom-Eintrag)
+CONT-EXPL-001 war kein echtes Requirement. Der Eintrag entstand, weil `init_status_json`
+die Zeile `### CONT-EXPL-001: Content` innerhalb eines Bash-Heredoc-Codeblocks in der
+RF-002 Verification Section (PRD.md:375) als echte Requirement-Überschrift interpretierte.
+AWK versteht keinen Code-Block-Kontext. Die Zeile existiert nur als Testbeispiel in
+RF-002's Verifikationsanleitung. Es war kein Content zu generieren.
 
 ## Validierungsergebnis (Iter 010–013)
 - Preflight: deno check clean, 174 Tests green, deno task build OK
 - Alle 27 done-REQs bestehen ihre Acceptance Criteria
 - UJ-001 (edu-init): TUI startet korrekt, EduSetup-Form zeigt 6 Felder
 - UJ-002 (Loop nach edu-init): CONT-REQ-Support korrekt verdrahtet
-- Log-Analyse: Keine Scope-Guard-Verstöße, keine ignorierten Fehler
 
-## Bekannte Offene Punkte
-- CONT-EXPL-001 (P2, M) — einziges offenes REQ, niederste Priorität
+## Bekannte technische Schulden (nicht als REQ erfasst)
 - `debateUtils.ts` hat keine dedizierte Test-Datei (RF-004, iter-012)
 - `RunnerDashboard` Komponente hat keine Tests (RF-005, iter-013)
-- REQ-011 AC#3 bezeichnet `injectSpikeReq` als "bash-Funktion" — ist TypeScript
+- AWK-Parser ignoriert Code-Block-Kontext bei Heading-Erkennung (Quelle des Phantom-Eintrags)
 
 ## Nächste Priorität
-- CONT-EXPL-001 implementieren (letztes offenes REQ)
-- Optional: Test-Coverage für debateUtils.ts und RunnerDashboard ergänzen
+- Keine weiteren Iterationen erforderlich — alle REQs implementiert und validiert
