@@ -20,7 +20,7 @@ export function usePrdTitles(): Record<string, string> {
           const text = await Deno.readTextFile(PRD_PATH);
           if (cancelled) return;
           const map: Record<string, string> = {};
-          for (const m of text.matchAll(/^### (REQ-\d+[a-z]?): (.+)$/gm)) {
+          for (const m of text.matchAll(/^### (REQ-\d+[a-z]?|RF-\d+[a-z]?|CONT-[A-Z]+-\d+[A-Za-z]*): (.+)$/gm)) {
             map[m[1]] = m[2].trim();
           }
           if (Object.keys(map).length > 0) {

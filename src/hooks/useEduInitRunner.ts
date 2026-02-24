@@ -21,7 +21,7 @@ import {
   injectSpikeIntoStatus,
   runPhase as runDebatePhase,
 } from "../lib/initAgents.ts";
-import type { PhaseSink } from "../lib/phaseRunner.ts";
+import { makeAddChunk, makePhaseSink } from "../lib/sinkFactory.ts";
 import {
   DIDAKTIK_AGENTS,
   EDU_PRD_AGENTS,
@@ -44,7 +44,7 @@ import {
   runReviewSequence,
 } from "../lib/reviewFlow.ts";
 
-const { useState, useEffect, useRef, useCallback } = React;
+const { useState, useEffect, useRef } = React;
 
 const MAX_LIVE_LINES = 20;
 const DEFAULT_MODEL = "claude-opus-4-6";
@@ -204,66 +204,18 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
 
   // ── Streaming chunk handler ─────────────────────────────────────
 
-  const addChunk = useCallback((chunk: string) => {
-    lineBufferRef.current += chunk;
-    const parts = lineBufferRef.current.split("\n");
-    lineBufferRef.current = parts.pop() ?? "";
-
-    const visibleParts = parts.filter(
-      (l: string) => l.trim() !== "<k>" && l.trim() !== "</k>",
-    );
-
-    setLiveLines((prev: string[]) => {
-      const base =
-        prev.length > 0 && prev[prev.length - 1].endsWith("▌")
-          ? prev.slice(0, -1)
-          : prev;
-      const completed = [...base, ...visibleParts];
-      const withPreview = lineBufferRef.current
-        ? [...completed, lineBufferRef.current + "▌"]
-        : completed;
-      return withPreview.slice(-MAX_LIVE_LINES);
-    });
-  }, []);
+  const addChunk = React.useMemo(
+    () => makeAddChunk(lineBufferRef, setLiveLines, MAX_LIVE_LINES),
+    [],
+  );
 
   // ── PhaseSink factory ───────────────────────────────────────────
 
-  const makeSink = useCallback((): PhaseSink => ({
-    setPhaseRunning: (phaseId: string) => {
-      setPhases((prev: PhaseState[]) =>
-        prev.map((p) => p.id === phaseId ? { ...p, status: "running", startedAt: Date.now() } : p)
-      );
-    },
-    setAgentStatus: (phaseId: string, roundIdx: number, agentIdx: number, status: AgentStatus) => {
-      setPhases((prev: PhaseState[]) =>
-        prev.map((p) => {
-          if (p.id !== phaseId) return p;
-          const rounds = p.rounds.map((r, ri) => {
-            if (ri !== roundIdx) return r;
-            return { ...r, agents: r.agents.map((a, ai) => ai === agentIdx ? { ...a, status } : a) };
-          });
-          return { ...p, rounds };
-        })
-      );
-    },
-    setRoundStatus: (phaseId: string, roundIdx: number, status: RoundStatus) => {
-      setPhases((prev: PhaseState[]) =>
-        prev.map((p) => {
-          if (p.id !== phaseId) return p;
-          return { ...p, rounds: p.rounds.map((r, ri) => ri === roundIdx ? { ...r, status } : r) };
-        })
-      );
-    },
-    setPhaseStatus: (phaseId: string, status: PhaseStatus) => {
-      setPhases((prev: PhaseState[]) => prev.map((p) => p.id === phaseId ? { ...p, status } : p));
-    },
-    setActiveLabel,
-    setAgentStreams,
-    setAgentWarnLevel,
-    addChunk,
-    setLiveLines,
-    clearLineBuffer: () => { lineBufferRef.current = ""; },
-  }), [setActiveLabel, setAgentStreams, setAgentWarnLevel, addChunk, setLiveLines]);
+  const makeSink = () =>
+    makePhaseSink(
+      setPhases, setActiveLabel, setAgentStreams, setAgentWarnLevel,
+      addChunk, setLiveLines, lineBufferRef,
+    );
 
   // ── Main effect ─────────────────────────────────────────────────
 

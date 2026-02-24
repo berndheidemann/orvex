@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Text, useInput } from "ink";
+import { Box, Text, useApp, useInput } from "ink";
 import { useStatusPoller } from "../hooks/useStatusPoller.ts";
 import { useElapsedTime } from "../hooks/useElapsedTime.ts";
 import { useIterationsReader } from "../hooks/useIterationsReader.ts";
@@ -8,11 +8,15 @@ import { useEventsReader } from "../hooks/useEventsReader.ts";
 import { useTerminalSize } from "../hooks/useTerminalSize.ts";
 import { useLoopRunning } from "../hooks/useLoopRunning.ts";
 import { usePrdTitles } from "../hooks/usePrdTitles.ts";
+import { useReqDetails } from "../hooks/useReqDetails.ts";
+import { ReqDetailPane } from "./ReqDetailPane.ts";
 import { ContextEditor } from "./ContextEditor.ts";
 import { ProgressBar } from "./ProgressBar.ts";
 import { STATUS_COLORS } from "../types.ts";
 import type { IterationEntry } from "../types.ts";
-import type { ToolCall } from "../events.ts";
+import type { ToolCall, SystemEvent, LoopEvent } from "../events.ts";
+import { AGENT_DIR } from "../lib/agentDir.ts";
+import { runClaude } from "../lib/runClaude.ts";
 
 const { createElement: h, useState, useEffect, useRef } = React;
 
@@ -134,10 +138,20 @@ function ActivityFeed(props: {
   currentReq: string | null;
   model: string;
   rows: number;
+  isActive?: boolean;
 }): React.ReactElement {
-  const { toolEvents, currentIter, currentReq, model, rows } = props;
+  const { toolEvents, currentIter, currentReq, model, rows, isActive = true } = props;
   const [scrollOffset, setScrollOffset] = useState(0);
   const prevLenRef = useRef(toolEvents.length);
+  const prevIterRef = useRef(currentIter);
+
+  // Auto-scroll to latest when a new iteration starts
+  useEffect(() => {
+    if (currentIter > prevIterRef.current) {
+      prevIterRef.current = currentIter;
+      setScrollOffset(0);
+    }
+  }, [currentIter]);
 
   // Auto-scroll: when new events arrive and user is at bottom, stay there
   useEffect(() => {
@@ -165,7 +179,7 @@ function ActivityFeed(props: {
     } else if (key.downArrow) {
       setScrollOffset((prev: number) => Math.max(0, prev - 1));
     }
-  });
+  }, { isActive });
 
   return h(
     Box,
@@ -204,6 +218,128 @@ function ActivityFeed(props: {
   );
 }
 
+// --- Completion Overlay ---
+
+type StopKind =
+  | "all_done"
+  | "max_iterations"
+  | "timeout"
+  | "low_activity"
+  | "no_actionable_req"
+  | "unknown";
+
+const STOP_CONFIG: Record<StopKind, { color: string; headline: string }> = {
+  all_done:          { color: "green",  headline: "✅  Alle Requirements erfüllt" },
+  max_iterations:    { color: "yellow", headline: "⏹  Maximale Iterationen erreicht" },
+  timeout:           { color: "yellow", headline: "⏱  Timeout" },
+  low_activity:      { color: "yellow", headline: "💤  Loop inaktiv" },
+  no_actionable_req: { color: "yellow", headline: "⚠  Kein ausführbares Requirement" },
+  unknown:           { color: "red",    headline: "⛔  Loop unerwartet beendet" },
+};
+
+const HAIKU_MODEL = "claude-haiku-4-5-20251001";
+
+const KNOWN_STOP_KINDS: readonly string[] = [
+  "all_done", "max_iterations", "timeout", "low_activity", "no_actionable_req",
+];
+
+function detectStopKind(events: LoopEvent[]): StopKind {
+  const systemEvts = events.filter(
+    (ev): ev is SystemEvent => ev.type === "system:event",
+  );
+  const last = systemEvts[systemEvts.length - 1];
+  if (!last) return "unknown";
+  return KNOWN_STOP_KINDS.includes(last.kind) ? (last.kind as StopKind) : "unknown";
+}
+
+function CompletionOverlay(props: {
+  kind: StopKind;
+  elapsed: string;
+  costStr: string;
+  currentIter: number;
+  doneReqs: number;
+  totalReqs: number;
+}): React.ReactElement {
+  const { kind, elapsed, costStr, currentIter, doneReqs, totalReqs } = props;
+  const { exit } = useApp();
+  const [diagnosis, setDiagnosis] = useState<string | null>(null);
+  const [diagLoading, setDiagLoading] = useState<boolean>(kind !== "all_done");
+  const calledRef = useRef(false);
+
+  useInput((input) => {
+    if (input === "q") {
+      exit();
+    }
+  });
+
+  useEffect(() => {
+    if (kind === "all_done" || calledRef.current) return;
+    calledRef.current = true;
+
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        let lastLines = "";
+        try {
+          const content = await Deno.readTextFile(`${AGENT_DIR}/events.jsonl`);
+          const lines = content.split("\n").filter((l: string) => l.trim().length > 0);
+          lastLines = lines.slice(-40).join("\n");
+        } catch { /* file not found — use empty */ }
+
+        const prompt = [
+          "You are a loop diagnostics assistant. Given the last events from an agentic development loop,",
+          "explain in 2–3 German sentences why the loop stopped. Be concise and specific.",
+          `Stop reason reported: ${kind}`,
+          "Last events (JSONL):",
+          lastLines,
+        ].join("\n");
+
+        const text = await runClaude(prompt, () => {}, controller.signal, HAIKU_MODEL, 1);
+        setDiagnosis(text.trim());
+      } catch { /* silent fallback */ } finally {
+        setDiagLoading(false);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [kind]);
+
+  const cfg = STOP_CONFIG[kind];
+  const summaryLine = `Laufzeit: ${elapsed}  ·  Kosten: ${costStr}  ·  Iterationen: ${currentIter}  ·  REQs: ${doneReqs}/${totalReqs} done`;
+
+  return h(
+    Box,
+    { flexDirection: "column", padding: 2 },
+    h(
+      Text,
+      { bold: true, color: cfg.color as Parameters<typeof Text>[0]["color"] },
+      cfg.headline,
+    ),
+    h(
+      Box,
+      { marginTop: 1 },
+      h(Text, { dimColor: true }, summaryLine),
+    ),
+    kind !== "all_done"
+      ? h(
+          Box,
+          { marginTop: 1, flexDirection: "column" },
+          diagLoading
+            ? h(Text, { color: "yellow" }, "⏳  Analysiere…")
+            : diagnosis !== null
+            ? h(Text, {}, diagnosis)
+            : null,
+        )
+      : null,
+    h(
+      Box,
+      { marginTop: 2 },
+      h(Text, { dimColor: true }, "[q] beenden"),
+    ),
+  );
+}
+
 export function Dashboard(): React.ReactElement {
   const { data, error } = useStatusPoller();
   const loopRunning = useLoopRunning();
@@ -211,7 +347,13 @@ export function Dashboard(): React.ReactElement {
   const { entries: iterEntries, available: iterAvailable } =
     useIterationsReader();
   const prdTitles = usePrdTitles();
+  const reqDetails = useReqDetails();
   const { paused, lastAction, editingContext, quitting, closeEditor } = useKeyboardControls();
+
+  // RF-009: Focus mode state
+  const [focusMode, setFocusMode] = useState<boolean>(false);
+  const [focusCursor, setFocusCursor] = useState<number>(0);
+  const [focusTarget, setFocusTarget] = useState<"list" | "detail">("list");
   const {
     events,
     currentIter,
@@ -223,6 +365,57 @@ export function Dashboard(): React.ReactElement {
   } = useEventsReader();
   const { columns, rows } = useTerminalSize();
 
+  const entries = Object.entries(data);
+  // RF-008: group entries — active (open/in_progress/blocked) on top, done on bottom
+  const activeEntries = entries.filter(([, req]) => req.status !== "done");
+  const doneEntries = entries.filter(([, req]) => req.status === "done");
+  const groupedEntries = [...activeEntries, ...doneEntries];
+  const hasSeparator = activeEntries.length > 0 && doneEntries.length > 0;
+  // RF-006: authoritative iter counter = max of live currentIter and last completed iter from iterations.jsonl
+  const lastCompletedIter = iterEntries.length > 0 ? iterEntries[iterEntries.length - 1].iteration : 0;
+  const displayIter = Math.max(currentIter, lastCompletedIter);
+  // Sum costs from iterations.jsonl (historical) + live events cost
+  const historicalCost = iterEntries.reduce((sum: number, e: IterationEntry) => {
+    const c = parseFloat(String(e["cost"] ?? "0"));
+    return sum + (isNaN(c) ? 0 : c);
+  }, 0);
+  // Use whichever is larger (live cost accumulates per event, historical per completed iteration)
+  const totalCost = Math.max(historicalCost, totalLiveCost);
+  const costStr = `$${totalCost.toFixed(4)}`;
+  // REQ progress counters
+  const totalReqs = entries.length;
+  const doneReqs = entries.filter(([, r]) => r.status === "done").length;
+
+  // RF-009: Focus mode keyboard handler — r, Tab, ↑/↓ in focus mode
+  useInput((input, key) => {
+    if (input === "r") {
+      setFocusMode((prev: boolean) => {
+        if (!prev) {
+          // Entering focus mode: position cursor on in_progress or first open
+          const ipIdx = groupedEntries.findIndex(([, r]) => r.status === "in_progress");
+          const openIdx = groupedEntries.findIndex(([, r]) => r.status === "open");
+          setFocusCursor(ipIdx >= 0 ? ipIdx : openIdx >= 0 ? openIdx : 0);
+          setFocusTarget("list");
+        }
+        return !prev;
+      });
+      return;
+    }
+    if (!focusMode) return;
+
+    if (key.tab) {
+      setFocusTarget((prev: "list" | "detail") => prev === "list" ? "detail" : "list");
+      return;
+    }
+    if (focusTarget === "list") {
+      if (key.upArrow) {
+        setFocusCursor((prev: number) => Math.max(0, prev - 1));
+      } else if (key.downArrow) {
+        setFocusCursor((prev: number) => Math.min(groupedEntries.length - 1, prev + 1));
+      }
+    }
+  }, { isActive: !editingContext && !quitting });
+
   if (quitting) {
     return h(
       Box,
@@ -232,22 +425,23 @@ export function Dashboard(): React.ReactElement {
     );
   }
 
+  if (loopRunning === false && currentIter > 0) {
+    return h(CompletionOverlay, {
+      kind: detectStopKind(events),
+      elapsed,
+      costStr,
+      currentIter,
+      doneReqs,
+      totalReqs,
+    });
+  }
+
   if (editingContext) {
     return h(ContextEditor, { onClose: closeEditor });
   }
 
-  const entries = Object.entries(data);
   const activeEntry = entries.find(([, req]) => req.status === "in_progress");
   const activeReqId = activeEntry ? activeEntry[0] : null;
-
-  // Sum costs from iterations.jsonl (historical) + live events cost
-  const historicalCost = iterEntries.reduce((sum: number, e: IterationEntry) => {
-    const c = parseFloat(String(e["cost"] ?? "0"));
-    return sum + (isNaN(c) ? 0 : c);
-  }, 0);
-  // Use whichever is larger (live cost accumulates per event, historical per completed iteration)
-  const totalCost = Math.max(historicalCost, totalLiveCost);
-  const costStr = `$${totalCost.toFixed(4)}`;
 
   // Extract tool:call events and current model (needed for phase gate below)
   const toolEvents = events.filter((ev): ev is ToolCall => ev.type === "tool:call");
@@ -259,14 +453,34 @@ export function Dashboard(): React.ReactElement {
   const currentPhase = toolEvents.length > 0 ? livePhase : null;
   const phaseStep = currentPhase ? (PHASE_STEPS[currentPhase] ?? 0) : 0;
 
-  // REQ progress counters
-  const totalReqs = entries.length;
-  const doneReqs = entries.filter(([, r]) => r.status === "done").length;
-
   // Progress bar width: ~1/3 terminal width
   const barWidth = Math.max(BAR_WIDTH_MIN, Math.floor(columns / BAR_WIDTH_DIVISOR));
   const lastIterStart = [...events].reverse().find((ev) => ev.type === "iteration:start");
   const currentModel = lastIterStart?.type === "iteration:start" ? lastIterStart.model : "";
+
+  // RF-007: viewport for req-list — show at most this many entries
+  const maxReqVisible = Math.max(3, Math.floor((rows - FEED_OVERHEAD) / 2));
+  // RF-008: viewport operates on grouped entries (active first, done last)
+  const activeEntryIdx = groupedEntries.findIndex(([, req]) => req.status === "in_progress");
+  let reqViewStart = 0;
+  if (groupedEntries.length > maxReqVisible) {
+    if (focusMode) {
+      // RF-009: in focus mode, center viewport around cursor
+      reqViewStart = Math.max(0, focusCursor - Math.floor(maxReqVisible / 2));
+      reqViewStart = Math.min(reqViewStart, groupedEntries.length - maxReqVisible);
+    } else if (activeEntryIdx >= 0) {
+      // center active entry in viewport
+      reqViewStart = Math.max(0, activeEntryIdx - Math.floor(maxReqVisible / 2));
+      reqViewStart = Math.min(reqViewStart, groupedEntries.length - maxReqVisible);
+    } else {
+      // no active REQ: show end of list (newest entries visible)
+      reqViewStart = groupedEntries.length - maxReqVisible;
+    }
+  }
+  const reqViewEnd = Math.min(reqViewStart + maxReqVisible, groupedEntries.length);
+  const visibleEntries = groupedEntries.slice(reqViewStart, reqViewEnd);
+  const aboveCount = reqViewStart;
+  const belowCount = groupedEntries.length - reqViewEnd;
 
   // REQ-list pane (left, 40%)
   const reqPane = h(
@@ -279,8 +493,15 @@ export function Dashboard(): React.ReactElement {
       : h(
           Box,
           { flexDirection: "column" },
-          ...entries.flatMap(([id, req]) => {
-            const prefix = req.status === "in_progress" ? "▶ " : "  ";
+          aboveCount > 0
+            ? h(Text, { dimColor: true }, `↑ ${aboveCount} more`)
+            : null,
+          ...visibleEntries.flatMap(([id, req], localIdx) => {
+            const globalIdx = reqViewStart + localIdx;
+            const isCursor = focusMode && globalIdx === focusCursor;
+            const prefix = focusMode
+              ? (isCursor ? "▶ " : "  ")
+              : (req.status === "in_progress" ? "▶ " : "  ");
             const title = prdTitles[id];
             const stats = req.status === "done" ? reqStats[id] : undefined;
             const statsStr = stats
@@ -291,7 +512,7 @@ export function Dashboard(): React.ReactElement {
               { key: id, flexDirection: "column" },
               h(
                 Text,
-                { color: STATUS_COLORS[req.status] },
+                { color: STATUS_COLORS[req.status], inverse: isCursor && focusTarget === "list" },
                 `${prefix}${id}  [${req.status}]`,
               ),
               title
@@ -302,11 +523,18 @@ export function Dashboard(): React.ReactElement {
                 : null,
             );
 
+            // RF-008: separator between active and done groups
+            const sep =
+              hasSeparator && req.status === "done" && globalIdx === activeEntries.length
+                ? h(Text, { key: "__sep__", dimColor: true }, "─── done ───")
+                : null;
+
             if (req.status !== "blocked") {
-              return [row];
+              return sep ? [sep, row] : [row];
             }
 
             return [
+              ...(sep ? [sep] : []),
               row,
               h(BlockedDetail, {
                 key: `${id}-detail`,
@@ -317,21 +545,39 @@ export function Dashboard(): React.ReactElement {
               }),
             ];
           }),
+          belowCount > 0
+            ? h(Text, { dimColor: true }, `↓ ${belowCount} more`)
+            : null,
         ),
   );
 
-  // Activity feed pane (right, 60%)
+  // Activity feed pane (right, 60%) — always mounted, hidden in focus mode to preserve scroll state
   const feedPane = h(
     Box,
-    { flexDirection: "column", width: "60%", paddingLeft: 2 },
+    { flexDirection: "column", width: "60%", paddingLeft: 2, display: focusMode ? "none" : "flex" },
     h(Text, { bold: true, color: "white" }, "Activity Feed"),
     h(Text, { dimColor: true }, "─".repeat(30)),
     h(ActivityFeed, {
       toolEvents,
-      currentIter,
+      currentIter: displayIter,
       currentReq: currentReq ?? activeReqId,
       model: currentModel,
       rows,
+      isActive: !focusMode,
+    }),
+  );
+
+  // RF-009: Detail pane — shown in focus mode
+  const selectedReqId = groupedEntries[focusCursor]?.[0] ?? "";
+  const detailContent = reqDetails[selectedReqId] ?? "";
+  const detailPane = h(
+    Box,
+    { flexDirection: "column", width: "60%", paddingLeft: 2, display: focusMode ? "flex" : "none" },
+    h(ReqDetailPane, {
+      reqId: selectedReqId,
+      content: detailContent,
+      rows,
+      isActive: focusMode && focusTarget === "detail",
     }),
   );
 
@@ -351,7 +597,7 @@ export function Dashboard(): React.ReactElement {
         return h(Text, { key: modelId, color: color as Parameters<typeof Text>[0]["color"] }, `${name} $${cost.toFixed(4)}`);
       }),
       h(Text, { dimColor: true }, "|"),
-      h(Text, { dimColor: true }, `Iter ${currentIter}`),
+      h(Text, { dimColor: true }, `Iter ${displayIter}`),
     ),
     // REQ progress bar
     h(
@@ -378,6 +624,7 @@ export function Dashboard(): React.ReactElement {
       { flexDirection: "row" },
       reqPane,
       feedPane,
+      detailPane,
     ),
     h(Text, { dimColor: true }, "─".repeat(columns)),
     // Status line
@@ -385,15 +632,14 @@ export function Dashboard(): React.ReactElement {
       ? h(Text, { color: "yellow" }, `Active: ${activeReqId}`)
       : null,
     error !== null ? h(Text, { color: "red" }, `⚠  ${error}`) : null,
-    loopRunning === false && currentIter > 0
-      ? h(Text, { color: "red", bold: true }, "⛔  Loop gestoppt")
-      : null,
     paused ? h(Text, { color: "yellow", bold: true }, "⏸  PAUSED") : null,
     lastAction === "skip-sent"
       ? h(Text, { color: "green" }, "✓ Skip sent")
       : lastAction === "editor-closed"
       ? h(Text, { color: "green" }, "✓ context.md saved")
       : null,
-    h(Text, { dimColor: true }, "[p] pause  [s] skip  [e] edit context  [q] quit  [↑↓] scroll feed"),
+    focusMode
+      ? h(Text, { dimColor: true }, "[r] normal  [↑↓] select req  [Tab] scroll detail  [p] pause  [s] skip  [e] edit  [q] quit")
+      : h(Text, { dimColor: true }, "[p] pause  [s] skip  [e] edit context  [r] req focus  [q] quit  [↑↓] scroll feed"),
   );
 }

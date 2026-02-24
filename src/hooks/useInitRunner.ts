@@ -22,7 +22,8 @@ import {
   injectSpikeReq,
   injectSpikeIntoStatus,
 } from "../lib/initAgents.ts";
-import { runDebatePhase, type PhaseSink } from "../lib/phaseRunner.ts";
+import { runDebatePhase } from "../lib/phaseRunner.ts";
+import { makeAddChunk, makePhaseSink } from "../lib/sinkFactory.ts";
 import {
   parseReqs,
   parseAdrs,
@@ -108,27 +109,10 @@ export function useInitRunner(
     [],
   );
 
-  const addChunk = useCallback((chunk: string) => {
-    lineBufferRef.current += chunk;
-    const parts = lineBufferRef.current.split("\n");
-    lineBufferRef.current = parts.pop() ?? "";
-
-    const visibleParts = parts.filter(
-      (l: string) => l.trim() !== "<k>" && l.trim() !== "</k>"
-    );
-
-    setLiveLines((prev: string[]) => {
-      const base =
-        prev.length > 0 && prev[prev.length - 1].endsWith("▌")
-          ? prev.slice(0, -1)
-          : prev;
-      const completed = [...base, ...visibleParts];
-      const withPreview = lineBufferRef.current
-        ? [...completed, lineBufferRef.current + "▌"]
-        : completed;
-      return withPreview.slice(-MAX_LIVE_LINES);
-    });
-  }, []);
+  const addChunk = React.useMemo(
+    () => makeAddChunk(lineBufferRef, setLiveLines, MAX_LIVE_LINES),
+    [],
+  );
 
   // ── Phase runner ───────────────────────────────────────────────
 
@@ -143,42 +127,10 @@ export function useInitRunner(
   ): Promise<string> => {
     const phaseLabel = phaseId === "prd" ? "PRD" : "Architecture";
     const agents = phaseId === "prd" ? PRD_AGENTS : ARCH_AGENTS;
-    const sink: PhaseSink = {
-      setPhaseRunning: (id: string) => {
-        setPhases((prev: PhaseState[]) =>
-          prev.map((p) => p.id === id ? { ...p, status: "running", startedAt: Date.now() } : p)
-        );
-      },
-      setAgentStatus: (pid: string, roundIdx: number, agentIdx: number, status: AgentStatus) => {
-        setPhases((prev: PhaseState[]) =>
-          prev.map((p) => {
-            if (p.id !== pid) return p;
-            const rounds = p.rounds.map((r, ri) => {
-              if (ri !== roundIdx) return r;
-              return { ...r, agents: r.agents.map((a, ai) => ai === agentIdx ? { ...a, status } : a) };
-            });
-            return { ...p, rounds };
-          })
-        );
-      },
-      setRoundStatus: (pid: string, roundIdx: number, status: RoundStatus) => {
-        setPhases((prev: PhaseState[]) =>
-          prev.map((p) => {
-            if (p.id !== pid) return p;
-            return { ...p, rounds: p.rounds.map((r, ri) => ri === roundIdx ? { ...r, status } : r) };
-          })
-        );
-      },
-      setPhaseStatus: (pid: string, status: PhaseStatus) => {
-        setPhases((prev: PhaseState[]) => prev.map((p) => p.id === pid ? { ...p, status } : p));
-      },
-      setActiveLabel,
-      setAgentStreams,
-      setAgentWarnLevel,
-      addChunk,
-      setLiveLines,
-      clearLineBuffer: () => { lineBufferRef.current = ""; },
-    };
+    const sink = makePhaseSink(
+      setPhases, setActiveLabel, setAgentStreams, setAgentWarnLevel,
+      addChunk, setLiveLines, lineBufferRef,
+    );
     return await runDebatePhase(
       {
         phaseId,

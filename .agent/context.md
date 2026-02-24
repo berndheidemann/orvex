@@ -4,33 +4,23 @@
 > Enthält den aktuellen Stand für die nächste Iteration.
 
 ## Status
-- Projekt: REQ-000–REQ-016, RF-001–RF-005 abgeschlossen
-- Nächstes REQ: keines bekannt (alle offenen REQs erledigt)
-- Blocker: keine
+- Projekt: 30/30 REQs done — VOLLSTÄNDIG ABGESCHLOSSEN (inkl. RF-010, RF-011)
+- Alle offenen REQs implementiert
 
-## Was existiert
-- RF-005 done: `RunnerDashboard` Komponente in `src/components/InitDashboard.ts` (ADR-016)
-  - EduRunner: ~312 → ~145 Zeilen (–53%)
-  - InitRunner: ~320 → ~165 Zeilen (–48%)
-  - Shared: timer effects, layout computation, done/error screens, split-pane layout
-- RF-004 done: `src/lib/debateUtils.ts` — K_HEADER, makeRounds, formatOthersOutput
-- RF-003 done: `src/lib/reviewFlow.ts` + `src/lib/reviewFlowUtils.ts` (ADR-015)
-- 163 Tests total, alle grün
-- deno check src/main.ts clean
+## Abgeschlossene RF-REQs dieser Iteration
+- **RF-010:** `usePrdTitles.ts` regex auf `/^### (REQ-\d+[a-z]?|RF-\d+[a-z]?|CONT-[A-Z]+-\d+[A-Za-z]*): (.+)$/gm` erweitert — konsistent mit `useReqDetails.ts`
+- **RF-011:** `makeAddChunk` und `makePhaseSink` in `src/lib/sinkFactory.ts` extrahiert. `useInitRunner` und `useEduInitRunner` nutzen beide die gemeinsamen Factories. Kein lokales `addChunk` mit `useCallback` mehr in Hooks.
 
-## Architektur-Hinweise (RF-005)
-- RunnerDashboard Props: phases, liveLines, agentStreams, activeLabel, agentWarnLevel, done,
-  error, subtitle, descLabel, descText, model, doneMessage, onDone, emptyStateLines?, footer?
-- EduInitDashboard.ts importiert nur: useInput (ink), RunnerDashboard/SynthDoneUI/ReviewUI
-  (InitDashboard.ts), useEduInitRunner, useRawBackspace, ReviewEditor, EduSetup
-- InitDashboard.ts exportiert neu: RunnerDashboard, RunnerDashboardProps
+## Architektur-Stand
+- `src/lib/sinkFactory.ts` — neu erstellt: enthält `makeAddChunk` und `makePhaseSink`
+- `src/hooks/useInitRunner.ts` — nutzt sinkFactory statt inline-Sink
+- `src/hooks/useEduInitRunner.ts` — nutzt sinkFactory, `useCallback` aus Destructuring entfernt
 
-## Bekannte Offene Punkte
-- Keine offenen REQs in status.json
-- Pre-existierende Lint-Warnungen in Test-Dateien und Hooks (no-unused-vars, no-import-prefix)
+## Validierungsstatus
+- deno check: clean
+- Tests: 174/174 pass
+- RF-010 AC: Regex korrekt, RF/CONT erkannt, konsistent mit useReqDetails
+- RF-011 AC: addChunk in einem Ort, PhaseSink in einem Ort, beide Hooks nutzen Factories, grep = 0
 
-## Refactoring Check RF-005
-- InitDashboard.ts: 786 Zeilen, klare Sektionen (PhaseBlockCompact, SynthDoneUI, ReviewUI,
-  RunnerDashboard, InitRunner, InitDashboard). Keine Duplikation.
-- EduInitDashboard.ts: 207 Zeilen, fokussiert.
-- Keine neuen technischen Schulden.
+## Nächste Priorität
+- Keine weiteren offenen REQs
