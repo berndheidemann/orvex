@@ -131,7 +131,15 @@ LOOP_PID=$!
 
 cleanup() {
   kill "$LOOP_PID" 2>/dev/null || true
-  wait "$LOOP_PID" 2>/dev/null || true
+  # Poll instead of blocking wait — avoids hanging when the TUI already
+  # sent SIGTERM and the loop is still finishing its own cleanup.
+  local i=0
+  while kill -0 "$LOOP_PID" 2>/dev/null && [ $i -lt 25 ]; do
+    sleep 0.2
+    i=$((i+1))
+  done
+  # Force-kill if still alive after 5 s
+  kill -9 "$LOOP_PID" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
