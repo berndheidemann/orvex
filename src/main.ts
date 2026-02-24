@@ -8,7 +8,7 @@ const { createElement: h } = React;
 
 const INIT_MODE = Deno.env.get("ORVEX_INIT_MODE") === "1";
 const INIT_DESCRIPTION = Deno.env.get("ORVEX_INIT_DESCRIPTION") ?? "";
-const EDU_INIT_MODE = Deno.env.get("ORVEX_EDU_INIT_MODE") === "1";
+const EDU_INIT_MODE = Deno.env.get("ORVEX_EDU_INIT_MODE") === "1" || Deno.args.includes("--edu-init");
 
 // Auto-detect project state from filesystem:
 //   bothExist  → PRD.md + architecture.md vorhanden → direkt zum Dashboard
