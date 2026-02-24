@@ -13,6 +13,21 @@ LOOP_SCRIPT="$FRAMEWORK_DIR/loop_dev.sh"
 TUI_BIN="$FRAMEWORK_DIR/orvex-tui"
 TEMPLATES_DIR="$FRAMEWORK_DIR/templates"
 
+# ── Edu-Init logic ────────────────────────────────────────────
+do_edu_init() {
+  if ! git -C . rev-parse --git-dir > /dev/null 2>&1; then
+    echo "❌  Not a git repository. Please run 'orvex edu-init' from a git repo."
+    exit 1
+  fi
+
+  mkdir -p .agent
+
+  ORVEX_AGENT_DIR="$(pwd)/.agent" \
+  "$TUI_BIN" --edu-init
+
+  exit 0
+}
+
 # ── Init logic (shared between 'orvex init' and empty folder) ────
 do_init() {
   for f in AGENT.md VALIDATOR.md REFACTOR.md; do
@@ -61,6 +76,11 @@ if [ "${1:-}" = "init" ]; then
   echo "Orvex — Initialize project"
   echo ""
   do_init
+fi
+
+# ── orvex edu-init ────────────────────────────────────────────
+if [ "${1:-}" = "edu-init" ]; then
+  do_edu_init
 fi
 
 # ── Validation ────────────────────────────────────────────────
