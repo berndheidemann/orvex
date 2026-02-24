@@ -71,6 +71,46 @@ do_init() {
   exit 0
 }
 
+# ── orvex help ────────────────────────────────────────────────
+if [ "${1:-}" = "help" ] || [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  cat <<'EOF'
+Orvex — AI-driven development loop
+
+USAGE
+  orvex                 Start (or resume) the agent loop in the current project
+  orvex init            Create PRD.md / architecture.md interactively, then start
+  orvex edu-init        Create a didactic learning situation (LERNSITUATION.md)
+  orvex help            Show this help
+
+DASHBOARD KEYS
+  p          Pause / resume the agent loop
+  s          Skip the current iteration
+  e          Edit context.md (agent instructions)
+  r          Toggle requirement-focus mode
+  q          Quit — loop is stopped gracefully
+
+REQUIREMENT FOCUS MODE  (press r)
+  ↑ / ↓      Navigate the requirement list
+  Tab        Switch focus between list and detail pane
+  ↑ / ↓      Scroll the detail pane (when focused)
+
+PROJECT FILES
+  PRD.md          Requirements the agent works through
+  AGENT.md        Persistent instructions for the agent
+  VALIDATOR.md    Acceptance-test script run after each iteration
+  architecture.md Tech-stack and project-structure decisions
+  .agent/         Runtime state (status, logs, events)
+
+WORKFLOW
+  1. orvex init          — set up a new project
+  2. Review PRD.md       — adjust priorities and acceptance criteria
+  3. orvex               — start the loop; agent implements REQs one by one
+  4. Press q to stop     — resume any time with: orvex
+
+EOF
+  exit 0
+fi
+
 # ── orvex init ────────────────────────────────────────────────
 if [ "${1:-}" = "init" ]; then
   echo "Orvex — Initialize project"
