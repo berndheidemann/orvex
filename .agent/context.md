@@ -4,31 +4,30 @@
 > Enthält den aktuellen Stand für die nächste Iteration.
 
 ## Status
-- Projekt: REQ-000–REQ-017, RF-001–RF-007 abgeschlossen
-- Nächstes REQ: RF-008 oder CONT-EXPL-001 (prüfen in PRD)
+- Projekt: REQ-000–REQ-017, RF-001–RF-008 abgeschlossen
+- Nächstes REQ: RF-009 (P1, M) — REQ-Fokus-Modus Detail-Ansicht
 - Blocker: keine
 
 ## Was existiert
-- RF-007 done: Viewport-basiertes Rendering der Req-Liste in `Dashboard.ts`
-  - maxReqVisible = Math.floor((rows - FEED_OVERHEAD) / 2), min 3
-  - Zentriert auf aktiven (in_progress) REQ; ohne aktiven REQ → ans Ende scrollen
-  - ↑/↓ Indikatoren zeigen verborgene Einträge an
-- RF-006 done: Stale-Counter-Fix in `useEventsReader.ts` + `Dashboard.ts`
-  - setCurrentReq(null) bei iteration:end
-  - displayIter = Math.max(currentIter, lastCompletedIter) aus iterations.jsonl
-  - ActivityFeed bekommt displayIter; auto-scroll-to-bottom bei iter-Wechsel
-- RF-005 done: RunnerDashboard in src/components/InitDashboard.ts (ADR-016)
+- RF-008 done: Requirements-Liste nach Status gruppiert in `Dashboard.ts`
+  - activeEntries (open/in_progress/blocked) oben, doneEntries unten
+  - Separator "─── done ───" zwischen Gruppen (nur wenn beide nicht leer)
+  - Viewport-Logik (RF-007) operiert auf groupedEntries — Active-REQ-Fokus korrekt
+  - hasSeparator guard: separator nur wenn beide Gruppen > 0
+- RF-007 done: Viewport-basiertes Rendering der Req-Liste
+- RF-006 done: Stale-Counter-Fix + displayIter
 - REQ-017 done: CompletionOverlay in Dashboard.ts
 - 163 Tests total, alle grün; deno check clean
 
-## Architektur-Hinweise (RF-006/RF-007)
+## Architektur-Hinweise (RF-008)
+- groupedEntries ersetzt entries im Viewport (activeEntryIdx, reqViewStart, visibleEntries)
+- entries (ungrouped) bleibt für totalReqs/doneReqs Counter und activeEntry/activeReqId
+- Separator-Logik im flatMap: globalIdx = reqViewStart + localIdx; separator wenn globalIdx === activeEntries.length
 - FEED_OVERHEAD = 11 (in Dashboard.ts) — wird für maxReqVisible genutzt
-- displayIter wird nicht ins useEventsReader exportiert — Berechnung liegt in Dashboard
-- ActivityFeed nutzt currentIter-Prop (= displayIter aus Dashboard) für auto-scroll-trigger
 
 ## Bekannte Offene Punkte
-- RF-008 (Details unbekannt) — PRD lesen
+- RF-009 (P1, M) — Two-Mode Dashboard: r-key wechselt Fokus-Modus, Detail-Pane rechts
 - CONT-EXPL-001 (P2, M) — niederste Priorität
 
-## Refactoring Check RF-006/RF-007 (S-Batch, <5 Dateien)
+## Refactoring Check RF-008 (S, <5 Dateien)
 - Keine Duplikation, keine neuen technischen Schulden.
