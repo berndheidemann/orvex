@@ -596,7 +596,7 @@ Manuell: Dashboard mit 5 done + 3 open REQs starten → oben 3 offene, unten Tre
 
 - **Priority:** P1
 - **Size:** M
-- **Status:** open
+- **Status:** done
 - **Depends on:** —
 
 #### Problem
@@ -670,15 +670,15 @@ Acceptance-Criteria-Checkboxen spiegeln den aktuellen `status.json`-Stand: bei `
 
 #### Acceptance Criteria
 
-- [ ] `r` wechselt zwischen Normalmodus und Fokus-Modus; Activity Feed kehrt beim Zurückwechseln unverändert zurück
-- [ ] Im Fokus-Modus bewegt `↑`/`↓` den Cursor durch alle REQs der gruppierten Liste
-- [ ] Das Detail-Pane zeigt vollständigen Text des selektierten REQs: Metadaten, Description, Acceptance Criteria
-- [ ] Beim Eintritt in den Fokus-Modus steht der Cursor auf dem `in_progress`-REQ (falls vorhanden), sonst auf dem ersten `open`-REQ
-- [ ] `Tab` wechselt den Scroll-Fokus zwischen REQ-Liste und Detail-Pane
-- [ ] Langer Detail-Inhalt ist scrollbar (kein Clipping ohne Indikator)
-- [ ] Alle anderen Keys (`p`, `s`, `e`, `q`) bleiben in beiden Modi aktiv
-- [ ] `deno check src/main.ts` fehlerfrei
-- [ ] Alle bestehenden Tests grün
+- [x] `r` wechselt zwischen Normalmodus und Fokus-Modus; Activity Feed kehrt beim Zurückwechseln unverändert zurück
+- [x] Im Fokus-Modus bewegt `↑`/`↓` den Cursor durch alle REQs der gruppierten Liste
+- [x] Das Detail-Pane zeigt vollständigen Text des selektierten REQs: Metadaten, Description, Acceptance Criteria
+- [x] Beim Eintritt in den Fokus-Modus steht der Cursor auf dem `in_progress`-REQ (falls vorhanden), sonst auf dem ersten `open`-REQ
+- [x] `Tab` wechselt den Scroll-Fokus zwischen REQ-Liste und Detail-Pane
+- [x] Langer Detail-Inhalt ist scrollbar (kein Clipping ohne Indikator)
+- [x] Alle anderen Keys (`p`, `s`, `e`, `q`) bleiben in beiden Modi aktiv
+- [x] `deno check src/main.ts` fehlerfrei
+- [x] Alle bestehenden Tests grün
 
 #### Verification
 
