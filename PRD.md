@@ -174,7 +174,7 @@ Phase 1 Synthesis-Prompt erzwingt LERNSITUATION.md im definierten Schema:
 
 ### REQ-013: useEduInitRunner Hook
 
-- **Status:** in_progress
+- **Status:** done
 - **Priority:** P1
 - **Size:** M
 - **Depends on:** REQ-010, REQ-012
@@ -197,15 +197,15 @@ Nach Abschluss: REQ-000-Walking-Skeleton wird in PRD.md + status.json injiziert 
 **CONT-REQ / REQ-000-Dependency:** CONT-REQs erhalten keine automatische `Depends on: REQ-000`. Sie können parallel zum Walking Skeleton implementiert werden, da Content-Dateien keine technische Infrastruktur voraussetzen. Technische REQ-NNN, die CONT-REQs konsumieren, tragen die Dependency selbst.
 
 #### Acceptance Criteria
-- [ ] `src/hooks/useEduInitRunner.ts` exportiert `useEduInitRunner(config)` Hook
-- [ ] Hook gibt State zurück mit: `phases` (3 PhaseStates für "didaktik"/"prd"/"arch"), `liveLines`, `done`, `error`, `lernSituationReview`, `prdReview`, `archReview`, `awaitingConfirm`
-- [ ] Hook importiert `runPhase` aus `initAgents.ts` (kein Duplicate)
-- [ ] `initAgents.ts` exportiert `runPhase` als named export ohne bestehende Funktionalität zu ändern
-- [ ] Nach vollständigem Durchlauf existieren: `learning-context.md`, `LERNSITUATION.md`, `lernpfad.md`, `PRD.md`, `.agent/architecture.md`, `.agent/status.json`
-- [ ] Wenn `LERNSITUATION.md` bei Start existiert: Phase 1 wird übersprungen, Review der bestehenden Datei wird angeboten
-- [ ] CONT-REQs in PRD.md werden korrekt in `parseReqs`-Review-Items umgewandelt (abhängig von REQ-010)
-- [ ] Generierte CONT-REQs in PRD.md haben kein `Depends on: REQ-000`
-- [ ] `deno check src/main.ts` fehlerfrei
+- [x] `src/hooks/useEduInitRunner.ts` exportiert `useEduInitRunner(config)` Hook
+- [x] Hook gibt State zurück mit: `phases` (3 PhaseStates für "didaktik"/"prd"/"arch"), `liveLines`, `done`, `error`, `lernSituationReview`, `prdReview`, `archReview`, `awaitingConfirm`
+- [x] Hook importiert `runPhase` aus `initAgents.ts` (kein Duplicate)
+- [x] `initAgents.ts` exportiert `runPhase` als named export ohne bestehende Funktionalität zu ändern
+- [x] Nach vollständigem Durchlauf existieren: `learning-context.md`, `LERNSITUATION.md`, `lernpfad.md`, `PRD.md`, `.agent/architecture.md`, `.agent/status.json`
+- [x] Wenn `LERNSITUATION.md` bei Start existiert: Phase 1 wird übersprungen, Review der bestehenden Datei wird angeboten
+- [x] CONT-REQs in PRD.md werden korrekt in `parseReqs`-Review-Items umgewandelt (abhängig von REQ-010)
+- [x] Generierte CONT-REQs in PRD.md haben kein `Depends on: REQ-000`
+- [x] `deno check src/main.ts` fehlerfrei
 
 #### Verification
 `deno check src/main.ts` → exit code 0

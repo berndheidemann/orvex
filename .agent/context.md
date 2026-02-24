@@ -4,45 +4,39 @@
 > Enthält den aktuellen Stand für die nächste Iteration.
 
 ## Status
-- Projekt: REQ-000–REQ-012 abgeschlossen (REQ-000 war rückständig, jetzt formal done)
-- Nächstes REQ: REQ-013 (P1, M) — Depends on REQ-010 + REQ-012 (beide done)
+- Projekt: REQ-000–REQ-013 abgeschlossen
+- Nächstes REQ: REQ-014 (P1, M) — EduInitDashboard Komponente — Depends on REQ-013
 - Blocker: keine
 
 ## Was existiert
 - loop_dev.sh — Orchestrator + FIFO/Pause-Kontrolle (REQ-009)
 - deno.json — Tasks: dev, build, check, test; Dependencies: ink@5, react@18
 - src/main.ts — Ink-TUI, zeigt Orvex-Header + Dashboard
-- src/types.ts — PhaseState.id: `"prd" | "arch" | "didaktik" | "drehbuch"` (REQ-010)
-- src/lib/reviewUtils.ts — parseReqs erkennt CONT-REQs (REQ-010)
-- src/lib/initAgents.ts — PRD/Arch Agents + makePhases + buildPrdPrompt/buildArchPrompt
-- src/lib/eduAgents.ts — NEU (REQ-012): 6 Edu-Personas, makeEduPhases, 3 Prompt-Builder
-  - DIDAKTIK_AGENTS: Fachsystematiker, Lernprozess-Advokat, Realitäts-Constraint-Agent
-  - EDU_PRD_AGENTS: Fachlehrkraft, Lerndesigner, Didaktik-Analyst
-  - makeEduPhases(didaktikRounds, prdRounds, archRounds) → 3 PhaseState (didaktik, prd, arch)
-  - buildDidaktikPrompt / buildDrehbuchPrompt / buildEduPrdPrompt
-  - Alle 3 Builder enden mit "Output language: German..."
-  - Synthesis-Prompt enthält Bloom, Backward Design, Differenzierung
-- templates/LERNSITUATION.md — Output-Schema für Phase-1-Synthese (REQ-012)
-- templates/AGENT_EDU.md — AGENT.md-Variante mit Edu-Erweiterungen (REQ-012)
-  - Phase 1: zusätzlich LERNSITUATION.md + lernpfad.md lesen
-  - Phase 4.5: Bloom-Level-Matching, Lesbarkeitsindex, Misconception-Distraktoren
-- 143 Tests total, alle grün
+- src/types.ts — PhaseState.id: `"prd" | "arch" | "didaktik"` (drehbuch entfernt, ADR-003)
+- src/lib/phaseRunner.ts — NEU: PhaseSink, PhaseConfig, runDebatePhase; Agent-Typ hier definiert
+- src/lib/initAgents.ts — Agent re-exportiert von phaseRunner; runPhase re-export; CONT-guard
+- src/lib/reviewUtils.ts — parseSections() + buildRewritePrompt("section") (ADR-007/008)
+- src/lib/eduAgents.ts — 6 Edu-Personas, makeEduPhases, 3 Prompt-Builder
+- src/hooks/useInitRunner.ts — REFACTORED: delegiert an runDebatePhase via PhaseSink
+- src/hooks/useEduInitRunner.ts — NEU (REQ-013): 5-Phasen-Edu-State-Machine
+  - Phase 0: learning-context.md schreiben (kein Claude-Aufruf)
+  - Phase 1: Didaktik-Debate → LERNSITUATION.md; Review (parseSections)
+  - Phase 1.5: Single-shot runClaude (buildDrehbuchPrompt) → lernpfad.md
+  - Phase 2: EDU-PRD-Debate → PRD.md; Review (parseReqs mit CONT-Support)
+  - Phase 3: Arch-Debate → architecture.md; Review (parseAdrs)
+  - Nach Abschluss: REQ-000 injizieren (CONT-prefix guard aktiv)
+  - Idempotenz: lernsituationExists=true → Phase 1 wird übersprungen
+- 153 Tests total, alle grün
 
 ## Bekannte Architekturentscheidungen
-- ADR-001: .ts mit createElement statt .tsx/JSX
-- ADR-002: node:readline statt Deno.stdin
-- ADR-003: Deno.readTextFile + setInterval für Polling
-- Gemäß architecture.md: REQ-013 implementiert useEduInitRunner Hook
-  - runDebatePhase → phaseRunner.ts extrahieren (ADR-001 in arch.md)
-  - PhaseSink interface als Extraktionsgrenze (ADR-002 in arch.md)
-  - "drehbuch" aus PhaseState.id entfernen (ADR-003 in arch.md)
+- ADR-001 (arch.md): phaseRunner.ts als zentrales Orchestrierungsmodul
+- ADR-002 (arch.md): PhaseSink als Callback-Interface zwischen Runner und Hook
+- ADR-003 (arch.md): "drehbuch" aus PhaseState.id entfernt
+- ADR-006 (arch.md): CONT-prefix guard in injectSpikeIntoStatus
+- ADR-007/008 (arch.md): parseSections + buildRewritePrompt("section") in reviewUtils.ts
 
-## Erkenntnisse aus REQ-012
-- eduAgents.ts: formatOthersOutput als privater Helper dupliziert (kleines Debt, kein REQ)
-- makeEduPhases: erste Phase status="running", andere "pending" (Pattern aus initAgents.ts)
-- buildDrehbuchPrompt: abweichende Signatur (1 Arg) wegen single-shot Synthese — dokumentiert
+## Erkenntnisse aus REQ-013
+- Agent definiert in phaseRunner.ts (nicht initAgents.ts) — Zirkelimporte vermieden
+- makeSink() als useCallback in useEduInitRunner — closes über React state setters
+- RSUpdater-Typannotation auf synced setters nötig (strict: true in tsconfig)
 - Refactoring Check: kein neues technisches Debt
-
-## Erkenntnisse aus REQ-000
-- REQ-000 war bereits vollständig implementiert (alle nachfolgenden REQs done)
-- status.json hatte es nie formal als done markiert — in dieser Iteration korrigiert
