@@ -10,7 +10,7 @@
 #
 # Env vars:
 #   ITER_TIMEOUT=N         # Iteration timeout in seconds (default: 1800)
-#   SAFE_BRANCH=0          # Disable automatic agent branch creation
+#   SAFE_BRANCH=1          # Enable automatic agent branch creation (default: off)
 #   SANDBOX_MODE=1         # Skip environment checks (project-specific)
 #   VALIDATOR_TIMEOUT=N    # Timeout for validation (default: 2400)
 #   REFACTOR=1             # Run refactoring review mode (once, then exit)
@@ -58,7 +58,7 @@ MODEL="sonnet"
 PROMPT_FILE="AGENT.md"
 ITER_TIMEOUT="${ITER_TIMEOUT:-1800}"  # 30 min hard max, override via env
 IDLE_TIMEOUT="${IDLE_TIMEOUT:-900}"   # 15 min without output → kill (override via env)
-SAFE_BRANCH="${SAFE_BRANCH:-1}"       # Auto-create agent branch
+SAFE_BRANCH="${SAFE_BRANCH:-0}"       # Work on current branch (set to 1 for agent branch)
 SANDBOX_MODE="${SANDBOX_MODE:-0}"     # Skip environment checks
 FULL_VERIFY_OVERRIDE="${FULL_VERIFY:-0}"
 STATUS_JSON=".agent/status.json"
@@ -760,9 +760,9 @@ print_summary() {
   echo -e "  REQs open  : $(count_open_reqs)"
   if [ -n "$AGENT_BRANCH" ] && [ "$AGENT_BRANCH" != "$ORIGINAL_BRANCH" ]; then
     echo -e "  Branch     : ${CYAN}$AGENT_BRANCH${RESET}"
-    echo -e "  ${DIM}Review and merge:${RESET}"
-    echo -e "  ${DIM}  git log $ORIGINAL_BRANCH..$AGENT_BRANCH --oneline${RESET}"
-    echo -e "  ${DIM}  git merge $AGENT_BRANCH${RESET}"
+    echo -e "  ${DIM}Merge with: git merge $AGENT_BRANCH${RESET}"
+  else
+    echo -e "  Branch     : ${CYAN}${ORIGINAL_BRANCH:-main}${RESET} (committed directly)"
   fi
 }
 
