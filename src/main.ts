@@ -94,4 +94,9 @@ try { Deno.addSignalListener("SIGTERM", () => { cleanup(); Deno.exit(0); }); } c
 const instance = render(h(App, null));
 await instance.waitUntilExit();
 cleanup();
+// Show resume hint when exiting from the real dashboard (not init flows)
+if (bothExist && !INIT_MODE && !EDU_INIT_MODE) {
+  console.log("\n💡  Entwicklung jederzeit fortsetzen mit: orvex");
+  console.log("    Nur die aktuelle Iteration wird wiederholt — der Agent sieht den aktuellen Code.\n");
+}
 Deno.exit(0);
