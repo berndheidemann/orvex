@@ -169,3 +169,47 @@ Deno.test("ARCH_AGENTS: has 3 agents", () => {
 Deno.test("PRD_AGENTS: has 3 agents", () => {
   assertEquals(PRD_AGENTS.length, 3);
 });
+
+// ── injectSpikeIntoStatus: CONT-prefix guard (ADR-006) ──────────
+
+import { injectSpikeIntoStatus } from "./initAgents.ts";
+
+Deno.test("injectSpikeIntoStatus: CONT-REQs get no REQ-000 dependency", () => {
+  const input = JSON.stringify({
+    "CONT-EXPL-001": { status: "open", priority: "P1", size: "S", deps: [] },
+  });
+  const result = JSON.parse(injectSpikeIntoStatus(input));
+  // CONT-EXPL-001 should have unchanged deps (no REQ-000 added)
+  assertEquals(result["CONT-EXPL-001"].deps, []);
+  assertEquals("REQ-000" in result, true); // REQ-000 is still injected
+});
+
+Deno.test("injectSpikeIntoStatus: REQ-NNN entries still get REQ-000 dependency", () => {
+  const input = JSON.stringify({
+    "REQ-001": { status: "open", priority: "P0", size: "M", deps: [] },
+  });
+  const result = JSON.parse(injectSpikeIntoStatus(input));
+  assertEquals(result["REQ-001"].deps[0], "REQ-000");
+});
+
+Deno.test("injectSpikeIntoStatus: mixed CONT + REQ fixture", () => {
+  const input = JSON.stringify({
+    "CONT-EXPL-001": { status: "open", priority: "P1", size: "S", deps: [] },
+    "CONT-TASK-001": { status: "open", priority: "P1", size: "S", deps: [] },
+    "REQ-001": { status: "open", priority: "P0", size: "M", deps: [] },
+    "REQ-002": { status: "open", priority: "P1", size: "S", deps: ["REQ-001"] },
+  });
+  const result = JSON.parse(injectSpikeIntoStatus(input));
+  // CONT entries: no REQ-000 added
+  assertEquals(result["CONT-EXPL-001"].deps, []);
+  assertEquals(result["CONT-TASK-001"].deps, []);
+  // REQ entries: REQ-000 prepended
+  assertEquals(result["REQ-001"].deps[0], "REQ-000");
+  assertEquals(result["REQ-002"].deps[0], "REQ-000");
+  assertEquals(result["REQ-002"].deps.includes("REQ-001"), true);
+});
+
+Deno.test("injectSpikeIntoStatus: runPhase re-export exists in initAgents", async () => {
+  const mod = await import("./initAgents.ts");
+  assertEquals(typeof mod.runPhase, "function");
+});

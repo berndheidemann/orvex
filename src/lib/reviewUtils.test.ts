@@ -234,3 +234,64 @@ Deno.test("buildRewritePrompt: contains item content", () => {
   const prompt = buildRewritePrompt(item, "Edit", "req");
   assertEquals(prompt.includes("### REQ-001: Login"), true);
 });
+
+Deno.test("buildRewritePrompt: section type includes 'Section' label", () => {
+  const item = { id: "SEC-01", title: "Lernziele", content: "## Lernziele\n..." };
+  const prompt = buildRewritePrompt(item, "Improve", "section");
+  assertEquals(prompt.includes("Section"), true);
+  assertEquals(prompt.includes("Requirement"), false);
+  assertEquals(prompt.includes("Architecture Decision"), false);
+});
+
+// ── parseSections ───────────────────────────────────────────────
+
+import { parseSections } from "./reviewUtils.ts";
+
+Deno.test("parseSections: empty content returns empty array", () => {
+  assertEquals(parseSections("").length, 0);
+});
+
+Deno.test("parseSections: content without ## headings returns empty array", () => {
+  const content = "# Title\n\nSome text without h2 headings.";
+  assertEquals(parseSections(content).length, 0);
+});
+
+Deno.test("parseSections: single ## section", () => {
+  const content = "## Lernziele\n\nSome content here.";
+  const items = parseSections(content);
+  assertEquals(items.length, 1);
+  assertEquals(items[0].id, "SEC-01");
+  assertEquals(items[0].title, "Lernziele");
+  assertEquals(items[0].content.includes("Some content here"), true);
+});
+
+Deno.test("parseSections: multiple ## sections", () => {
+  const content = [
+    "# Document Title",
+    "",
+    "## Section One",
+    "Content of section one.",
+    "",
+    "## Section Two",
+    "Content of section two.",
+    "",
+    "## Section Three",
+    "Content of section three.",
+  ].join("\n");
+  const items = parseSections(content);
+  assertEquals(items.length, 3);
+  assertEquals(items[0].id, "SEC-01");
+  assertEquals(items[1].id, "SEC-02");
+  assertEquals(items[2].id, "SEC-03");
+  assertEquals(items[0].title, "Section One");
+  assertEquals(items[1].title, "Section Two");
+  assertEquals(items[2].title, "Section Three");
+});
+
+Deno.test("parseSections: section IDs are zero-padded SEC-NNN", () => {
+  const lines = Array.from({ length: 9 }, (_, i) => `## Section ${i + 1}\nContent.`);
+  const content = lines.join("\n\n");
+  const items = parseSections(content);
+  assertEquals(items[0].id, "SEC-01");
+  assertEquals(items[8].id, "SEC-09");
+});

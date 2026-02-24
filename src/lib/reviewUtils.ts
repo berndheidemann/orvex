@@ -55,13 +55,31 @@ export function parseAdrConstraints(adrContent: string): string[] {
     .filter((s) => /^REQ-\d+/.test(s));
 }
 
+export function parseSections(content: string): ReviewItem[] {
+  const parts = content.split(/(?=^## )/m);
+  return parts
+    .filter((p) => /^## /.test(p.trimStart()))
+    .map((p, i) => {
+      const trimmed = p.trimEnd();
+      const firstLine = trimmed.split("\n")[0] ?? "";
+      const title = firstLine.replace(/^## /, "").trim();
+      return {
+        id: `SEC-${String(i + 1).padStart(2, "0")}`,
+        title,
+        content: trimmed,
+      };
+    });
+}
+
 export function buildRewritePrompt(
   item: ReviewItem,
   userPrompt: string,
-  type: "req" | "adr",
+  type: "req" | "adr" | "section",
 ): string {
   const typeLabel = type === "req"
     ? "Requirement"
+    : type === "section"
+    ? "Section"
     : "Architecture Decision (ADR)";
   return `Rewrite the following ${typeLabel} according to the user's instruction.
 
