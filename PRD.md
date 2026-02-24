@@ -314,3 +314,148 @@ cd /tmp/test-edu && loop_dev.sh 2>&1 | grep "AGENT_EDU"  # → Zeile mit "Using 
 # Normales Projekt: keine LERNSITUATION.md
 cd /tmp/test-normal && loop_dev.sh 2>&1 | grep "AGENT_EDU"  # → keine Ausgabe
 ```
+
+---
+
+## Refactoring Requirements
+
+### RF-001: Fix orvex validation gate for CONT-REQ-only PRDs
+
+- **Priority:** P0
+- **Size:** S
+- **Status:** open
+- **Depends on:** —
+
+#### Problem
+
+`orvex:96` uses `grep -q '^### REQ-'` to validate PRD.md. An edu-init project whose PRD.md has only CONT-REQs before the first REQ-NNN is rejected with "PRD.md contains no requirements". This blocks the entire edu-init workflow — ADR-012 documented this fix but it was never implemented.
+
+#### Acceptance Criteria
+
+- [ ] `orvex:96` uses `grep -qE '^### (REQ|CONT)-'` instead of `grep -q '^### REQ-'`
+- [ ] A PRD.md containing only `### CONT-EXPL-001: Test` passes validation
+- [ ] A PRD.md with no headings at all still triggers the error
+- [ ] Existing `orvex init` and `orvex` (loop) behavior unchanged
+
+#### Verification
+
+```bash
+echo '### CONT-EXPL-001: Test' > /tmp/test_prd.md
+# Simulate the grep: should exit 0
+grep -qE '^### (REQ|CONT)-' /tmp/test_prd.md && echo "PASS" || echo "FAIL"
+```
+
+---
+
+### RF-002: Fix get_next_req_block AWK regex bug
+
+- **Priority:** P0
+- **Size:** S
+- **Status:** open
+- **Depends on:** —
+
+#### Problem
+
+`loop_dev.sh:430` uses `/^(### REQ-|^---)/` as the AWK block termination pattern. Two bugs: (1) the nested `^` inside the alternation is parsed as a literal character, not an anchor; (2) CONT-REQ headings don't match, so a CONT-REQ section following the target block bleeds into the extracted prompt context. This corrupts agent prompts when CONT-REQs exist in PRD.md. Documented in ADR-005 and context.md as known open issue.
+
+#### Acceptance Criteria
+
+- [ ] AWK termination at `loop_dev.sh:430` replaced with two separate conditions per ADR-005: `found && /^### (REQ-|CONT-)/ && $0 != title { exit }` and `found && /^---/ { exit }`
+- [ ] Block extraction for a REQ followed by a CONT-REQ stops at the CONT-REQ heading
+- [ ] Block extraction for a REQ followed by `---` stops at the separator
+- [ ] Existing REQ-to-REQ block extraction unchanged
+
+#### Verification
+
+```bash
+# Test PRD with mixed REQ/CONT:
+cat > /tmp/test_prd.md << 'EOF'
+### REQ-001: First
+Description of REQ-001.
+### CONT-EXPL-001: Content
+This should NOT appear in REQ-001's block.
+### REQ-002: Second
+EOF
+# Extract REQ-001 block — must not contain "CONT-EXPL-001"
+```
+
+---
+
+### RF-003: Extract generic review-flow abstraction from hooks
+
+- **Priority:** P1
+- **Size:** M
+- **Status:** open
+- **Depends on:** —
+
+#### Problem
+
+`useEduInitRunner.ts` (904 lines) and `useInitRunner.ts` (703 lines) contain ~600 lines of nearly identical review-callback code. Each review target (LernSituation, PRD, Arch) requires the same 8 callbacks: confirm synth-done, skip review, advance, open editor, start typing, on type, submit rewrite, save/cancel edit. These are copy-pasted per target in both hooks. Any bug fix or behavior change must be applied 5 times (2 targets in init, 3 in edu), creating high risk of inconsistent fixes.
+
+#### Acceptance Criteria
+
+- [ ] A shared review-flow module (e.g. `src/lib/reviewFlow.ts`) encapsulates the ref-synced state setter, advance, open editor, start typing, on type, submit rewrite, confirm synth-done, and skip review patterns
+- [ ] `useInitRunner` uses the shared module for PRD and Arch review
+- [ ] `useEduInitRunner` uses the shared module for LernSituation, PRD, and Arch review
+- [ ] All 153 existing tests pass unchanged
+- [ ] `deno check src/main.ts` clean
+
+#### Verification
+
+`deno test src/` → all green
+`deno check src/main.ts` → exit code 0
+Line count of `useEduInitRunner.ts` + `useInitRunner.ts` reduced by ≥30%
+
+---
+
+### RF-004: Extract shared debate utilities from agent modules
+
+- **Priority:** P1
+- **Size:** S
+- **Status:** open
+- **Depends on:** —
+
+#### Problem
+
+`initAgents.ts` and `eduAgents.ts` contain three identical items: `K_HEADER` constant (10 lines), `formatOthersOutput` function (17 lines), and `makeRounds` function (13 lines). Any change to the debate format (e.g. K_HEADER template) requires synchronized edits in both files.
+
+#### Acceptance Criteria
+
+- [ ] `K_HEADER`, `formatOthersOutput`, and `makeRounds` exist in exactly one location (e.g. `src/lib/debateUtils.ts` or exported from `phaseRunner.ts`)
+- [ ] Both `initAgents.ts` and `eduAgents.ts` import from the shared location
+- [ ] No duplicate definitions of these three items remain
+- [ ] All existing tests pass unchanged
+- [ ] `deno check src/main.ts` clean
+
+#### Verification
+
+`deno check src/main.ts` → exit code 0
+`deno test src/` → all green
+`grep -r 'K_HEADER' src/lib/ | wc -l` → exactly 1 definition + N imports
+
+---
+
+### RF-005: Deduplicate dashboard runner rendering
+
+- **Priority:** P1
+- **Size:** M
+- **Status:** open
+- **Depends on:** RF-003
+
+#### Problem
+
+`EduRunner` in `EduInitDashboard.ts` (lines 18–330) and `InitRunner` in `InitDashboard.ts` (lines 370–690) share ~280 lines of identical dashboard rendering logic: layout width computation, timer effects, done/error early-return screens, agent stream display, split-pane layout with progress bars. Changes to the dashboard appearance must be made in both components.
+
+#### Acceptance Criteria
+
+- [ ] Shared dashboard rendering logic extracted to a reusable component or utility (e.g. `RunnerDashboard`)
+- [ ] Both `EduRunner` and `InitRunner` use the shared component, passing only their specific state and config
+- [ ] Early-return screens (done, error, synth-done, review) handled uniformly
+- [ ] All existing tests pass unchanged
+- [ ] `deno check src/main.ts` clean
+
+#### Verification
+
+`deno check src/main.ts` → exit code 0
+`deno test src/` → all green
+Manual: `orvex init` and `orvex edu-init` display identically to before

@@ -144,5 +144,37 @@
       "REQ-006",
       "REQ-008"
     ]
+  },
+  "RF-001": {
+    "status": "open",
+    "priority": "P0",
+    "size": "S",
+    "deps": []
+  },
+  "RF-002": {
+    "status": "open",
+    "priority": "P0",
+    "size": "S",
+    "deps": []
+  },
+  "RF-003": {
+    "status": "open",
+    "priority": "P1",
+    "size": "M",
+    "deps": []
+  },
+  "RF-004": {
+    "status": "open",
+    "priority": "P1",
+    "size": "S",
+    "deps": []
+  },
+  "RF-005": {
+    "status": "open",
+    "priority": "P1",
+    "size": "M",
+    "deps": [
+      "RF-003"
+    ]
   }
 }
