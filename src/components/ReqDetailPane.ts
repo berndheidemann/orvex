@@ -8,13 +8,33 @@ const { createElement: h, useState, useEffect } = React;
 // scroll indicator (optional) = 1
 const DETAIL_OVERHEAD = 2;
 
+/** Split a single line into segments that fit within maxWidth, breaking at spaces. */
+function wordWrapLine(line: string, maxWidth: number): string[] {
+  if (line.length <= maxWidth) return [line];
+  const result: string[] = [];
+  let remaining = line;
+  while (remaining.length > maxWidth) {
+    const boundary = remaining.lastIndexOf(" ", maxWidth);
+    if (boundary > 0) {
+      result.push(remaining.slice(0, boundary));
+      remaining = remaining.slice(boundary + 1);
+    } else {
+      result.push(remaining.slice(0, maxWidth));
+      remaining = remaining.slice(maxWidth);
+    }
+  }
+  if (remaining) result.push(remaining);
+  return result;
+}
+
 export function ReqDetailPane(props: {
   reqId: string;
   content: string;
   rows: number;
+  columns: number;
   isActive: boolean;
 }): React.ReactElement {
-  const { reqId, content, rows, isActive } = props;
+  const { reqId, content, rows, columns, isActive } = props;
   const [scrollOffset, setScrollOffset] = useState(0);
 
   // Reset scroll when selected REQ changes
@@ -22,7 +42,10 @@ export function ReqDetailPane(props: {
     setScrollOffset(0);
   }, [content]);
 
-  const lines = content.split("\n");
+  // Pre-wrap content so each entry renders in exactly 1 terminal row.
+  // This prevents mid-word breaks and keeps the rendered height predictable.
+  const textWidth = Math.max(20, Math.floor(columns * 0.6) - 4);
+  const lines = content.split("\n").flatMap((line) => wordWrapLine(line, textWidth));
   const maxVisible = Math.max(3, rows - DETAIL_OVERHEAD - 6); // 6 = parent overhead (status+bars)
   const totalLines = lines.length;
   const maxOffset = Math.max(0, totalLines - maxVisible);
