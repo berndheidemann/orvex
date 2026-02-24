@@ -386,6 +386,30 @@ export function Dashboard(): React.ReactElement {
   const totalReqs = entries.length;
   const doneReqs = entries.filter(([, r]) => r.status === "done").length;
 
+  // Pre-compute viewport inputs early (needed for stable-viewport hook below)
+  const activeEntryIdxEarly = groupedEntries.findIndex(([, req]) => req.status === "in_progress");
+  const maxReqVisibleEarly = Math.max(3, Math.floor((rows - FEED_OVERHEAD) / 2));
+
+  // Stable viewport: only scroll when active REQ actually goes out of view.
+  // Using state (not inline calc) prevents the list from jumping on every REQ status change.
+  const [stableReqViewStart, setStableReqViewStart] = useState(0);
+  useEffect(() => {
+    if (focusMode) return;
+    const total = groupedEntries.length;
+    if (total <= maxReqVisibleEarly) { setStableReqViewStart(0); return; }
+    if (activeEntryIdxEarly >= 0) {
+      setStableReqViewStart((prev: number) => {
+        if (activeEntryIdxEarly < prev || activeEntryIdxEarly >= prev + maxReqVisibleEarly) {
+          const ns = Math.max(0, activeEntryIdxEarly - Math.floor(maxReqVisibleEarly / 2));
+          return Math.min(ns, total - maxReqVisibleEarly);
+        }
+        return prev;
+      });
+    } else {
+      setStableReqViewStart(Math.max(0, total - maxReqVisibleEarly));
+    }
+  }, [activeEntryIdxEarly, focusMode, groupedEntries.length, maxReqVisibleEarly]);
+
   // RF-009: Focus mode keyboard handler — r, Tab, ↑/↓ in focus mode
   useInput((input, key) => {
     if (input === "r") {
@@ -458,24 +482,15 @@ export function Dashboard(): React.ReactElement {
   const lastIterStart = [...events].reverse().find((ev) => ev.type === "iteration:start");
   const currentModel = lastIterStart?.type === "iteration:start" ? lastIterStart.model : "";
 
-  // RF-007: viewport for req-list — show at most this many entries
-  const maxReqVisible = Math.max(3, Math.floor((rows - FEED_OVERHEAD) / 2));
-  // RF-008: viewport operates on grouped entries (active first, done last)
-  const activeEntryIdx = groupedEntries.findIndex(([, req]) => req.status === "in_progress");
-  let reqViewStart = 0;
-  if (groupedEntries.length > maxReqVisible) {
-    if (focusMode) {
-      // RF-009: in focus mode, center viewport around cursor
-      reqViewStart = Math.max(0, focusCursor - Math.floor(maxReqVisible / 2));
-      reqViewStart = Math.min(reqViewStart, groupedEntries.length - maxReqVisible);
-    } else if (activeEntryIdx >= 0) {
-      // center active entry in viewport
-      reqViewStart = Math.max(0, activeEntryIdx - Math.floor(maxReqVisible / 2));
-      reqViewStart = Math.min(reqViewStart, groupedEntries.length - maxReqVisible);
-    } else {
-      // no active REQ: show end of list (newest entries visible)
-      reqViewStart = groupedEntries.length - maxReqVisible;
-    }
+  // RF-007: viewport for req-list
+  const maxReqVisible = maxReqVisibleEarly; // pre-computed above
+  const activeEntryIdx = activeEntryIdxEarly; // pre-computed above
+  // In focus mode: center around cursor (immediate response to keyboard nav).
+  // In normal mode: use stable state — only scrolls when active REQ goes off-screen.
+  let reqViewStart = stableReqViewStart;
+  if (focusMode && groupedEntries.length > maxReqVisible) {
+    reqViewStart = Math.max(0, focusCursor - Math.floor(maxReqVisible / 2));
+    reqViewStart = Math.min(reqViewStart, groupedEntries.length - maxReqVisible);
   }
   const reqViewEnd = Math.min(reqViewStart + maxReqVisible, groupedEntries.length);
   const visibleEntries = groupedEntries.slice(reqViewStart, reqViewEnd);
@@ -552,34 +567,42 @@ export function Dashboard(): React.ReactElement {
   );
 
   // Activity feed pane (right, 60%) — always mounted, hidden in focus mode to preserve scroll state
-  const feedPane = h(
-    Box,
-    { flexDirection: "column", width: "60%", paddingLeft: 2, display: focusMode ? "none" : "flex" },
-    h(Text, { bold: true, color: "white" }, "Activity Feed"),
-    h(Text, { dimColor: true }, "─".repeat(30)),
-    h(ActivityFeed, {
-      toolEvents,
-      currentIter: displayIter,
-      currentReq: currentReq ?? activeReqId,
-      model: currentModel,
-      rows,
-      isActive: !focusMode,
-    }),
-  );
-
-  // RF-009: Detail pane — shown in focus mode
+  // RF-009: Detail pane data (needed for both panes block below)
   const selectedReqId = groupedEntries[focusCursor]?.[0] ?? "";
   const detailContent = reqDetails[selectedReqId] ?? "";
-  const detailPane = h(
-    Box,
-    { flexDirection: "column", width: "60%", paddingLeft: 2, display: focusMode ? "flex" : "none" },
-    h(ReqDetailPane, {
-      reqId: selectedReqId,
-      content: detailContent,
-      rows,
-      isActive: focusMode && focusTarget === "detail",
-    }),
-  );
+
+  // Conditionally render feed vs detail — using null instead of display:"none" so that
+  // unmounted components don't contribute to Ink's layout-height calculation.
+  // This prevents ghost frames ("Orvex" repeating) when ActivityFeed height fluctuates
+  // while the pane is hidden.
+  const feedPane = !focusMode
+    ? h(
+        Box,
+        { flexDirection: "column", width: "60%", paddingLeft: 2 },
+        h(Text, { bold: true, color: "white" }, "Activity Feed"),
+        h(Text, { dimColor: true }, "─".repeat(30)),
+        h(ActivityFeed, {
+          toolEvents,
+          currentIter: displayIter,
+          currentReq: currentReq ?? activeReqId,
+          model: currentModel,
+          rows,
+        }),
+      )
+    : null;
+
+  const detailPane = focusMode
+    ? h(
+        Box,
+        { flexDirection: "column", width: "60%", paddingLeft: 2 },
+        h(ReqDetailPane, {
+          reqId: selectedReqId,
+          content: detailContent,
+          rows,
+          isActive: focusTarget === "detail",
+        }),
+      )
+    : null;
 
   return h(
     Box,
