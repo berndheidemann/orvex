@@ -1,29 +1,14 @@
 import type {
-  AgentStatus,
-  RoundStatus,
   PhaseState,
-  RoundState,
 } from "../types.ts";
 import { type Agent, ARCH_AGENTS, ARCH_OUTPUT_PATH } from "./initAgents.ts";
+import { K_HEADER, makeRounds, formatOthersOutput } from "./debateUtils.ts";
 
 // ── Output paths ────────────────────────────────────────────────
 
 export const LERNSITUATION_OUTPUT_PATH = "LERNSITUATION.md";
 export const LERNPFAD_OUTPUT_PATH = "lernpfad.md";
 export const EDU_PRD_OUTPUT_PATH = "PRD.md";
-
-// ── K-Header (Kernthese format for debate rounds) ───────────────
-
-const K_HEADER = `OUTPUT FORMAT: Your response must begin with:
-<k>
-• Keyword: Core statement (max. 8 words)
-• Keyword: Core statement (max. 8 words)
-• Keyword: Core statement (max. 8 words)
-</k>
-Your analysis follows after. No text before the <k> block.
-
----
-`;
 
 // ── Agent definitions ───────────────────────────────────────────
 
@@ -77,21 +62,6 @@ export const DidaktikAnalyst = EDU_PRD_AGENTS[2];
 
 // ── Phase structure factory ─────────────────────────────────────
 
-function makeRounds(agents: Agent[], numRounds: number): RoundState[] {
-  return [
-    ...Array.from({ length: numRounds }, (_, i) => ({
-      label: `Round ${i + 1}`,
-      status: "pending" as RoundStatus,
-      agents: agents.map((a) => ({ name: a.name, status: "pending" as AgentStatus })),
-    })),
-    {
-      label: "Synthesis",
-      status: "pending" as RoundStatus,
-      agents: [{ name: "Writer", status: "pending" as AgentStatus }],
-    },
-  ];
-}
-
 /**
  * Creates the 3-phase structure for edu-init flows:
  * 1. "didaktik" — Didaktik-Debate → LERNSITUATION.md
@@ -129,26 +99,6 @@ export function makeEduPhases(
       startedAt: null,
     },
   ];
-}
-
-// ── Shared helper ───────────────────────────────────────────────
-
-function formatOthersOutput(
-  allOutputs: string[][],
-  roundIdx: number,
-  ownAgentIdx: number,
-  agents: Agent[],
-): string {
-  return agents
-    .map((a, i) => {
-      const out = allOutputs[roundIdx]?.[i];
-      if (!out) return null;
-      return i === ownAgentIdx
-        ? `--- Your own position (Round ${roundIdx + 1}) ---\n${out}`
-        : `--- ${a.name} (Round ${roundIdx + 1}) ---\n${out}`;
-    })
-    .filter(Boolean)
-    .join("\n\n");
 }
 
 // ── Prompt builders ─────────────────────────────────────────────

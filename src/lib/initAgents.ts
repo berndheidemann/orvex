@@ -1,11 +1,9 @@
 import type {
-  AgentStatus,
-  RoundStatus,
   PhaseState,
-  RoundState,
 } from "../types.ts";
 export type { Agent } from "./phaseRunner.ts";
 import type { Agent } from "./phaseRunner.ts";
+import { K_HEADER, makeRounds, formatOthersOutput } from "./debateUtils.ts";
 
 // ── Constants ──────────────────────────────────────────────────
 
@@ -14,17 +12,6 @@ export const SYNTH_MODEL = "claude-sonnet-4-6";  // Synthesis: always Sonnet (fa
 
 export const PRD_OUTPUT_PATH = "PRD.md";
 export const ARCH_OUTPUT_PATH = "architecture.md";
-
-const K_HEADER = `OUTPUT FORMAT: Your response must begin with:
-<k>
-• Keyword: Core statement (max. 8 words)
-• Keyword: Core statement (max. 8 words)
-• Keyword: Core statement (max. 8 words)
-</k>
-Your analysis follows after. No text before the <k> block.
-
----
-`;
 
 const SUMMARY_DIVIDER = "─".repeat(26);
 
@@ -63,19 +50,6 @@ export const ARCH_AGENTS: Agent[] = [
 // ── Phase structure factory ────────────────────────────────────
 
 export function makePhases(prdRounds: number, archRounds: number): PhaseState[] {
-  const makeRounds = (agents: Agent[], numRounds: number): RoundState[] => [
-    ...Array.from({ length: numRounds }, (_, i) => ({
-      label: `Round ${i + 1}`,
-      status: "pending" as RoundStatus,
-      agents: agents.map((a) => ({ name: a.name, status: "pending" as AgentStatus })),
-    })),
-    {
-      label: "Synthesis",
-      status: "pending" as RoundStatus,
-      agents: [{ name: "Writer", status: "pending" as AgentStatus }],
-    },
-  ];
-
   return [
     {
       id: "prd",
@@ -97,24 +71,6 @@ export function makePhases(prdRounds: number, archRounds: number): PhaseState[] 
 }
 
 // ── Prompt builders ────────────────────────────────────────────
-
-function formatOthersOutput(
-  allOutputs: string[][],
-  roundIdx: number,
-  ownAgentIdx: number,
-  agents: Agent[],
-): string {
-  return agents
-    .map((a, i) => {
-      const out = allOutputs[roundIdx]?.[i];
-      if (!out) return null;
-      return i === ownAgentIdx
-        ? `--- Your own position (Round ${roundIdx + 1}) ---\n${out}`
-        : `--- ${a.name} (Round ${roundIdx + 1}) ---\n${out}`;
-    })
-    .filter(Boolean)
-    .join("\n\n");
-}
 
 export function buildPrdPrompt(
   roundIdx: number,
