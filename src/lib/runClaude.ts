@@ -88,13 +88,16 @@ export async function runClaude(
           await debugLog(`EVENT type=${obj.type} subtype=${obj.subtype ?? "-"}`);
           if (obj.type === "assistant") {
             // Support both {message:{content:[...]}} and {content:[...]} shapes
-            const content: Array<{ type: string; text?: string }> =
+            const content: Array<{ type: string; text?: string; name?: string }> =
               obj.message?.content ?? obj.content ?? [];
             for (const item of content) {
               if (item.type === "text" && typeof item.text === "string") {
                 await debugLog(`TEXT len=${item.text.length} preview=${item.text.slice(0, 60).replace(/\n/g, "↵")}`);
                 fullText += item.text;
                 onChunk(item.text);
+              } else if (item.type === "tool_use" && typeof item.name === "string") {
+                await debugLog(`TOOL_USE name=${item.name}`);
+                onChunk(`[→ ${item.name}…]\n`);
               }
             }
           } else if (obj.type === "result" && typeof obj.result === "string") {
