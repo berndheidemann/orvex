@@ -9,6 +9,7 @@ import {
 } from "./InitDashboard.ts";
 import { ReviewEditor } from "./ReviewEditor.ts";
 import { EduSetup } from "./EduSetup.ts";
+import { useProjectContext } from "../hooks/useProjectContext.ts";
 
 const { createElement: h, useState } = React;
 
@@ -195,9 +196,10 @@ export function EduInitDashboard(props: {
 }): React.ReactElement {
   const { lernsituationExists, onDone } = props;
   const [config, setConfig] = useState<EduInitConfig | null>(null);
+  const projectContext = useProjectContext();
 
   if (!config) {
-    return h(EduSetup, { onStart: setConfig });
+    return h(EduSetup, { onStart: setConfig, projectContext });
   }
 
   return h(EduRunner, {

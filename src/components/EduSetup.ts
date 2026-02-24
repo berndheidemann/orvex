@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Text, useInput } from "ink";
 import type { EduInitConfig } from "../hooks/useEduInitRunner.ts";
+import type { ProjectContext } from "../hooks/useProjectContext.ts";
 import { useTerminalSize } from "../hooks/useTerminalSize.ts";
 
 const { createElement: h, useState } = React;
@@ -44,8 +45,9 @@ function validateField(field: EduFieldDef, value: string): string | null {
 
 export function EduSetup(props: {
   onStart: (config: EduInitConfig) => void;
+  projectContext?: ProjectContext;
 }): React.ReactElement {
-  const { onStart } = props;
+  const { onStart, projectContext } = props;
   const { columns } = useTerminalSize();
 
   const [values, setValues] = useState<Record<EduFieldKey, string>>({
@@ -73,18 +75,22 @@ export function EduSetup(props: {
     setError("");
   };
 
+  const doStart = (vals: Record<EduFieldKey, string>) => {
+    const zeitVal = parseInt(vals.zeitMinuten.trim(), 10);
+    onStart({
+      fach: vals.fach.trim(),
+      thema: vals.thema.trim(),
+      jahrgangsstufe: vals.jahrgangsstufe.trim(),
+      vorwissen: vals.vorwissen.trim(),
+      zeitMinuten: isNaN(zeitVal) ? 45 : zeitVal,
+      heterogenitaet: vals.heterogenitaet.trim(),
+    });
+  };
+
   useInput((input, key) => {
     if (activeField === "summary") {
       if (key.return || input === "y" || input === "j") {
-        const zeitVal = parseInt(values.zeitMinuten.trim(), 10);
-        onStart({
-          fach: values.fach.trim(),
-          thema: values.thema.trim(),
-          jahrgangsstufe: values.jahrgangsstufe.trim(),
-          vorwissen: values.vorwissen.trim(),
-          zeitMinuten: isNaN(zeitVal) ? 45 : zeitVal,
-          heterogenitaet: values.heterogenitaet.trim(),
-        });
+        doStart(values);
       } else if (key.escape || input === "n") {
         setValues({ fach: "", thema: "", jahrgangsstufe: "", vorwissen: "", zeitMinuten: "", heterogenitaet: "" });
         setActiveField("fach");
@@ -94,6 +100,18 @@ export function EduSetup(props: {
     }
 
     if (!currentFieldDef) return;
+
+    // [a] Skip all remaining fields — only when project files exist
+    if (input === "a" && projectContext && projectContext.files.length > 0) {
+      doStart(values);
+      return;
+    }
+
+    // Tab — skip current field (bypasses required check)
+    if (key.tab) {
+      advanceField();
+      return;
+    }
 
     if (key.return) {
       const err = validateField(currentFieldDef, values[currentFieldDef.key]);
@@ -166,6 +184,16 @@ export function EduSetup(props: {
       h(Text, { dimColor: true }, `Edu-Init — Feld ${fieldIdx + 1} / ${EDU_FIELDS.length}`),
     ),
     h(Text, { dimColor: true }, divider),
+    projectContext && projectContext.files.length > 0
+      ? h(Box, { flexDirection: "column", marginTop: 1 },
+          h(Text, { dimColor: true }, `  ${projectContext.files.length} Projektdatei(en) gefunden`),
+          projectContext.loading
+            ? h(Text, { dimColor: true }, "  ⏳ Zusammenfassung wird erstellt…")
+            : projectContext.summary
+            ? h(Text, { dimColor: true }, `  ${projectContext.summary}`)
+            : null,
+        )
+      : null,
     h(Box, { flexDirection: "column", marginTop: 1, marginBottom: 1 },
       h(
         Text,
@@ -202,9 +230,11 @@ export function EduSetup(props: {
     h(Text, { dimColor: true }, ""),
     h(Text, { dimColor: true }, divider),
     h(Text, { dimColor: true },
-      currentFieldDef?.required
-        ? "[Enter] Weiter    [Backspace] Löschen"
-        : "[Enter] Weiter (oder überspringen)    [Backspace] Löschen",
+      projectContext && projectContext.files.length > 0
+        ? "[Enter] Weiter    [Tab] Überspringen    [a] Alle überspringen    [Backspace] Löschen"
+        : currentFieldDef?.required
+        ? "[Enter] Weiter    [Tab] Überspringen    [Backspace] Löschen"
+        : "[Enter] Weiter (oder überspringen)    [Tab] Überspringen    [Backspace] Löschen",
     ),
   );
 }
