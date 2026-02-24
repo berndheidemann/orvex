@@ -1,27 +1,40 @@
 {
+  "REQ-000": {
+    "status": "open",
+    "priority": "P0",
+    "size": "M",
+    "deps": []
+  },
   "REQ-010": {
     "status": "done",
     "priority": "P0",
     "size": "S",
-    "deps": []
+    "deps": [
+      "REQ-000"
+    ]
   },
   "REQ-011": {
     "status": "done",
     "priority": "P0",
     "size": "S",
-    "deps": []
+    "deps": [
+      "REQ-000"
+    ]
   },
   "REQ-012": {
-    "status": "open",
+    "status": "done",
     "priority": "P0",
     "size": "M",
-    "deps": []
+    "deps": [
+      "REQ-000"
+    ]
   },
   "REQ-013": {
     "status": "open",
     "priority": "P1",
     "size": "M",
     "deps": [
+      "REQ-000",
       "REQ-010",
       "REQ-012"
     ]
@@ -31,6 +44,7 @@
     "priority": "P1",
     "size": "M",
     "deps": [
+      "REQ-000",
       "REQ-013"
     ]
   },
@@ -39,6 +53,7 @@
     "priority": "P1",
     "size": "S",
     "deps": [
+      "REQ-000",
       "REQ-014"
     ]
   },
@@ -46,37 +61,48 @@
     "status": "open",
     "priority": "- **Priority:** P1",
     "size": "M",
-    "deps": []
+    "deps": [
+      "REQ-000"
+    ]
   },
   "REQ-001": {
     "status": "done",
     "priority": "P0",
     "size": "S",
-    "deps": []
+    "deps": [
+      "REQ-000"
+    ]
   },
   "REQ-002": {
     "status": "done",
     "priority": "P0",
     "size": "S",
-    "deps": []
+    "deps": [
+      "REQ-000"
+    ]
   },
   "REQ-003": {
     "status": "done",
     "priority": "P0",
     "size": "S",
-    "deps": []
+    "deps": [
+      "REQ-000"
+    ]
   },
   "REQ-004": {
     "status": "done",
     "priority": "P1",
     "size": "S",
-    "deps": []
+    "deps": [
+      "REQ-000"
+    ]
   },
   "REQ-005": {
     "status": "done",
     "priority": "P1",
     "size": "M",
     "deps": [
+      "REQ-000",
       "REQ-001",
       "REQ-002",
       "REQ-003"
@@ -87,6 +113,7 @@
     "priority": "P1",
     "size": "M",
     "deps": [
+      "REQ-000",
       "REQ-005"
     ]
   },
@@ -95,6 +122,7 @@
     "priority": "P2",
     "size": "S",
     "deps": [
+      "REQ-000",
       "REQ-006"
     ]
   },
@@ -103,6 +131,7 @@
     "priority": "P1",
     "size": "S",
     "deps": [
+      "REQ-000",
       "REQ-005"
     ]
   },
@@ -111,6 +140,7 @@
     "priority": "P2",
     "size": "M",
     "deps": [
+      "REQ-000",
       "REQ-006",
       "REQ-008"
     ]
