@@ -216,13 +216,13 @@
     "deps": []
   },
   "RF-010": {
-    "status": "open",
+    "status": "done",
     "priority": "P1",
     "size": "S",
     "deps": []
   },
   "RF-011": {
-    "status": "open",
+    "status": "done",
     "priority": "P1",
     "size": "S",
     "deps": []
