@@ -566,6 +566,12 @@ build_refactor_prompt() {
     cat "$STATUS_JSON"
     echo ""
   fi
+  if [ -f ".agent/learnings.md" ]; then
+    echo "### .agent/learnings.md:"
+    echo ""
+    head -80 ".agent/learnings.md"
+    echo ""
+  fi
   if [ -f "architecture.md" ]; then
     echo "### architecture.md:"
     echo ""

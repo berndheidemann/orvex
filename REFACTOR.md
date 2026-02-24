@@ -6,11 +6,14 @@ You are a refactoring analyst (Opus). You analyze the codebase for accumulated t
 
 ## Phase 1: Orient
 
-1. Read `.agent/context.md` — project status and what has been built
-2. Read `architecture.md` — existing architecture decisions (do not create REQs that contradict ADRs)
-3. Read `.agent/learnings.md` — known issues and workarounds already documented
-4. Read `PRD.md` completely — understand all `done` REQs and check for existing RF-REQs
-5. Check `git log --oneline -20` — which files were most frequently modified?
+**Note:** `.agent/context.md`, `.agent/status.json`, `.agent/learnings.md`, and `architecture.md` are already injected below — do not re-read them via tool.
+
+1. Review the injected context (context.md, status.json, learnings.md, architecture.md)
+2. Read `PRD.md` completely — understand all `done` REQs and check for existing RF-REQs
+3. Find the most frequently modified files:
+   ```bash
+   git log --format='' --name-only -50 | grep -v '^$' | sort | uniq -c | sort -rn | head -20
+   ```
 
 **Important:** Check for existing RF-REQs in `PRD.md` before creating new ones — no duplicates.
 
@@ -152,3 +155,4 @@ notes: No significant technical debt found.
 6. **No duplicates** — check PRD.md for existing RF-REQs before creating
 7. **Correct numbering** — continue RF-NNN from the highest existing number in PRD.md
 8. **Commit only if REQs were created** — no empty commits
+9. **Turn budget: ~60 turns** — prioritize: Orient → Analyze → Create REQs → Commit → Status block
