@@ -385,7 +385,7 @@ EOF
 
 - **Priority:** P1
 - **Size:** M
-- **Status:** open
+- **Status:** done
 - **Depends on:** —
 
 #### Problem
@@ -394,11 +394,11 @@ EOF
 
 #### Acceptance Criteria
 
-- [ ] A shared review-flow module (e.g. `src/lib/reviewFlow.ts`) encapsulates the ref-synced state setter, advance, open editor, start typing, on type, submit rewrite, confirm synth-done, and skip review patterns
-- [ ] `useInitRunner` uses the shared module for PRD and Arch review
-- [ ] `useEduInitRunner` uses the shared module for LernSituation, PRD, and Arch review
-- [ ] All 153 existing tests pass unchanged
-- [ ] `deno check src/main.ts` clean
+- [x] A shared review-flow module (e.g. `src/lib/reviewFlow.ts`) encapsulates the ref-synced state setter, advance, open editor, start typing, on type, submit rewrite, confirm synth-done, and skip review patterns
+- [x] `useInitRunner` uses the shared module for PRD and Arch review
+- [x] `useEduInitRunner` uses the shared module for LernSituation, PRD, and Arch review
+- [x] All 153 existing tests pass unchanged
+- [x] `deno check src/main.ts` clean
 
 #### Verification
 

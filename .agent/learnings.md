@@ -60,6 +60,13 @@ Erste Validierung nach 4 Iterationen: kein Scope-Guard-Verstoß, keine überspru
 Tests, keine ignorierten Fehler, kein git add -A. Sonnet-Agent arbeitet regelkonform.
 WIP-Commits kamen jeweils NACH Test-Durchläufen (Verbesserung gegenüber früherem Befund).
 
+### 2026-02-24 — React + deno test: --allow-env nötig bei React-Import
+
+`deno test src/` ohne Flags schlägt fehl wenn ein Test-File transitiv React importiert.
+React CJS liest `process.env.NODE_ENV` beim Laden — das erfordert `--allow-env`.
+Fix: Pure-Funktionen in separates File ohne React-Import (z.B. `reviewFlowUtils.ts`),
+das Test-File importiert nur von dort. React-Hooks bleiben in eigenem File (nicht direkt testbar).
+
 ### 2026-02-24 — Validator: Iter 005–009 PASS, 0 Reverts
 
 Zweite Validierung: 19 done-REQs geprüft, alle ACs erfüllt. Keine Scope-Guard-Verstöße.
