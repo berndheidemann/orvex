@@ -8,6 +8,8 @@ import { useEventsReader } from "../hooks/useEventsReader.ts";
 import { useTerminalSize } from "../hooks/useTerminalSize.ts";
 import { useLoopRunning } from "../hooks/useLoopRunning.ts";
 import { usePrdTitles } from "../hooks/usePrdTitles.ts";
+import { useReqDetails } from "../hooks/useReqDetails.ts";
+import { ReqDetailPane } from "./ReqDetailPane.ts";
 import { ContextEditor } from "./ContextEditor.ts";
 import { ProgressBar } from "./ProgressBar.ts";
 import { STATUS_COLORS } from "../types.ts";
@@ -136,8 +138,9 @@ function ActivityFeed(props: {
   currentReq: string | null;
   model: string;
   rows: number;
+  isActive?: boolean;
 }): React.ReactElement {
-  const { toolEvents, currentIter, currentReq, model, rows } = props;
+  const { toolEvents, currentIter, currentReq, model, rows, isActive = true } = props;
   const [scrollOffset, setScrollOffset] = useState(0);
   const prevLenRef = useRef(toolEvents.length);
   const prevIterRef = useRef(currentIter);
@@ -176,7 +179,7 @@ function ActivityFeed(props: {
     } else if (key.downArrow) {
       setScrollOffset((prev: number) => Math.max(0, prev - 1));
     }
-  });
+  }, { isActive });
 
   return h(
     Box,
@@ -344,7 +347,13 @@ export function Dashboard(): React.ReactElement {
   const { entries: iterEntries, available: iterAvailable } =
     useIterationsReader();
   const prdTitles = usePrdTitles();
+  const reqDetails = useReqDetails();
   const { paused, lastAction, editingContext, quitting, closeEditor } = useKeyboardControls();
+
+  // RF-009: Focus mode state
+  const [focusMode, setFocusMode] = useState<boolean>(false);
+  const [focusCursor, setFocusCursor] = useState<number>(0);
+  const [focusTarget, setFocusTarget] = useState<"list" | "detail">("list");
   const {
     events,
     currentIter,
@@ -376,6 +385,36 @@ export function Dashboard(): React.ReactElement {
   // REQ progress counters
   const totalReqs = entries.length;
   const doneReqs = entries.filter(([, r]) => r.status === "done").length;
+
+  // RF-009: Focus mode keyboard handler — r, Tab, ↑/↓ in focus mode
+  useInput((input, key) => {
+    if (input === "r") {
+      setFocusMode((prev: boolean) => {
+        if (!prev) {
+          // Entering focus mode: position cursor on in_progress or first open
+          const ipIdx = groupedEntries.findIndex(([, r]) => r.status === "in_progress");
+          const openIdx = groupedEntries.findIndex(([, r]) => r.status === "open");
+          setFocusCursor(ipIdx >= 0 ? ipIdx : openIdx >= 0 ? openIdx : 0);
+          setFocusTarget("list");
+        }
+        return !prev;
+      });
+      return;
+    }
+    if (!focusMode) return;
+
+    if (key.tab) {
+      setFocusTarget((prev: "list" | "detail") => prev === "list" ? "detail" : "list");
+      return;
+    }
+    if (focusTarget === "list") {
+      if (key.upArrow) {
+        setFocusCursor((prev: number) => Math.max(0, prev - 1));
+      } else if (key.downArrow) {
+        setFocusCursor((prev: number) => Math.min(groupedEntries.length - 1, prev + 1));
+      }
+    }
+  }, { isActive: !editingContext && !quitting });
 
   if (quitting) {
     return h(
@@ -425,7 +464,11 @@ export function Dashboard(): React.ReactElement {
   const activeEntryIdx = groupedEntries.findIndex(([, req]) => req.status === "in_progress");
   let reqViewStart = 0;
   if (groupedEntries.length > maxReqVisible) {
-    if (activeEntryIdx >= 0) {
+    if (focusMode) {
+      // RF-009: in focus mode, center viewport around cursor
+      reqViewStart = Math.max(0, focusCursor - Math.floor(maxReqVisible / 2));
+      reqViewStart = Math.min(reqViewStart, groupedEntries.length - maxReqVisible);
+    } else if (activeEntryIdx >= 0) {
       // center active entry in viewport
       reqViewStart = Math.max(0, activeEntryIdx - Math.floor(maxReqVisible / 2));
       reqViewStart = Math.min(reqViewStart, groupedEntries.length - maxReqVisible);
@@ -455,7 +498,10 @@ export function Dashboard(): React.ReactElement {
             : null,
           ...visibleEntries.flatMap(([id, req], localIdx) => {
             const globalIdx = reqViewStart + localIdx;
-            const prefix = req.status === "in_progress" ? "▶ " : "  ";
+            const isCursor = focusMode && globalIdx === focusCursor;
+            const prefix = focusMode
+              ? (isCursor ? "▶ " : "  ")
+              : (req.status === "in_progress" ? "▶ " : "  ");
             const title = prdTitles[id];
             const stats = req.status === "done" ? reqStats[id] : undefined;
             const statsStr = stats
@@ -466,7 +512,7 @@ export function Dashboard(): React.ReactElement {
               { key: id, flexDirection: "column" },
               h(
                 Text,
-                { color: STATUS_COLORS[req.status] },
+                { color: STATUS_COLORS[req.status], inverse: isCursor && focusTarget === "list" },
                 `${prefix}${id}  [${req.status}]`,
               ),
               title
@@ -505,10 +551,10 @@ export function Dashboard(): React.ReactElement {
         ),
   );
 
-  // Activity feed pane (right, 60%)
+  // Activity feed pane (right, 60%) — always mounted, hidden in focus mode to preserve scroll state
   const feedPane = h(
     Box,
-    { flexDirection: "column", width: "60%", paddingLeft: 2 },
+    { flexDirection: "column", width: "60%", paddingLeft: 2, display: focusMode ? "none" : "flex" },
     h(Text, { bold: true, color: "white" }, "Activity Feed"),
     h(Text, { dimColor: true }, "─".repeat(30)),
     h(ActivityFeed, {
@@ -517,6 +563,21 @@ export function Dashboard(): React.ReactElement {
       currentReq: currentReq ?? activeReqId,
       model: currentModel,
       rows,
+      isActive: !focusMode,
+    }),
+  );
+
+  // RF-009: Detail pane — shown in focus mode
+  const selectedReqId = groupedEntries[focusCursor]?.[0] ?? "";
+  const detailContent = reqDetails[selectedReqId] ?? "";
+  const detailPane = h(
+    Box,
+    { flexDirection: "column", width: "60%", paddingLeft: 2, display: focusMode ? "flex" : "none" },
+    h(ReqDetailPane, {
+      reqId: selectedReqId,
+      content: detailContent,
+      rows,
+      isActive: focusMode && focusTarget === "detail",
     }),
   );
 
@@ -563,6 +624,7 @@ export function Dashboard(): React.ReactElement {
       { flexDirection: "row" },
       reqPane,
       feedPane,
+      detailPane,
     ),
     h(Text, { dimColor: true }, "─".repeat(columns)),
     // Status line
@@ -576,6 +638,8 @@ export function Dashboard(): React.ReactElement {
       : lastAction === "editor-closed"
       ? h(Text, { color: "green" }, "✓ context.md saved")
       : null,
-    h(Text, { dimColor: true }, "[p] pause  [s] skip  [e] edit context  [q] quit  [↑↓] scroll feed"),
+    focusMode
+      ? h(Text, { dimColor: true }, "[r] normal  [↑↓] select req  [Tab] scroll detail  [p] pause  [s] skip  [e] edit  [q] quit")
+      : h(Text, { dimColor: true }, "[p] pause  [s] skip  [e] edit context  [r] req focus  [q] quit  [↑↓] scroll feed"),
   );
 }
