@@ -412,7 +412,7 @@ Line count of `useEduInitRunner.ts` + `useInitRunner.ts` reduced by ≥30%
 
 - **Priority:** P1
 - **Size:** S
-- **Status:** open
+- **Status:** done
 - **Depends on:** —
 
 #### Problem
@@ -421,11 +421,11 @@ Line count of `useEduInitRunner.ts` + `useInitRunner.ts` reduced by ≥30%
 
 #### Acceptance Criteria
 
-- [ ] `K_HEADER`, `formatOthersOutput`, and `makeRounds` exist in exactly one location (e.g. `src/lib/debateUtils.ts` or exported from `phaseRunner.ts`)
-- [ ] Both `initAgents.ts` and `eduAgents.ts` import from the shared location
-- [ ] No duplicate definitions of these three items remain
-- [ ] All existing tests pass unchanged
-- [ ] `deno check src/main.ts` clean
+- [x] `K_HEADER`, `formatOthersOutput`, and `makeRounds` exist in exactly one location (e.g. `src/lib/debateUtils.ts` or exported from `phaseRunner.ts`)
+- [x] Both `initAgents.ts` and `eduAgents.ts` import from the shared location
+- [x] No duplicate definitions of these three items remain
+- [x] All existing tests pass unchanged
+- [x] `deno check src/main.ts` clean
 
 #### Verification
 
