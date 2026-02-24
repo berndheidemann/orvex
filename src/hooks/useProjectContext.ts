@@ -10,7 +10,7 @@ async function fetchSummary(prompt: string): Promise<string> {
   const proc = new Deno.Command("claude", {
     args: [
       "-p", "--dangerously-skip-permissions",
-      "--output-format=stream-json",
+      "--output-format=text",
       "--model", HAIKU_MODEL,
       "--max-turns", "1",
     ],
@@ -25,48 +25,30 @@ async function fetchSummary(prompt: string): Promise<string> {
   await writer.write(new TextEncoder().encode(prompt));
   await writer.close();
 
-  let fullText = "";
   const decoder = new TextDecoder();
   const reader = proc.stdout.getReader();
+
+  const readAll = async (): Promise<string> => {
+    let text = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      text += decoder.decode(value, { stream: true });
+    }
+    return text;
+  };
 
   const timeout = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error("timeout")), SUMMARY_TIMEOUT_MS)
   );
 
+  let fullText = "";
   try {
-    await Promise.race([
-      (async () => {
-        let buf = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buf += decoder.decode(value, { stream: true });
-          const lines = buf.split("\n");
-          buf = lines.pop() ?? "";
-          for (const line of lines) {
-            try {
-              const obj = JSON.parse(line.trim());
-              const content: Array<{ type: string; text?: string }> =
-                obj.message?.content ?? obj.content ?? [];
-              for (const item of content) {
-                if (item.type === "text" && typeof item.text === "string") {
-                  fullText += item.text;
-                }
-              }
-              if (obj.type === "result" && typeof obj.result === "string" && !fullText.trim()) {
-                fullText = obj.result;
-              }
-            } catch { /* skip non-JSON */ }
-          }
-        }
-      })(),
-      timeout,
-    ]);
+    fullText = await Promise.race([readAll(), timeout]);
   } catch {
-    // timeout or read error — kill the process
     try { proc.kill("SIGTERM"); } catch { /* ignore */ }
   } finally {
-    reader.releaseLock();
+    try { reader.releaseLock(); } catch { /* ignore */ }
   }
 
   return fullText.trim();

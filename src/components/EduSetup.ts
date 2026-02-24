@@ -101,9 +101,10 @@ export function EduSetup(props: {
 
     if (!currentFieldDef) return;
 
-    // [a] Skip all remaining fields — only when project files exist
-    if (input === "a" && projectContext && projectContext.files.length > 0) {
-      doStart(values);
+    // Escape — jump to summary view (shows what was entered, allows confirm or restart)
+    if (key.escape) {
+      setActiveField("summary");
+      setError("");
       return;
     }
 
@@ -191,7 +192,7 @@ export function EduSetup(props: {
             ? h(Text, { dimColor: true }, "  ⏳ Zusammenfassung wird erstellt…")
             : projectContext.summary
             ? h(Text, { dimColor: true }, `  ${projectContext.summary}`)
-            : null,
+            : h(Text, { dimColor: true }, "  (Zusammenfassung nicht verfügbar)"),
         )
       : null,
     h(Box, { flexDirection: "column", marginTop: 1, marginBottom: 1 },
@@ -230,11 +231,7 @@ export function EduSetup(props: {
     h(Text, { dimColor: true }, ""),
     h(Text, { dimColor: true }, divider),
     h(Text, { dimColor: true },
-      projectContext && projectContext.files.length > 0
-        ? "[Enter] Weiter    [Tab] Überspringen    [a] Alle überspringen    [Backspace] Löschen"
-        : currentFieldDef?.required
-        ? "[Enter] Weiter    [Tab] Überspringen    [Backspace] Löschen"
-        : "[Enter] Weiter (oder überspringen)    [Tab] Überspringen    [Backspace] Löschen",
+      "[Enter] Weiter    [Tab] Feld überspringen    [Esc] Zusammenfassung & Start    [Backspace] Löschen",
     ),
   );
 }
