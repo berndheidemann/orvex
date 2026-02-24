@@ -30,7 +30,7 @@
     ]
   },
   "REQ-013": {
-    "status": "in_progress",
+    "status": "done",
     "priority": "P1",
     "size": "M",
     "deps": [
