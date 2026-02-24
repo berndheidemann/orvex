@@ -46,3 +46,16 @@ Best Practice: WIP-Commits erst NACH mindestens `bash -n` und einem Smoke-Test.
 pausiert bis ein Schreiber erscheint. Lösung: `read -t 1 cmd <> fifo` (read-write mode)
 öffnet den FIFO ohne zu blockieren. TUI schreibt via `Deno.Command("bash", ...).spawn()`
 asynchron — der bash-Prozess blockiert im Hintergrund bis loop_dev.sh mit `<>` liest.
+
+### 2026-02-24 — AWK init_status_json: Markdown-Zeile statt Wert parsen
+
+`init_status_json` AWK parsed Priority-Zeilen wie `- **Priority:** P1` — wenn das
+Markdown-Format abweicht (z.B. `- **Priority:** P1` mit Leerzeichen), kann der volle
+Markdown-String statt nur `P1` in status.json landen. REQ-016 hatte `"- **Priority:** P1"`.
+Validator hat korrigiert. Sonnet muss bei PRD-Edits auf konsistentes Format achten.
+
+### 2026-02-24 — Validator: Alle 4 Iter (001–004) ohne Regelverstöße
+
+Erste Validierung nach 4 Iterationen: kein Scope-Guard-Verstoß, keine übersprungenen
+Tests, keine ignorierten Fehler, kein git add -A. Sonnet-Agent arbeitet regelkonform.
+WIP-Commits kamen jeweils NACH Test-Durchläufen (Verbesserung gegenüber früherem Befund).

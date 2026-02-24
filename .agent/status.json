@@ -59,7 +59,7 @@
   },
   "REQ-016": {
     "status": "open",
-    "priority": "- **Priority:** P1",
+    "priority": "P1",
     "size": "M",
     "deps": [
       "REQ-000"
