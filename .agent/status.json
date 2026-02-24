@@ -73,10 +73,24 @@
       "REQ-000"
     ]
   },
+  "CONT-EXPL-001": {
+    "status": "open",
+    "priority": "P2",
+    "size": "M",
+    "deps": []
+  },
   "REQ-002": {
     "status": "done",
     "priority": "P0",
     "size": "S",
+    "deps": [
+      "REQ-000"
+    ]
+  },
+  "REQ-017": {
+    "status": "done",
+    "priority": "P1",
+    "size": "M",
     "deps": [
       "REQ-000"
     ]
@@ -176,5 +190,17 @@
     "deps": [
       "RF-003"
     ]
+  },
+  "RF-006": {
+    "status": "open",
+    "priority": "P1",
+    "size": "S",
+    "deps": []
+  },
+  "RF-007": {
+    "status": "open",
+    "priority": "P1",
+    "size": "S",
+    "deps": []
   }
 }
