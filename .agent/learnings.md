@@ -59,3 +59,10 @@ Validator hat korrigiert. Sonnet muss bei PRD-Edits auf konsistentes Format acht
 Erste Validierung nach 4 Iterationen: kein Scope-Guard-Verstoß, keine übersprungenen
 Tests, keine ignorierten Fehler, kein git add -A. Sonnet-Agent arbeitet regelkonform.
 WIP-Commits kamen jeweils NACH Test-Durchläufen (Verbesserung gegenüber früherem Befund).
+
+### 2026-02-24 — Validator: Iter 005–009 PASS, 0 Reverts
+
+Zweite Validierung: 19 done-REQs geprüft, alle ACs erfüllt. Keine Scope-Guard-Verstöße.
+Sonnet: Bei bash-only Änderungen trotzdem `deno test` nach Edits re-runnen (iter 008 fehlte).
+`deno check` in Preflight nicht vergessen, auch wenn nur bash-Files geändert werden (iter 009).
+Loop_dev.sh nutzt BASH_SOURCE statt FRAMEWORK_DIR — funktional äquivalent, aber ADR-013 Abweichung.
