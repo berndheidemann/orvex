@@ -323,7 +323,7 @@ cd /tmp/test-normal && loop_dev.sh 2>&1 | grep "AGENT_EDU"  # → keine Ausgabe
 
 - **Priority:** P0
 - **Size:** S
-- **Status:** open
+- **Status:** done
 - **Depends on:** —
 
 #### Problem
@@ -332,10 +332,10 @@ cd /tmp/test-normal && loop_dev.sh 2>&1 | grep "AGENT_EDU"  # → keine Ausgabe
 
 #### Acceptance Criteria
 
-- [ ] `orvex:96` uses `grep -qE '^### (REQ|CONT)-'` instead of `grep -q '^### REQ-'`
-- [ ] A PRD.md containing only `### CONT-EXPL-001: Test` passes validation
-- [ ] A PRD.md with no headings at all still triggers the error
-- [ ] Existing `orvex init` and `orvex` (loop) behavior unchanged
+- [x] `orvex:96` uses `grep -qE '^### (REQ|CONT)-'` instead of `grep -q '^### REQ-'`
+- [x] A PRD.md containing only `### CONT-EXPL-001: Test` passes validation
+- [x] A PRD.md with no headings at all still triggers the error
+- [x] Existing `orvex init` and `orvex` (loop) behavior unchanged
 
 #### Verification
 
@@ -351,7 +351,7 @@ grep -qE '^### (REQ|CONT)-' /tmp/test_prd.md && echo "PASS" || echo "FAIL"
 
 - **Priority:** P0
 - **Size:** S
-- **Status:** open
+- **Status:** done
 - **Depends on:** —
 
 #### Problem
@@ -360,10 +360,10 @@ grep -qE '^### (REQ|CONT)-' /tmp/test_prd.md && echo "PASS" || echo "FAIL"
 
 #### Acceptance Criteria
 
-- [ ] AWK termination at `loop_dev.sh:430` replaced with two separate conditions per ADR-005: `found && /^### (REQ-|CONT-)/ && $0 != title { exit }` and `found && /^---/ { exit }`
-- [ ] Block extraction for a REQ followed by a CONT-REQ stops at the CONT-REQ heading
-- [ ] Block extraction for a REQ followed by `---` stops at the separator
-- [ ] Existing REQ-to-REQ block extraction unchanged
+- [x] AWK termination at `loop_dev.sh:430` replaced with two separate conditions per ADR-005: `found && /^### (REQ-|CONT-)/ && $0 != title { exit }` and `found && /^---/ { exit }`
+- [x] Block extraction for a REQ followed by a CONT-REQ stops at the CONT-REQ heading
+- [x] Block extraction for a REQ followed by `---` stops at the separator
+- [x] Existing REQ-to-REQ block extraction unchanged
 
 #### Verification
 

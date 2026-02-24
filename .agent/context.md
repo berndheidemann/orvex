@@ -4,8 +4,8 @@
 > Enthält den aktuellen Stand für die nächste Iteration.
 
 ## Status
-- Projekt: REQ-000–REQ-016 abgeschlossen
-- Nächstes REQ: nächstes offenes REQ aus PRD.md bestimmen
+- Projekt: REQ-000–REQ-016, RF-001, RF-002 abgeschlossen
+- Nächstes REQ: RF-003 (P1, M) oder RF-004 (P1, S) — beide ohne Deps
 - Blocker: keine
 
 ## Was existiert
@@ -22,14 +22,16 @@
 - loop_dev.sh — LERNSITUATION.md Auto-Detect (REQ-016): setzt PROMPT_FILE auf AGENT_EDU.md
 - 153 Tests total, alle grün; deno check src/main.ts sauber; Build OK
 
-## REQ-016 Implementierung
-- loop_dev.sh Zeilen 161–175: Edu-Auto-Detect Block nach Args-Loop, vor PROMPT_FILE-Check
-- Erkennung: LERNSITUATION.md im Projektverzeichnis
-- Framework-Dir via BASH_SOURCE[0] mit Symlink-Auflösung
-- Loggt: "Using AGENT_EDU.md (edu project detected)"
-- Fallback auf AGENT.md + Yellow-Warning wenn AGENT_EDU.md fehlt
-- Refactoring Check: S-REQ, <5 changed files, kein Check erforderlich
+## RF-001 + RF-002 Implementierung (diese Iteration)
+- RF-001: orvex:96 — `grep -q '^### REQ-'` → `grep -qE '^### (REQ|CONT)-'`
+  - Fehlertext ebenfalls angepasst (erwähnt nun CONT-REQ-Format)
+- RF-002: loop_dev.sh:430 — AWK-Pattern aufgeteilt in zwei separate Bedingungen:
+  - `found && /^### (REQ-|CONT-)/ && $0 != title { exit }`
+  - `found && /^---/ { exit }`
+  - Altes Pattern `/^(### REQ-|^---)/` hatte Nested-^-Bug + fehlende CONT-REQ-Unterstützung
+  - Auf macOS (nawk): altes Pattern verursachte AWK-Syntax-Fehler
 
 ## Bekannte Offene Punkte
-- get_next_req_block (loop_dev.sh): AWK-Regex Nested-^-Bug noch nicht behoben
-  (bei Bedarf als RF-REQ in PRD.md anlegen)
+- RF-003 (P1, M): keine Deps — nächste Iteration (Opus-Planung erforderlich)
+- RF-004 (P1, S): keine Deps — kann separat oder mit anderem S-REQ gebatcht werden
+- RF-005 (P1, M): Depends on RF-003 — erst nach RF-003 möglich
