@@ -25,8 +25,8 @@ import {
   formatSynthesisSummary,
   injectSpikeReq,
   injectSpikeIntoStatus,
-  type Agent,
 } from "../lib/initAgents.ts";
+import { runDebatePhase, type PhaseSink } from "../lib/phaseRunner.ts";
 import {
   parseReqs,
   parseAdrs,
@@ -189,105 +189,68 @@ export function useInitRunner(
   const runPhase = useCallback(async (
     phaseId: "prd" | "arch",
     outputPath: string,
-    agents: Agent[],
     buildPrompt: (roundIdx: number, agentIdx: number, context: string, allOutputs: string[][], numRounds: number) => string,
     context: string,
     signal: AbortSignal,
     numRounds: number,
     phaseModel: string,
-  ): Promise<void> => {
-    const allOutputs: string[][] = [];
-
-    setPhases((prev: PhaseState[]) =>
-      prev.map((p) =>
-        p.id === phaseId ? { ...p, status: "running", startedAt: Date.now() } : p
-      )
-    );
-
+  ): Promise<string> => {
     const phaseLabel = phaseId === "prd" ? "PRD" : "Architecture";
-
-    for (let roundIdx = 0; roundIdx < numRounds; roundIdx++) {
-      setRoundStatus(phaseId, roundIdx, "running");
-      setActiveLabel(`${phaseLabel} · Round ${roundIdx + 1} · ${agents.length} agents in parallel…`);
-      agents.forEach((_, agentIdx) =>
-        setAgentStatus(phaseId, roundIdx, agentIdx, "running")
-      );
-
-      const agentBufs = agents.map(() => "");
-      setAgentStreams(new Array(agents.length).fill(""));
-
-      const warn5 = setTimeout(() => setAgentWarnLevel("yellow"), 5 * 60 * 1000);
-      const warn10 = setTimeout(() => setAgentWarnLevel("red"), 10 * 60 * 1000);
-
-      const roundOutputs = await Promise.all(
-        agents.map(async (_, agentIdx) => {
-          const prompt = buildPrompt(roundIdx, agentIdx, context, allOutputs, numRounds);
-          const out = await runClaude(prompt, (chunk: string) => {
-            agentBufs[agentIdx] += chunk;
-            const lines = agentBufs[agentIdx]
-              .split("\n")
-              .map((l: string) => l.trim())
-              .filter((l: string) => l && l !== "<k>" && l !== "</k>");
-            const last = lines[lines.length - 1] ?? "";
-            if (last) {
-              setAgentStreams((prev: string[]) => {
-                const next = [...prev];
-                next[agentIdx] = last.slice(0, 120);
-                return next;
-              });
-            }
-          }, signal, phaseModel);
-          setAgentStatus(phaseId, roundIdx, agentIdx, "done");
-          return out;
-        })
-      );
-
-      clearTimeout(warn5);
-      clearTimeout(warn10);
-      setAgentWarnLevel(null);
-
-      setAgentStreams([]);
-      allOutputs.push(roundOutputs);
-      setRoundStatus(phaseId, roundIdx, "done");
-      setLiveLines(formatRoundSummary(roundIdx + 1, agents, roundOutputs));
-      lineBufferRef.current = "";
-      setActiveLabel(`${phaseLabel} · Round ${roundIdx + 1} complete`);
-    }
-
-    const synthLabel = `${phaseLabel} · Synthesis`;
-    setActiveLabel(synthLabel);
-    setRoundStatus(phaseId, numRounds, "running");
-    setAgentStatus(phaseId, numRounds, 0, "running");
-    lineBufferRef.current = "";
-
-    const synthPrompt = buildPrompt(numRounds, 0, context, allOutputs, numRounds);
-
-    // Record file state before synthesis — the claude CLI runs as a full agent
-    // with tool access. If it writes the file directly via Write tool, synthContent
-    // will be just a confirmation message. We detect this and use the file content
-    // instead of overwriting it with the confirmation text.
-    const contentBeforeSynth = await Deno.readTextFile(outputPath).catch(() => "");
-
-    // maxTurns=1: one shot, no room for "write file → output confirmation" pattern
-    const synthContent = await runClaude(synthPrompt, addChunk, signal, SYNTH_MODEL, 1);
-
-    // Prefer file content if the agent wrote it during synthesis
-    const contentAfterSynth = await Deno.readTextFile(outputPath).catch(() => "");
-    const agentWroteFile = contentAfterSynth.trim() !== "" && contentAfterSynth !== contentBeforeSynth;
-    const finalContent = agentWroteFile ? contentAfterSynth : synthContent;
-
-    if (!finalContent.trim()) {
-      throw new Error(`Synthesis produced no content`);
-    }
-    await Deno.writeTextFile(outputPath, finalContent);
-
-    setAgentStatus(phaseId, numRounds, 0, "done");
-    setRoundStatus(phaseId, numRounds, "done");
-    setPhaseStatus(phaseId, "done");
-    setLiveLines(formatSynthesisSummary(finalContent, phaseId));
-    lineBufferRef.current = "";
-    setActiveLabel("");
-  }, [setAgentStatus, setRoundStatus, setPhaseStatus, setLiveLines, setActiveLabel, addChunk]);
+    const agents = phaseId === "prd" ? PRD_AGENTS : ARCH_AGENTS;
+    const sink: PhaseSink = {
+      setPhaseRunning: (id: string) => {
+        setPhases((prev: PhaseState[]) =>
+          prev.map((p) => p.id === id ? { ...p, status: "running", startedAt: Date.now() } : p)
+        );
+      },
+      setAgentStatus: (pid: string, roundIdx: number, agentIdx: number, status: AgentStatus) => {
+        setPhases((prev: PhaseState[]) =>
+          prev.map((p) => {
+            if (p.id !== pid) return p;
+            const rounds = p.rounds.map((r, ri) => {
+              if (ri !== roundIdx) return r;
+              return { ...r, agents: r.agents.map((a, ai) => ai === agentIdx ? { ...a, status } : a) };
+            });
+            return { ...p, rounds };
+          })
+        );
+      },
+      setRoundStatus: (pid: string, roundIdx: number, status: RoundStatus) => {
+        setPhases((prev: PhaseState[]) =>
+          prev.map((p) => {
+            if (p.id !== pid) return p;
+            return { ...p, rounds: p.rounds.map((r, ri) => ri === roundIdx ? { ...r, status } : r) };
+          })
+        );
+      },
+      setPhaseStatus: (pid: string, status: PhaseStatus) => {
+        setPhases((prev: PhaseState[]) => prev.map((p) => p.id === pid ? { ...p, status } : p));
+      },
+      setActiveLabel,
+      setAgentStreams,
+      setAgentWarnLevel,
+      addChunk,
+      setLiveLines,
+      clearLineBuffer: () => { lineBufferRef.current = ""; },
+    };
+    return await runDebatePhase(
+      {
+        phaseId,
+        phaseLabel,
+        outputPath,
+        agents,
+        buildPrompt,
+        context,
+        numRounds,
+        phaseModel,
+        synthModel: SYNTH_MODEL,
+        formatRoundSummary: (roundNum, outputs) => formatRoundSummary(roundNum, agents, outputs),
+        formatSynthesisSummary: (content) => formatSynthesisSummary(content, phaseId),
+      },
+      sink,
+      signal,
+    );
+  }, [setActiveLabel, setAgentStreams, setAgentWarnLevel, addChunk, setLiveLines]);
 
   // ── Main effect ────────────────────────────────────────────
 
@@ -374,7 +337,7 @@ export function useInitRunner(
               setPrdReviewSynced((_prev) => null);
             }
           } else {
-            await runPhase("prd", PRD_OUTPUT_PATH, PRD_AGENTS, buildPrdPrompt, description, ctrl.signal, prdRounds, model);
+            await runPhase("prd", PRD_OUTPUT_PATH, buildPrdPrompt, description, ctrl.signal, prdRounds, model);
 
             // PRD synthesis done: show transition screen
             const prdContent = await Deno.readTextFile(PRD_OUTPUT_PATH).catch(() => "");
@@ -420,7 +383,7 @@ export function useInitRunner(
           const archContext = archNote
             ? `Zusätzlicher Kontext / Fokus:\n${archNote}\n\n---\n\n${prdContent}`
             : prdContent;
-          await runPhase("arch", ARCH_OUTPUT_PATH, ARCH_AGENTS, buildArchPrompt, archContext, ctrl.signal, numArchRounds, archModel);
+          await runPhase("arch", ARCH_OUTPUT_PATH, buildArchPrompt, archContext, ctrl.signal, numArchRounds, archModel);
 
           // Arch synthesis done: show scrollable arch + confirm review
           const archContent = await Deno.readTextFile(ARCH_OUTPUT_PATH).catch(() => "");

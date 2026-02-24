@@ -4,6 +4,9 @@ import type {
   PhaseState,
   RoundState,
 } from "../types.ts";
+export type { Agent } from "./phaseRunner.ts";
+import type { Agent } from "./phaseRunner.ts";
+
 // ── Constants ──────────────────────────────────────────────────
 
 export const DEFAULT_MODEL = "claude-opus-4-6";
@@ -26,11 +29,6 @@ Your analysis follows after. No text before the <k> block.
 const SUMMARY_DIVIDER = "─".repeat(26);
 
 // ── Agent definitions ──────────────────────────────────────────
-
-export interface Agent {
-  name: string;
-  persona: string;
-}
 
 export const PRD_AGENTS: Agent[] = [
   {
@@ -497,6 +495,11 @@ export function injectSpikeIntoStatus(statusJson: string): string {
     "REQ-000": { status: "open", priority: "P0", size: "M", deps: [] },
   };
   for (const [key, val] of Object.entries(status)) {
+    // CONT-REQs have no dependency on REQ-000 (ADR-006)
+    if (key.startsWith("CONT-")) {
+      updated[key] = val;
+      continue;
+    }
     updated[key] = {
       ...val,
       deps: val.deps.includes("REQ-000") ? val.deps : ["REQ-000", ...val.deps],
@@ -504,3 +507,7 @@ export function injectSpikeIntoStatus(statusJson: string): string {
   }
   return JSON.stringify(updated, null, 2);
 }
+
+// ── Re-export runPhase for hooks ────────────────────────────────
+
+export { runDebatePhase as runPhase } from "./phaseRunner.ts";

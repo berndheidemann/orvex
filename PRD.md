@@ -174,7 +174,7 @@ Phase 1 Synthesis-Prompt erzwingt LERNSITUATION.md im definierten Schema:
 
 ### REQ-013: useEduInitRunner Hook
 
-- **Status:** open
+- **Status:** in_progress
 - **Priority:** P1
 - **Size:** M
 - **Depends on:** REQ-010, REQ-012
