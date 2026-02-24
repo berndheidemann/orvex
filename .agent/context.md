@@ -4,30 +4,33 @@
 > Enthält den aktuellen Stand für die nächste Iteration.
 
 ## Status
-- Projekt: REQ-000–REQ-016, RF-001–RF-004 abgeschlossen
-- Nächstes REQ: RF-005 (P1, M) — Deduplicate dashboard runner rendering (Depends on RF-003: done)
+- Projekt: REQ-000–REQ-016, RF-001–RF-005 abgeschlossen
+- Nächstes REQ: keines bekannt (alle offenen REQs erledigt)
 - Blocker: keine
 
 ## Was existiert
-- RF-004 done: `src/lib/debateUtils.ts` neu — enthält K_HEADER, makeRounds, formatOthersOutput
-- initAgents.ts und eduAgents.ts importieren alle drei aus debateUtils.ts
-- Keine Duplikate mehr: je genau 1 Definition in debateUtils.ts
-- RF-003 done: `src/lib/reviewFlow.ts` + `src/lib/reviewFlowUtils.ts` neu (ADR-015)
-- useInitRunner: 703 → 364 Zeilen; useEduInitRunner: 904 → 480 Zeilen
+- RF-005 done: `RunnerDashboard` Komponente in `src/components/InitDashboard.ts` (ADR-016)
+  - EduRunner: ~312 → ~145 Zeilen (–53%)
+  - InitRunner: ~320 → ~165 Zeilen (–48%)
+  - Shared: timer effects, layout computation, done/error screens, split-pane layout
+- RF-004 done: `src/lib/debateUtils.ts` — K_HEADER, makeRounds, formatOthersOutput
+- RF-003 done: `src/lib/reviewFlow.ts` + `src/lib/reviewFlowUtils.ts` (ADR-015)
 - 163 Tests total, alle grün
-- Alle edu-init Komponenten vollständig: EduSetup, EduInitDashboard, useEduInitRunner
+- deno check src/main.ts clean
 
-## Architektur-Hinweise (RF-004)
-- debateUtils.ts hat keine React-Deps → direkt testbar mit deno test ohne --allow-env
-- Exports: K_HEADER (const), makeRounds (function), formatOthersOutput (function)
-
-## Architektur-Hinweise (RF-003)
-- `reviewFlowUtils.ts` (keine React-Deps) ist separat von `reviewFlow.ts` (React-Hooks)
-  da `deno test` ohne `--allow-env` kein React laden kann
+## Architektur-Hinweise (RF-005)
+- RunnerDashboard Props: phases, liveLines, agentStreams, activeLabel, agentWarnLevel, done,
+  error, subtitle, descLabel, descText, model, doneMessage, onDone, emptyStateLines?, footer?
+- EduInitDashboard.ts importiert nur: useInput (ink), RunnerDashboard/SynthDoneUI/ReviewUI
+  (InitDashboard.ts), useEduInitRunner, useRawBackspace, ReviewEditor, EduSetup
+- InitDashboard.ts exportiert neu: RunnerDashboard, RunnerDashboardProps
 
 ## Bekannte Offene Punkte
-- RF-005 (P1, M): Deduplicate dashboard rendering (EduRunner + InitRunner, ~280 Zeilen gemeinsam)
+- Keine offenen REQs in status.json
 - Pre-existierende Lint-Warnungen in Test-Dateien und Hooks (no-unused-vars, no-import-prefix)
 
-## Refactoring Check RF-004
-Keine neuen technischen Schulden (debateUtils.ts 51 Zeilen, klare einzige Verantwortung).
+## Refactoring Check RF-005
+- InitDashboard.ts: 786 Zeilen, klare Sektionen (PhaseBlockCompact, SynthDoneUI, ReviewUI,
+  RunnerDashboard, InitRunner, InitDashboard). Keine Duplikation.
+- EduInitDashboard.ts: 207 Zeilen, fokussiert.
+- Keine neuen technischen Schulden.

@@ -439,7 +439,7 @@ Line count of `useEduInitRunner.ts` + `useInitRunner.ts` reduced by ≥30%
 
 - **Priority:** P1
 - **Size:** M
-- **Status:** open
+- **Status:** done
 - **Depends on:** RF-003
 
 #### Problem
@@ -448,11 +448,11 @@ Line count of `useEduInitRunner.ts` + `useInitRunner.ts` reduced by ≥30%
 
 #### Acceptance Criteria
 
-- [ ] Shared dashboard rendering logic extracted to a reusable component or utility (e.g. `RunnerDashboard`)
-- [ ] Both `EduRunner` and `InitRunner` use the shared component, passing only their specific state and config
-- [ ] Early-return screens (done, error, synth-done, review) handled uniformly
-- [ ] All existing tests pass unchanged
-- [ ] `deno check src/main.ts` clean
+- [x] Shared dashboard rendering logic extracted to a reusable component or utility (e.g. `RunnerDashboard`)
+- [x] Both `EduRunner` and `InitRunner` use the shared component, passing only their specific state and config
+- [x] Early-return screens (done, error, synth-done, review) handled uniformly
+- [x] All existing tests pass unchanged
+- [x] `deno check src/main.ts` clean
 
 #### Verification
 

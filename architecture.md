@@ -473,3 +473,21 @@ Both hooks call `useReviewTarget` N times (fixed, unconditional), satisfying Rea
 **Rationale:** The custom hook approach is valid because hook call count is fixed per component. Pure functions are split into `reviewFlowUtils.ts` to enable `deno test` without `--allow-env` (React's CJS module checks `process.env.NODE_ENV`). The `runReviewSequence` async helper encapsulates the repeated synth-done/review promise pattern from both hooks' main effects.
 
 **Consequences:** `useInitRunner` reduced from 703 to 364 lines (–48%); `useEduInitRunner` from 904 to 480 lines (–47%). Combined reduction 47.5%, exceeding the ≥30% target. Any future review target (new document type) is added by calling `useReviewTarget` once — no callback duplication. RF-005 (deduplicate dashboard rendering) can leverage `ReviewFlowHandle` type for component props.
+
+---
+
+## ADR-016: Extract `RunnerDashboard` to `src/components/InitDashboard.ts` (2026-02-24, RF-005)
+
+**Context:** `EduRunner` (`EduInitDashboard.ts`, ~312 lines) and `InitRunner` (`InitDashboard.ts`, ~320 lines) shared ~280 lines of identical dashboard rendering logic: layout width computation, timer `useState`/`useEffect`s, done/error early-return screens, split-pane layout with progress bars, and agent stream display.
+
+**Decision:** Extract a `RunnerDashboard` component (~170 lines) in `InitDashboard.ts`. Both runners pass their hook state and a small configuration struct. Two customization slots cover the structural differences:
+- `emptyStateLines: string[]` — intro text shown in right pane when no live output yet (InitRunner only, per prd/arch phase)
+- `footer: React.ReactElement | null` — extra element rendered after split-pane (InitRunner's `awaitingArchConfirm` block)
+
+`RunnerDashboard` owns: `useApp`, `useTerminalSize`, two timer `useState`/`useEffect`s, the done-auto-exit effect, layout computation, done screen, error screen, and the split-pane JSX. Parent components retain: the state hook call, `useInput`, `useRawBackspace`, and all review/synth-done early-return screens (rendered before delegating to `RunnerDashboard`).
+
+`RunnerDashboard` is placed in `InitDashboard.ts` (not a new file) to avoid circular imports with `PhaseBlockCompact`, which is defined in the same file. `InitDashboard.ts` already serves as the shared dashboard component library.
+
+**Rationale:** The component approach (vs. a custom hook) is correct because the shared logic includes JSX rendering, not just state/effects. The two customization slots are sufficient to capture all current differences without over-abstracting. `descText` is the raw description string; `RunnerDashboard` truncates it internally using its own `columns` value — the parent no longer needs `useTerminalSize`.
+
+**Consequences:** `EduRunner` reduced from ~312 to ~145 lines (–53%); `InitRunner` from ~320 to ~165 lines (–48%). Combined reduction ~50%. Future dashboard appearance changes are made once in `RunnerDashboard`. `InitDashboard.ts` grows from 726 to 786 lines (+60 net) — acceptable given the file already serves as the shared component library.
