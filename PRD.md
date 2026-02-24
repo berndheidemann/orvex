@@ -568,7 +568,7 @@ Manuell: Terminal auf 24 Zeilen verkleinern, Loop mit 22+ REQs — Layout bleibt
 
 - **Priority:** P1
 - **Size:** S
-- **Status:** open
+- **Status:** done
 - **Depends on:** —
 
 #### Problem
@@ -577,12 +577,12 @@ Die Requirements-Liste im linken Pane des Dashboards zeigt alle REQs in ihrer PR
 
 #### Acceptance Criteria
 
-- [ ] Die Requirements-Liste im linken Dashboard-Pane zeigt aktive REQs (Status `open`, `in_progress`, `blocked`) oben
-- [ ] `done`-REQs werden unten angezeigt, visuell durch eine Trennzeile (`─── done ───`) abgesetzt
-- [ ] Innerhalb jeder Gruppe bleibt die ursprüngliche PRD-Reihenfolge erhalten
-- [ ] Das Verhalten der bestehenden Viewport-Logik (RF-007, falls implementiert) bleibt unverändert — der Active-REQ-Fokus bezieht sich weiterhin auf die neue Reihenfolge
-- [ ] `deno check src/main.ts` fehlerfrei
-- [ ] Alle bestehenden Tests grün
+- [x] Die Requirements-Liste im linken Dashboard-Pane zeigt aktive REQs (Status `open`, `in_progress`, `blocked`) oben
+- [x] `done`-REQs werden unten angezeigt, visuell durch eine Trennzeile (`─── done ───`) abgesetzt
+- [x] Innerhalb jeder Gruppe bleibt die ursprüngliche PRD-Reihenfolge erhalten
+- [x] Das Verhalten der bestehenden Viewport-Logik (RF-007, falls implementiert) bleibt unverändert — der Active-REQ-Fokus bezieht sich weiterhin auf die neue Reihenfolge
+- [x] `deno check src/main.ts` fehlerfrei
+- [x] Alle bestehenden Tests grün
 
 #### Verification
 
