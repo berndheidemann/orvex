@@ -44,7 +44,7 @@ const AGENT_COLORS: Record<AgentStatus, string> = {
   done: "green",
 };
 
-const PHASE_COLORS: Record<PhaseStatus, string> = {
+export const PHASE_COLORS: Record<PhaseStatus, string> = {
   pending: "gray",
   running: "cyan",
   done: "green",
@@ -58,12 +58,13 @@ const MODEL_SHORT: Record<string, string> = {
 const modelShort = (id: string) => MODEL_SHORT[id] ?? id;
 const SYNTH_LABEL = modelShort(SYNTH_MODEL);
 
-const ROUND_SECS = 120;
-const SYNTH_SECS = 720;
+export const ROUND_SECS = 120;
+export const SYNTH_SECS = 720;
+export { modelShort };
 
 // ── PhaseBlockCompact ──────────────────────────────────────────
 
-function PhaseBlockCompact(props: {
+export function PhaseBlockCompact(props: {
   phase: PhaseState;
   barWidth: number;
   now: number;
@@ -150,8 +151,8 @@ function PhaseBlockCompact(props: {
 // PRD: shows list of REQ IDs + explanation.
 // Arch: shows full scrollable architecture.md content.
 
-function SynthDoneUI(props: {
-  type: "prd" | "arch";
+export function SynthDoneUI(props: {
+  type: "prd" | "arch" | "lernsituation";
   state: SynthDoneState;
 }): React.ReactElement {
   const { type, state } = props;
@@ -202,6 +203,8 @@ function SynthDoneUI(props: {
   const visibleLines = lines.slice(scrollOffset, scrollOffset + viewportH);
   const title = type === "prd"
     ? (state.existing ? "PRD.md — Review" : "PRD.md created")
+    : type === "lernsituation"
+    ? (state.existing ? "LERNSITUATION.md — Review" : "LERNSITUATION.md created")
     : "architecture.md created";
 
   return h(
@@ -244,9 +247,9 @@ function SynthDoneUI(props: {
 // ── ReviewUI ───────────────────────────────────────────────────
 // Scrollable, self-contained. Handles ↑/↓ for scroll internally.
 
-function ReviewUI(props: {
+export function ReviewUI(props: {
   review: ReviewState;
-  type: "prd" | "arch";
+  type: "prd" | "arch" | "lernsituation";
 }): React.ReactElement {
   const { review, type } = props;
   const { columns, rows } = useTerminalSize();
@@ -277,16 +280,20 @@ function ReviewUI(props: {
 
   const visibleLines = allLines.slice(scrollOffset, scrollOffset + viewportH);
   const divider = "─".repeat(Math.min(columns - 2, 60));
-  const typeLabel = type === "prd" ? "PRD Review" : "Architecture Review";
-  const itemLabel = type === "prd" ? "REQ" : "ADR";
+  const typeLabel = type === "prd" ? "PRD Review"
+    : type === "lernsituation" ? "Lernsituation Review"
+    : "Architecture Review";
+  const itemLabel = type === "prd" ? "REQ"
+    : type === "lernsituation" ? "Section"
+    : "ADR";
 
   if (!item) {
     return h(
       Box,
       { flexDirection: "column", paddingX: 1 },
-      h(Text, { color: "yellow", bold: true }, "⚠  No REQ sections found"),
-      h(Text, { dimColor: true }, "PRD.md was generated but no ### REQ-NNN: sections were detected."),
-      h(Text, { dimColor: true }, "  [Enter] Continue → Architecture"),
+      h(Text, { color: "yellow", bold: true }, `⚠  No ${itemLabel} sections found`),
+      h(Text, { dimColor: true }, `File was generated but no sections were detected.`),
+      h(Text, { dimColor: true }, "  [Enter] Continue"),
     );
   }
 

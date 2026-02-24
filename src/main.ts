@@ -2,11 +2,13 @@ import React from "react";
 import { render, Box, Text } from "ink";
 import { Dashboard } from "./components/Dashboard.ts";
 import { InitDashboard } from "./components/InitDashboard.ts";
+import { EduInitDashboard } from "./components/EduInitDashboard.ts";
 
 const { createElement: h } = React;
 
 const INIT_MODE = Deno.env.get("ORVEX_INIT_MODE") === "1";
 const INIT_DESCRIPTION = Deno.env.get("ORVEX_INIT_DESCRIPTION") ?? "";
+const EDU_INIT_MODE = Deno.env.get("ORVEX_EDU_INIT_MODE") === "1";
 
 // Auto-detect project state from filesystem:
 //   bothExist  → PRD.md + architecture.md vorhanden → direkt zum Dashboard
@@ -27,10 +29,27 @@ try {
   }
 } catch { /* PRD.md nicht vorhanden — normaler Dashboard-Start */ }
 
+let lernsituationExists = false;
+try { await Deno.stat("LERNSITUATION.md"); lernsituationExists = true; } catch { /* */ }
+
 const { useState } = React;
 
 function App(): React.ReactElement {
   const [initDone, setInitDone] = useState(false);
+
+  // EDU_INIT_MODE: explicit edu-init invocation
+  // Resume path: LERNSITUATION.md exists but PRD.md does not
+  const eduResume = !EDU_INIT_MODE && lernsituationExists && !archOnly && !bothExist;
+  if ((EDU_INIT_MODE || eduResume) && !initDone) {
+    return h(EduInitDashboard, {
+      lernsituationExists,
+      onDone: () => setInitDone(true),
+    });
+  }
+  if ((EDU_INIT_MODE || eduResume) && initDone) {
+    setTimeout(() => Deno.exit(0), 80);
+    return h(Box, null, h(Text, { color: "green" }, "Edu-Init abgeschlossen — starte orvex zum Loslegen"));
+  }
 
   // INIT_MODE wird ignoriert wenn PRD.md + architecture.md bereits existieren.
   if ((INIT_MODE && !bothExist || archOnly) && !initDone) {
