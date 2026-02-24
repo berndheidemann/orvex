@@ -712,3 +712,58 @@ Manuell: `r` drücken → Fokus-Modus; `↑`/`↓` durch REQs navigieren → Det
 `deno check src/main.ts` → exit code 0
 `deno test src/` → all green
 Manual: `orvex init` and `orvex edu-init` display identically to before
+
+---
+
+### RF-010: Fix usePrdTitles regex to match RF and CONT headings
+
+- **Priority:** P1
+- **Size:** S
+- **Status:** open
+- **Depends on:** —
+
+#### Problem
+
+`usePrdTitles.ts:23` uses `/^### (REQ-\d+[a-z]?): (.+)$/gm` which only matches `REQ-NNN` headings. RF-NNN and CONT-XXX-NNN entries in `status.json` appear in the Dashboard's left pane without their title text. `useReqDetails.ts:10` already uses the broader pattern `/^### (REQ-\d+[a-z]?|RF-\d+[a-z]?|CONT-[A-Z]+-\d+[A-Za-z]*): /gm`. The two hooks read the same PRD.md but parse different heading subsets — a consistency bug.
+
+#### Acceptance Criteria
+
+- [ ] `usePrdTitles.ts` regex matches `### RF-NNN:` and `### CONT-XXX-NNN:` headings in addition to `### REQ-NNN:`
+- [ ] The regex pattern in `usePrdTitles.ts` is consistent with `useReqDetails.ts`
+- [ ] Dashboard left pane shows title text for RF and CONT entries
+- [ ] All existing tests pass unchanged
+- [ ] `deno check src/main.ts` clean
+
+#### Verification
+
+`deno check src/main.ts` → exit code 0
+`deno test src/` → all green
+Manual: Dashboard with RF/CONT entries shows their title in the left pane
+
+---
+
+### RF-011: Extract addChunk and PhaseSink factory from hooks
+
+- **Priority:** P1
+- **Size:** S
+- **Status:** open
+- **Depends on:** —
+
+#### Problem
+
+`useInitRunner.ts` (lines 78, 111–131) and `useEduInitRunner.ts` (lines 162, 207–227) contain identical `addChunk` callbacks (~20 lines each): streaming line buffer with `<k>` tag filtering, cursor preview, and `MAX_LIVE_LINES` truncation. Additionally, the PhaseSink construction code is nearly identical in both hooks (~35 lines each): `useInitRunner` builds it inline in `runPhase` (lines 146–181), `useEduInitRunner` has a `makeSink()` factory (lines 231–266). Combined, ~110 lines of duplicated async/streaming infrastructure. Any change to streaming behavior or the PhaseSink interface requires synchronized edits in both hooks.
+
+#### Acceptance Criteria
+
+- [ ] `addChunk` logic exists in exactly one location (e.g., a `makeAddChunk` factory in `phaseRunner.ts` or a new shared file)
+- [ ] PhaseSink construction exists in exactly one location (e.g., a `makePhaseSink` factory)
+- [ ] Both `useInitRunner` and `useEduInitRunner` use the shared factories
+- [ ] No duplicate `addChunk` callback definitions remain across hooks
+- [ ] All existing tests pass unchanged
+- [ ] `deno check src/main.ts` clean
+
+#### Verification
+
+`deno check src/main.ts` → exit code 0
+`deno test src/` → all green
+`grep -r 'addChunk' src/hooks/ | grep 'useCallback' | wc -l` → 0 (no local addChunk definitions in hooks)
