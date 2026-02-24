@@ -214,7 +214,7 @@ Nach Abschluss: REQ-000-Walking-Skeleton wird in PRD.md + status.json injiziert 
 
 ### REQ-014: EduInitDashboard Komponente
 
-- **Status:** open
+- **Status:** done
 - **Priority:** P1
 - **Size:** M
 - **Depends on:** REQ-013
@@ -239,14 +239,14 @@ Enter wechselt zum nächsten Feld. Nach dem letzten Feld: Zusammenfassung + Best
 **Review für LERNSITUATION.md**: Abschnitte werden via Heading-Parsing erkannt (`## `-Headings als Sektionsgrenzen).
 
 #### Acceptance Criteria
-- [ ] `src/components/EduInitDashboard.ts` exportiert `EduInitDashboard`
-- [ ] Phase-0-Screen zeigt alle 6 Felder sequenziell, Enter wechselt zum nächsten
-- [ ] Nach Pflichtfeld-Abbruch (leerer Enter bei Pflichtfeld): Fehlermeldung, kein Weiterschalten
-- [ ] Debate-Screens zeigen Agent-Status mit Fortschrittsbalken
-- [ ] SynthDone-Screen nach Phase 1 zeigt LERNSITUATION.md-Inhalt scrollbar (↑/↓)
-- [ ] Review-Screen für LERNSITUATION.md zeigt Abschnitte (via `## `Heading-Parsing)
-- [ ] `SynthDoneUI` in `InitDashboard.ts` akzeptiert `type: "prd" | "arch" | "lernsituation"` ohne TypeScript-Fehler
-- [ ] `deno check src/main.ts` fehlerfrei
+- [x] `src/components/EduInitDashboard.ts` exportiert `EduInitDashboard`
+- [x] Phase-0-Screen zeigt alle 6 Felder sequenziell, Enter wechselt zum nächsten
+- [x] Nach Pflichtfeld-Abbruch (leerer Enter bei Pflichtfeld): Fehlermeldung, kein Weiterschalten
+- [x] Debate-Screens zeigen Agent-Status mit Fortschrittsbalken
+- [x] SynthDone-Screen nach Phase 1 zeigt LERNSITUATION.md-Inhalt scrollbar (↑/↓)
+- [x] Review-Screen für LERNSITUATION.md zeigt Abschnitte (via `## `Heading-Parsing)
+- [x] `SynthDoneUI` in `InitDashboard.ts` akzeptiert `type: "prd" | "arch" | "lernsituation"` ohne TypeScript-Fehler
+- [x] `deno check src/main.ts` fehlerfrei
 
 #### Verification
 `deno check src/main.ts` → exit code 0
