@@ -43,6 +43,15 @@ function App(): React.ReactElement {
       onDone: () => setInitDone(true),
     });
   }
+
+  // Init mode completed → exit the TUI so the orvex script shows
+  // its review instructions. The user then runs `orvex` again which
+  // starts loop_dev.sh and launches the real dashboard.
+  if (INIT_MODE && initDone) {
+    setTimeout(() => Deno.exit(0), 80);
+    return h(Box, null, h(Text, { color: "green" }, "✅  Init abgeschlossen — starte orvex zum Loslegen"));
+  }
+
   return h(
     Box,
     { flexDirection: "column" },
