@@ -140,6 +140,15 @@ function ActivityFeed(props: {
   const { toolEvents, currentIter, currentReq, model, rows } = props;
   const [scrollOffset, setScrollOffset] = useState(0);
   const prevLenRef = useRef(toolEvents.length);
+  const prevIterRef = useRef(currentIter);
+
+  // Auto-scroll to latest when a new iteration starts
+  useEffect(() => {
+    if (currentIter > prevIterRef.current) {
+      prevIterRef.current = currentIter;
+      setScrollOffset(0);
+    }
+  }, [currentIter]);
 
   // Auto-scroll: when new events arrive and user is at bottom, stay there
   useEffect(() => {
@@ -348,6 +357,9 @@ export function Dashboard(): React.ReactElement {
   const { columns, rows } = useTerminalSize();
 
   const entries = Object.entries(data);
+  // RF-006: authoritative iter counter = max of live currentIter and last completed iter from iterations.jsonl
+  const lastCompletedIter = iterEntries.length > 0 ? iterEntries[iterEntries.length - 1].iteration : 0;
+  const displayIter = Math.max(currentIter, lastCompletedIter);
   // Sum costs from iterations.jsonl (historical) + live events cost
   const historicalCost = iterEntries.reduce((sum: number, e: IterationEntry) => {
     const c = parseFloat(String(e["cost"] ?? "0"));
@@ -402,6 +414,22 @@ export function Dashboard(): React.ReactElement {
   const lastIterStart = [...events].reverse().find((ev) => ev.type === "iteration:start");
   const currentModel = lastIterStart?.type === "iteration:start" ? lastIterStart.model : "";
 
+  // RF-007: viewport for req-list — show at most this many entries
+  const maxReqVisible = Math.max(3, Math.floor((rows - FEED_OVERHEAD) / 2));
+  const activeEntryIdx = entries.findIndex(([, req]) => req.status === "in_progress");
+  let reqViewStart = 0;
+  if (entries.length > maxReqVisible) {
+    if (activeEntryIdx >= 0) {
+      // center active entry in viewport
+      reqViewStart = Math.max(0, activeEntryIdx - Math.floor(maxReqVisible / 2));
+      reqViewStart = Math.min(reqViewStart, entries.length - maxReqVisible);
+    }
+  }
+  const reqViewEnd = Math.min(reqViewStart + maxReqVisible, entries.length);
+  const visibleEntries = entries.slice(reqViewStart, reqViewEnd);
+  const aboveCount = reqViewStart;
+  const belowCount = entries.length - reqViewEnd;
+
   // REQ-list pane (left, 40%)
   const reqPane = h(
     Box,
@@ -413,7 +441,10 @@ export function Dashboard(): React.ReactElement {
       : h(
           Box,
           { flexDirection: "column" },
-          ...entries.flatMap(([id, req]) => {
+          aboveCount > 0
+            ? h(Text, { dimColor: true }, `↑ ${aboveCount} more`)
+            : null,
+          ...visibleEntries.flatMap(([id, req]) => {
             const prefix = req.status === "in_progress" ? "▶ " : "  ";
             const title = prdTitles[id];
             const stats = req.status === "done" ? reqStats[id] : undefined;
@@ -451,6 +482,9 @@ export function Dashboard(): React.ReactElement {
               }),
             ];
           }),
+          belowCount > 0
+            ? h(Text, { dimColor: true }, `↓ ${belowCount} more`)
+            : null,
         ),
   );
 
@@ -462,7 +496,7 @@ export function Dashboard(): React.ReactElement {
     h(Text, { dimColor: true }, "─".repeat(30)),
     h(ActivityFeed, {
       toolEvents,
-      currentIter,
+      currentIter: displayIter,
       currentReq: currentReq ?? activeReqId,
       model: currentModel,
       rows,
@@ -485,7 +519,7 @@ export function Dashboard(): React.ReactElement {
         return h(Text, { key: modelId, color: color as Parameters<typeof Text>[0]["color"] }, `${name} $${cost.toFixed(4)}`);
       }),
       h(Text, { dimColor: true }, "|"),
-      h(Text, { dimColor: true }, `Iter ${currentIter}`),
+      h(Text, { dimColor: true }, `Iter ${displayIter}`),
     ),
     // REQ progress bar
     h(
