@@ -357,6 +357,11 @@ export function Dashboard(): React.ReactElement {
   const { columns, rows } = useTerminalSize();
 
   const entries = Object.entries(data);
+  // RF-008: group entries — active (open/in_progress/blocked) on top, done on bottom
+  const activeEntries = entries.filter(([, req]) => req.status !== "done");
+  const doneEntries = entries.filter(([, req]) => req.status === "done");
+  const groupedEntries = [...activeEntries, ...doneEntries];
+  const hasSeparator = activeEntries.length > 0 && doneEntries.length > 0;
   // RF-006: authoritative iter counter = max of live currentIter and last completed iter from iterations.jsonl
   const lastCompletedIter = iterEntries.length > 0 ? iterEntries[iterEntries.length - 1].iteration : 0;
   const displayIter = Math.max(currentIter, lastCompletedIter);
@@ -416,22 +421,23 @@ export function Dashboard(): React.ReactElement {
 
   // RF-007: viewport for req-list — show at most this many entries
   const maxReqVisible = Math.max(3, Math.floor((rows - FEED_OVERHEAD) / 2));
-  const activeEntryIdx = entries.findIndex(([, req]) => req.status === "in_progress");
+  // RF-008: viewport operates on grouped entries (active first, done last)
+  const activeEntryIdx = groupedEntries.findIndex(([, req]) => req.status === "in_progress");
   let reqViewStart = 0;
-  if (entries.length > maxReqVisible) {
+  if (groupedEntries.length > maxReqVisible) {
     if (activeEntryIdx >= 0) {
       // center active entry in viewport
       reqViewStart = Math.max(0, activeEntryIdx - Math.floor(maxReqVisible / 2));
-      reqViewStart = Math.min(reqViewStart, entries.length - maxReqVisible);
+      reqViewStart = Math.min(reqViewStart, groupedEntries.length - maxReqVisible);
     } else {
       // no active REQ: show end of list (newest entries visible)
-      reqViewStart = entries.length - maxReqVisible;
+      reqViewStart = groupedEntries.length - maxReqVisible;
     }
   }
-  const reqViewEnd = Math.min(reqViewStart + maxReqVisible, entries.length);
-  const visibleEntries = entries.slice(reqViewStart, reqViewEnd);
+  const reqViewEnd = Math.min(reqViewStart + maxReqVisible, groupedEntries.length);
+  const visibleEntries = groupedEntries.slice(reqViewStart, reqViewEnd);
   const aboveCount = reqViewStart;
-  const belowCount = entries.length - reqViewEnd;
+  const belowCount = groupedEntries.length - reqViewEnd;
 
   // REQ-list pane (left, 40%)
   const reqPane = h(
@@ -447,7 +453,8 @@ export function Dashboard(): React.ReactElement {
           aboveCount > 0
             ? h(Text, { dimColor: true }, `↑ ${aboveCount} more`)
             : null,
-          ...visibleEntries.flatMap(([id, req]) => {
+          ...visibleEntries.flatMap(([id, req], localIdx) => {
+            const globalIdx = reqViewStart + localIdx;
             const prefix = req.status === "in_progress" ? "▶ " : "  ";
             const title = prdTitles[id];
             const stats = req.status === "done" ? reqStats[id] : undefined;
@@ -470,11 +477,18 @@ export function Dashboard(): React.ReactElement {
                 : null,
             );
 
+            // RF-008: separator between active and done groups
+            const sep =
+              hasSeparator && req.status === "done" && globalIdx === activeEntries.length
+                ? h(Text, { key: "__sep__", dimColor: true }, "─── done ───")
+                : null;
+
             if (req.status !== "blocked") {
-              return [row];
+              return sep ? [sep, row] : [row];
             }
 
             return [
+              ...(sep ? [sep] : []),
               row,
               h(BlockedDetail, {
                 key: `${id}-detail`,
