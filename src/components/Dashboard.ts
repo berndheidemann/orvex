@@ -670,7 +670,9 @@ export function Dashboard(): React.ReactElement {
         : (activeReqId && !currentReq) ? `Active: ${activeReqId}`
         : " ",
     ),
-    focusMode
+    paused
+      ? h(Text, { dimColor: true }, "[p] weiter  [q] beenden  —  Entwicklung jederzeit fortsetzen mit: orvex")
+      : focusMode
       ? h(Text, { dimColor: true }, "[r] normal  [↑↓] select req  [Tab] scroll detail  [p] pause  [s] skip  [e] edit  [q] quit")
       : h(Text, { dimColor: true }, "[p] pause  [s] skip  [e] edit context  [r] req focus  [q] quit  [↑↓] scroll feed"),
   );
