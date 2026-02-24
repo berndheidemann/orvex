@@ -365,6 +365,204 @@ export function ReviewUI(props: {
   );
 }
 
+// ── RunnerDashboard ────────────────────────────────────────────
+// Shared dashboard layout for InitRunner and EduRunner.
+// Owns: timer effects, layout computation, done/error screens,
+//       split-pane layout with phases + live output.
+
+export interface RunnerDashboardProps {
+  // State
+  phases: PhaseState[];
+  liveLines: string[];
+  agentStreams: string[];
+  activeLabel: string;
+  agentWarnLevel: null | "yellow" | "red";
+  done: boolean;
+  error: string | null;
+  // Config
+  subtitle: string;
+  descLabel: string;
+  descText: string;
+  model: string;
+  doneMessage: string;
+  // Callbacks
+  onDone?: () => void;
+  // Optional slots
+  emptyStateLines?: string[];
+  footer?: React.ReactElement | null;
+}
+
+export function RunnerDashboard(props: RunnerDashboardProps): React.ReactElement {
+  const {
+    phases, liveLines, agentStreams, activeLabel, agentWarnLevel,
+    done, error, subtitle, descLabel, descText, model, doneMessage,
+    onDone, emptyStateLines = [], footer = null,
+  } = props;
+
+  const { exit } = useApp();
+  const { columns, rows } = useTerminalSize();
+  const [elapsed, setElapsed] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+
+  const leftWidth = Math.min(32, Math.max(22, Math.floor(columns * 0.35)));
+  const rightWidth = columns - leftWidth - 1;
+  const liveHeight = Math.max(5, rows - 8);
+
+  const hasAgentStreams = agentStreams.length > 0;
+  const runningPhase = phases.find((p) => p.status === "running");
+  const runningRound = runningPhase?.rounds.find((r) => r.status === "running");
+  const streamAgents = runningRound?.agents ?? [];
+
+  const agentSectionHeight = hasAgentStreams ? streamAgents.length + 1 : 0;
+  const summaryHeight = Math.max(0, liveHeight - agentSectionHeight);
+  const visibleLines = liveLines.slice(-summaryHeight);
+
+  const divider = "─".repeat(Math.min(columns, 60));
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    setElapsed(0);
+    if (!activeLabel) return;
+    const id = setInterval(() => setElapsed((s: number) => s + 1), 1000);
+    return () => clearInterval(id);
+  }, [activeLabel]);
+
+  useEffect(() => {
+    if (done) {
+      const t = setTimeout(() => onDone ? onDone() : exit(), 400);
+      return () => clearTimeout(t);
+    }
+  }, [done]);
+
+  if (done) {
+    return h(
+      Box,
+      { flexDirection: "column", padding: 1 },
+      h(Text, { bold: true, color: "green" }, doneMessage),
+      h(Text, { dimColor: true }, "Saving files…"),
+    );
+  }
+
+  if (error) {
+    return h(
+      Box,
+      { flexDirection: "column", padding: 1 },
+      h(Text, { color: "red", bold: true }, "⚠  Error"),
+      h(Text, {}, error),
+      liveLines.length > 0
+        ? h(
+            Box,
+            { flexDirection: "column", marginTop: 1 },
+            h(Text, { dimColor: true }, "Last output:"),
+            ...liveLines.map((line, i) =>
+              h(Text, { key: String(i), dimColor: true, wrap: "truncate" }, line)
+            ),
+          )
+        : null,
+    );
+  }
+
+  const descPreview = descText.length > columns - 20
+    ? descText.slice(0, columns - 23) + "…"
+    : descText;
+
+  const leftBarWidth = Math.max(4, leftWidth - 8);
+  const splitDivider = "─".repeat(leftWidth) + "┬" + "─".repeat(rightWidth);
+  const splitFooter = "─".repeat(leftWidth) + "┴" + "─".repeat(rightWidth);
+
+  return h(
+    Box,
+    { flexDirection: "column" },
+    h(
+      Box,
+      { flexDirection: "row", gap: 2 },
+      h(Text, { bold: true, color: "cyan" }, "Orvex"),
+      h(Text, { dimColor: true }, "—"),
+      h(Text, { dimColor: true }, subtitle),
+    ),
+    h(Text, { dimColor: true }, divider),
+    h(
+      Box,
+      { paddingLeft: 1, marginBottom: 0 },
+      h(Text, { dimColor: true }, descLabel),
+      h(Text, {}, descPreview),
+    ),
+    h(Text, { dimColor: true }, splitDivider),
+    h(
+      Box,
+      { flexDirection: "row" },
+      h(
+        Box,
+        { flexDirection: "column", width: leftWidth },
+        ...phases.map((phase) =>
+          h(PhaseBlockCompact, { key: phase.id, phase, barWidth: leftBarWidth, now, model })
+        ),
+      ),
+      h(Text, { dimColor: true }, "│"),
+      h(
+        Box,
+        { flexDirection: "column", width: rightWidth, paddingLeft: 1 },
+        activeLabel
+          ? h(
+              Box,
+              { flexDirection: "row", gap: 1 },
+              h(Text, { color: "yellow", bold: true }, activeLabel),
+              h(Text, { dimColor: true }, `(${elapsed}s)`),
+            )
+          : null,
+        activeLabel
+          ? h(Text, { dimColor: true }, "─".repeat(Math.max(0, rightWidth - 2)))
+          : null,
+        agentWarnLevel === "yellow"
+          ? h(Text, { color: "yellow" }, "⚠  Taking longer than usual — Claude is still thinking…")
+          : agentWarnLevel === "red"
+          ? h(Text, { color: "red", bold: true }, "⚠  Very long wait — Claude may have an issue, but a result can still arrive. [Ctrl+C] to cancel.")
+          : null,
+        ...(() => {
+          const result: React.ReactElement[] = [];
+
+          if (visibleLines.length > 0) {
+            visibleLines.forEach((line, i) =>
+              result.push(h(Text, { key: `l${i}`, wrap: "truncate" }, line))
+            );
+          } else if (emptyStateLines.length > 0 && !hasAgentStreams && runningPhase && activeLabel) {
+            emptyStateLines.forEach((line, i) =>
+              result.push(h(Text, { key: `i${i}`, dimColor: true, wrap: "truncate" }, line))
+            );
+          }
+
+          if (hasAgentStreams && streamAgents.length > 0) {
+            if (result.length > 0) {
+              result.push(h(Text, { key: "sdiv", dimColor: true }, "─".repeat(Math.max(0, rightWidth - 2))));
+            }
+            streamAgents.forEach((agent, i) => {
+              const stream = agentStreams[i] ?? "";
+              const maxTextWidth = rightWidth - agent.name.length - 6;
+              result.push(
+                h(Box, { key: `ag${i}`, flexDirection: "row", gap: 1 },
+                  h(Text, { color: agent.status === "done" ? "green" : "yellow" },
+                    agent.status === "done" ? "✓" : "▶"),
+                  h(Text, { bold: agent.status === "running" }, agent.name),
+                  h(Text, { dimColor: true, wrap: "truncate" },
+                    stream ? `  ${stream.slice(0, maxTextWidth)}` : "  …"),
+                )
+              );
+            });
+          }
+
+          return result;
+        })(),
+      ),
+    ),
+    h(Text, { dimColor: true }, splitFooter),
+    footer,
+  );
+}
+
 // ── InitRunner ─────────────────────────────────────────────────
 
 function InitRunner(props: {
@@ -376,46 +574,8 @@ function InitRunner(props: {
   onDone?: () => void;
 }): React.ReactElement {
   const { description, model, prdRounds, archRounds, skipPrd = false, onDone } = props;
-  const { exit } = useApp();
-  const { columns, rows } = useTerminalSize();
   const rawWasBackspace = useRawBackspace();
   const state = useInitRunner(description, prdRounds, archRounds, model, skipPrd);
-  const [elapsed, setElapsed] = React.useState(0);
-  const [now, setNow] = React.useState(() => Date.now());
-
-  const leftWidth = Math.min(32, Math.max(22, Math.floor(columns * 0.35)));
-  const rightWidth = columns - leftWidth - 1;
-  const liveHeight = Math.max(5, rows - 8);
-
-  const hasAgentStreams = state.agentStreams.length > 0;
-  const runningPhase = state.phases.find((p) => p.status === "running");
-  const runningRound = runningPhase?.rounds.find((r) => r.status === "running");
-  const streamAgents = runningRound?.agents ?? [];
-
-  const agentSectionHeight = hasAgentStreams ? streamAgents.length + 1 : 0;
-  const summaryHeight = Math.max(0, liveHeight - agentSectionHeight);
-  const visibleLines = state.liveLines.slice(-summaryHeight);
-
-  const divider = "─".repeat(Math.min(columns, 60));
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    setElapsed(0);
-    if (!state.activeLabel) return;
-    const id = setInterval(() => setElapsed((s: number) => s + 1), 1000);
-    return () => clearInterval(id);
-  }, [state.activeLabel]);
-
-  useEffect(() => {
-    if (state.done) {
-      const t = setTimeout(() => onDone ? onDone() : exit(), 400);
-      return () => clearTimeout(t);
-    }
-  }, [state.done]);
 
   useInput((input, key) => {
     // PRD review — editor open: ReviewEditor handles its own input
@@ -490,34 +650,6 @@ function InitRunner(props: {
     });
   }
 
-  if (state.done) {
-    return h(
-      Box,
-      { flexDirection: "column", padding: 1 },
-      h(Text, { bold: true, color: "green" }, "✓  Setup complete"),
-      h(Text, { dimColor: true }, "Saving files…"),
-    );
-  }
-
-  if (state.error) {
-    return h(
-      Box,
-      { flexDirection: "column", padding: 1 },
-      h(Text, { color: "red", bold: true }, "⚠  Error"),
-      h(Text, {}, state.error),
-      state.liveLines.length > 0
-        ? h(
-            Box,
-            { flexDirection: "column", marginTop: 1 },
-            h(Text, { dimColor: true }, "Last output:"),
-            ...state.liveLines.map((line, i) =>
-              h(Text, { key: String(i), dimColor: true, wrap: "truncate" }, line)
-            ),
-          )
-        : null,
-    );
-  }
-
   // PRD synth done transition
   if (state.prdSynthDone) {
     return h(SynthDoneUI, { type: "prd", state: state.prdSynthDone });
@@ -566,127 +698,55 @@ function InitRunner(props: {
 
   // ── Normal dashboard ───────────────────────────────────────
 
-  const descPreview = description.length > columns - 20
-    ? description.slice(0, columns - 23) + "…"
-    : description;
+  const runningPhase = state.phases.find((p) => p.status === "running");
+  const emptyStateLines: string[] = (!state.agentStreams.length && runningPhase && state.activeLabel)
+    ? (runningPhase.id === "prd"
+        ? [
+            "Product Manager, UX Researcher and Business Analyst",
+            "are forming their initial takes on the topic.",
+            "",
+            `Over ${prdRounds} discussion rounds they refine their`,
+            "positions and respond to each other.",
+            "The synthesis is saved as PRD.md.",
+          ]
+        : [
+            "Software Architect, Senior Developer and DevOps Engineer",
+            "analyze the PRD and propose an architecture.",
+            "",
+            `Over ${archRounds} discussion rounds they develop`,
+            "architecture decisions together.",
+            "The synthesis is saved as architecture.md.",
+          ])
+    : [];
 
-  const leftBarWidth = Math.max(4, leftWidth - 8);
-  const splitDivider = "─".repeat(leftWidth) + "┬" + "─".repeat(rightWidth);
-  const splitFooter = "─".repeat(leftWidth) + "┴" + "─".repeat(rightWidth);
-
-  return h(
-    Box,
-    { flexDirection: "column" },
-    h(
-      Box,
-      { flexDirection: "row", gap: 2 },
-      h(Text, { bold: true, color: "cyan" }, "Orvex"),
-      h(Text, { dimColor: true }, "—"),
-      h(Text, { dimColor: true }, "Project Setup"),
-    ),
-    h(Text, { dimColor: true }, divider),
-    h(
-      Box,
-      { paddingLeft: 1, marginBottom: 0 },
-      h(Text, { dimColor: true }, "Description: "),
-      h(Text, {}, descPreview),
-    ),
-    h(Text, { dimColor: true }, splitDivider),
-    h(
-      Box,
-      { flexDirection: "row" },
-      h(
+  const footer = state.awaitingArchConfirm
+    ? h(
         Box,
-        { flexDirection: "column", width: leftWidth },
-        ...state.phases.map((phase) =>
-          h(PhaseBlockCompact, { key: phase.id, phase, barWidth: leftBarWidth, now, model })
-        ),
-      ),
-      h(Text, { dimColor: true }, "│"),
-      h(
-        Box,
-        { flexDirection: "column", width: rightWidth, paddingLeft: 1 },
-        state.activeLabel
-          ? h(
-              Box,
-              { flexDirection: "row", gap: 1 },
-              h(Text, { color: "yellow", bold: true }, state.activeLabel),
-              h(Text, { dimColor: true }, `(${elapsed}s)`),
-            )
-          : null,
-        state.activeLabel
-          ? h(Text, { dimColor: true }, "─".repeat(Math.max(0, rightWidth - 2)))
-          : null,
-        state.agentWarnLevel === "yellow"
-          ? h(Text, { color: "yellow" }, "⚠  Taking longer than usual — Claude is still thinking…")
-          : state.agentWarnLevel === "red"
-          ? h(Text, { color: "red", bold: true }, "⚠  Very long wait — Claude may have an issue, but a result can still arrive. [Ctrl+C] to cancel.")
-          : null,
-        ...(() => {
-          const result: React.ReactElement[] = [];
+        { flexDirection: "column", marginTop: 0 },
+        h(Text, { bold: true, color: "green" }, "  ✓  PRD.md done"),
+        h(Text, {}, "  Also generate a software architecture?"),
+        h(Text, { dimColor: true },
+          "  [Enter / y]  Yes, generate architecture    [Esc / n]  Skip"),
+      )
+    : null;
 
-          if (visibleLines.length > 0) {
-            visibleLines.forEach((line, i) =>
-              result.push(h(Text, { key: `l${i}`, wrap: "truncate" }, line))
-            );
-          } else if (!hasAgentStreams && runningPhase && state.activeLabel) {
-            const intro = runningPhase.id === "prd"
-              ? [
-                  "Product Manager, UX Researcher and Business Analyst",
-                  "are forming their initial takes on the topic.",
-                  "",
-                  `Over ${prdRounds} discussion rounds they refine their`,
-                  "positions and respond to each other.",
-                  "The synthesis is saved as PRD.md.",
-                ]
-              : [
-                  "Software Architect, Senior Developer and DevOps Engineer",
-                  "analyze the PRD and propose an architecture.",
-                  "",
-                  `Over ${archRounds} discussion rounds they develop`,
-                  "architecture decisions together.",
-                  "The synthesis is saved as architecture.md.",
-                ];
-            intro.forEach((line, i) =>
-              result.push(h(Text, { key: `i${i}`, dimColor: true, wrap: "truncate" }, line))
-            );
-          }
-
-          if (hasAgentStreams && streamAgents.length > 0) {
-            if (result.length > 0) {
-              result.push(h(Text, { key: "sdiv", dimColor: true }, "─".repeat(Math.max(0, rightWidth - 2))));
-            }
-            streamAgents.forEach((agent, i) => {
-              const stream = state.agentStreams[i] ?? "";
-              const maxTextWidth = rightWidth - agent.name.length - 6;
-              result.push(
-                h(Box, { key: `ag${i}`, flexDirection: "row", gap: 1 },
-                  h(Text, { color: agent.status === "done" ? "green" : "yellow" },
-                    agent.status === "done" ? "✓" : "▶"),
-                  h(Text, { bold: agent.status === "running" }, agent.name),
-                  h(Text, { dimColor: true, wrap: "truncate" },
-                    stream ? `  ${stream.slice(0, maxTextWidth)}` : "  …"),
-                )
-              );
-            });
-          }
-
-          return result;
-        })(),
-      ),
-    ),
-    h(Text, { dimColor: true }, splitFooter),
-    state.awaitingArchConfirm
-      ? h(
-          Box,
-          { flexDirection: "column", marginTop: 0 },
-          h(Text, { bold: true, color: "green" }, "  ✓  PRD.md done"),
-          h(Text, {}, "  Also generate a software architecture?"),
-          h(Text, { dimColor: true },
-            "  [Enter / y]  Yes, generate architecture    [Esc / n]  Skip"),
-        )
-      : null,
-  );
+  return h(RunnerDashboard, {
+    phases: state.phases,
+    liveLines: state.liveLines,
+    agentStreams: state.agentStreams,
+    activeLabel: state.activeLabel,
+    agentWarnLevel: state.agentWarnLevel,
+    done: state.done,
+    error: state.error,
+    subtitle: "Project Setup",
+    descLabel: "Description: ",
+    descText: description,
+    model,
+    doneMessage: "✓  Setup complete",
+    onDone,
+    emptyStateLines,
+    footer,
+  });
 }
 
 // ── InitDashboard ──────────────────────────────────────────────
