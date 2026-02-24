@@ -40,7 +40,7 @@
 
 ### REQ-000: Walking Skeleton — Technical Foundation
 
-- **Status:** open
+- **Status:** done
 - **Priority:** P0
 - **Size:** M
 - **Depends on:** ---
@@ -49,12 +49,12 @@
 Build the complete technical foundation according to `architecture.md`. No business content — infrastructure only: all dependencies installed, build system, linter, test runner configured, development server running, a minimal E2E layer through all architectural layers (e.g. a Hello-World endpoint that executes a DB query and is displayed in the frontend — without business logic).
 
 #### Acceptance Criteria
-- [ ] All dependencies installed, no version conflicts
-- [ ] Build successful (no errors, no unresolved imports)
-- [ ] Linter clean (no errors)
-- [ ] Test runner starts and passes (0 failures)
-- [ ] Development server starts without errors
-- [ ] Minimal E2E layer works: one request passes through all layers to a response
+- [x] All dependencies installed, no version conflicts
+- [x] Build successful (no errors, no unresolved imports)
+- [x] Linter clean (no errors)
+- [x] Test runner starts and passes (0 failures)
+- [x] Development server starts without errors
+- [x] Minimal E2E layer works: one request passes through all layers to a response
 
 #### Verification
 Derive from `architecture.md` — build command green, test runner green, dev server responds.
