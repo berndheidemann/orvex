@@ -202,5 +202,17 @@
     "priority": "P1",
     "size": "S",
     "deps": []
+  },
+  "RF-008": {
+    "status": "done",
+    "priority": "P1",
+    "size": "S",
+    "deps": []
+  },
+  "RF-009": {
+    "status": "open",
+    "priority": "P1",
+    "size": "M",
+    "deps": []
   }
 }
