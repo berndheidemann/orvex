@@ -285,7 +285,7 @@ Integration in den orvex Entry-Point und Neucompilierung.
 
 ### REQ-016: PROMPT_FILE-Mechanismus für Edu-Loop
 
-- **Status:** open
+- **Status:** in_progress
 - **Priority:** P1
 - **Size:** S
 - **Depends on:** REQ-012
