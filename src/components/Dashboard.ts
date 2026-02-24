@@ -599,6 +599,7 @@ export function Dashboard(): React.ReactElement {
           reqId: selectedReqId,
           content: detailContent,
           rows,
+          columns,
           isActive: focusTarget === "detail",
         }),
       )
@@ -650,17 +651,25 @@ export function Dashboard(): React.ReactElement {
       detailPane,
     ),
     h(Text, { dimColor: true }, "─".repeat(columns)),
-    // Status line
-    activeReqId && !currentReq
-      ? h(Text, { color: "yellow" }, `Active: ${activeReqId}`)
-      : null,
-    error !== null ? h(Text, { color: "red" }, `⚠  ${error}`) : null,
-    paused ? h(Text, { color: "yellow", bold: true }, "⏸  PAUSED") : null,
-    lastAction === "skip-sent"
-      ? h(Text, { color: "green" }, "✓ Skip sent")
-      : lastAction === "editor-closed"
-      ? h(Text, { color: "green" }, "✓ context.md saved")
-      : null,
+    // Single always-rendered status line — keeps total render height stable to
+    // prevent Ink ghost frames when conditional lines appear/disappear.
+    h(
+      Text,
+      {
+        bold: paused,
+        color: (paused ? "yellow"
+          : error !== null ? "red"
+          : (lastAction === "skip-sent" || lastAction === "editor-closed") ? "green"
+          : (activeReqId && !currentReq) ? "yellow"
+          : undefined) as Parameters<typeof Text>[0]["color"],
+      },
+      paused ? "⏸  PAUSED"
+        : error !== null ? `⚠  ${error}`
+        : lastAction === "skip-sent" ? "✓ Skip sent"
+        : lastAction === "editor-closed" ? "✓ context.md saved"
+        : (activeReqId && !currentReq) ? `Active: ${activeReqId}`
+        : " ",
+    ),
     focusMode
       ? h(Text, { dimColor: true }, "[r] normal  [↑↓] select req  [Tab] scroll detail  [p] pause  [s] skip  [e] edit  [q] quit")
       : h(Text, { dimColor: true }, "[p] pause  [s] skip  [e] edit context  [r] req focus  [q] quit  [↑↓] scroll feed"),
