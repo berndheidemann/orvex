@@ -4,27 +4,23 @@
 > Enthält den aktuellen Stand für die nächste Iteration.
 
 ## Status
-- Projekt: 28/28 REQs done — VOLLSTÄNDIG ABGESCHLOSSEN
-- Validator: 3. Validierung PASS — 0 Reverts, 0 Blocks
-- Keine offenen REQs mehr
+- Projekt: 30/30 REQs done — VOLLSTÄNDIG ABGESCHLOSSEN (inkl. RF-010, RF-011)
+- Alle offenen REQs implementiert
 
-## Abschlussnotiz: CONT-EXPL-001 (Phantom-Eintrag)
-CONT-EXPL-001 war kein echtes Requirement. Der Eintrag entstand, weil `init_status_json`
-die Zeile `### CONT-EXPL-001: Content` innerhalb eines Bash-Heredoc-Codeblocks in der
-RF-002 Verification Section (PRD.md:375) als echte Requirement-Überschrift interpretierte.
-AWK versteht keinen Code-Block-Kontext. Die Zeile existiert nur als Testbeispiel in
-RF-002's Verifikationsanleitung. Es war kein Content zu generieren.
+## Abgeschlossene RF-REQs dieser Iteration
+- **RF-010:** `usePrdTitles.ts` regex auf `/^### (REQ-\d+[a-z]?|RF-\d+[a-z]?|CONT-[A-Z]+-\d+[A-Za-z]*): (.+)$/gm` erweitert — konsistent mit `useReqDetails.ts`
+- **RF-011:** `makeAddChunk` und `makePhaseSink` in `src/lib/sinkFactory.ts` extrahiert. `useInitRunner` und `useEduInitRunner` nutzen beide die gemeinsamen Factories. Kein lokales `addChunk` mit `useCallback` mehr in Hooks.
 
-## Validierungsergebnis (Iter 010–013)
-- Preflight: deno check clean, 174 Tests green, deno task build OK
-- Alle 27 done-REQs bestehen ihre Acceptance Criteria
-- UJ-001 (edu-init): TUI startet korrekt, EduSetup-Form zeigt 6 Felder
-- UJ-002 (Loop nach edu-init): CONT-REQ-Support korrekt verdrahtet
+## Architektur-Stand
+- `src/lib/sinkFactory.ts` — neu erstellt: enthält `makeAddChunk` und `makePhaseSink`
+- `src/hooks/useInitRunner.ts` — nutzt sinkFactory statt inline-Sink
+- `src/hooks/useEduInitRunner.ts` — nutzt sinkFactory, `useCallback` aus Destructuring entfernt
 
-## Bekannte technische Schulden (nicht als REQ erfasst)
-- `debateUtils.ts` hat keine dedizierte Test-Datei (RF-004, iter-012)
-- `RunnerDashboard` Komponente hat keine Tests (RF-005, iter-013)
-- AWK-Parser ignoriert Code-Block-Kontext bei Heading-Erkennung (Quelle des Phantom-Eintrags)
+## Validierungsstatus
+- deno check: clean
+- Tests: 174/174 pass
+- RF-010 AC: Regex korrekt, RF/CONT erkannt, konsistent mit useReqDetails
+- RF-011 AC: addChunk in einem Ort, PhaseSink in einem Ort, beide Hooks nutzen Factories, grep = 0
 
 ## Nächste Priorität
-- Keine weiteren Iterationen erforderlich — alle REQs implementiert und validiert
+- Keine weiteren offenen REQs

@@ -719,7 +719,7 @@ Manual: `orvex init` and `orvex edu-init` display identically to before
 
 - **Priority:** P1
 - **Size:** S
-- **Status:** open
+- **Status:** done
 - **Depends on:** —
 
 #### Problem
@@ -728,11 +728,11 @@ Manual: `orvex init` and `orvex edu-init` display identically to before
 
 #### Acceptance Criteria
 
-- [ ] `usePrdTitles.ts` regex matches `### RF-NNN:` and `### CONT-XXX-NNN:` headings in addition to `### REQ-NNN:`
-- [ ] The regex pattern in `usePrdTitles.ts` is consistent with `useReqDetails.ts`
-- [ ] Dashboard left pane shows title text for RF and CONT entries
-- [ ] All existing tests pass unchanged
-- [ ] `deno check src/main.ts` clean
+- [x] `usePrdTitles.ts` regex matches `### RF-NNN:` and `### CONT-XXX-NNN:` headings in addition to `### REQ-NNN:`
+- [x] The regex pattern in `usePrdTitles.ts` is consistent with `useReqDetails.ts`
+- [x] Dashboard left pane shows title text for RF and CONT entries
+- [x] All existing tests pass unchanged
+- [x] `deno check src/main.ts` clean
 
 #### Verification
 
@@ -746,7 +746,7 @@ Manual: Dashboard with RF/CONT entries shows their title in the left pane
 
 - **Priority:** P1
 - **Size:** S
-- **Status:** open
+- **Status:** done
 - **Depends on:** —
 
 #### Problem
@@ -755,12 +755,12 @@ Manual: Dashboard with RF/CONT entries shows their title in the left pane
 
 #### Acceptance Criteria
 
-- [ ] `addChunk` logic exists in exactly one location (e.g., a `makeAddChunk` factory in `phaseRunner.ts` or a new shared file)
-- [ ] PhaseSink construction exists in exactly one location (e.g., a `makePhaseSink` factory)
-- [ ] Both `useInitRunner` and `useEduInitRunner` use the shared factories
-- [ ] No duplicate `addChunk` callback definitions remain across hooks
-- [ ] All existing tests pass unchanged
-- [ ] `deno check src/main.ts` clean
+- [x] `addChunk` logic exists in exactly one location (e.g., a `makeAddChunk` factory in `phaseRunner.ts` or a new shared file)
+- [x] PhaseSink construction exists in exactly one location (e.g., a `makePhaseSink` factory)
+- [x] Both `useInitRunner` and `useEduInitRunner` use the shared factories
+- [x] No duplicate `addChunk` callback definitions remain across hooks
+- [x] All existing tests pass unchanged
+- [x] `deno check src/main.ts` clean
 
 #### Verification
 
