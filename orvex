@@ -15,7 +15,7 @@ TEMPLATES_DIR="$FRAMEWORK_DIR/templates"
 
 # ── Init logic (shared between 'orvex init' and empty folder) ────
 do_init() {
-  for f in AGENT.md VALIDATOR.md; do
+  for f in AGENT.md VALIDATOR.md REFACTOR.md; do
     if [ -f "$f" ]; then
       echo "⏭  $f already exists — skipped"
     else

@@ -73,6 +73,7 @@ REFACTOR="${REFACTOR:-0}"        # Refactoring-Review-Modus (once, then exit)
 REFACTOR_PROMPT_FILE="REFACTOR.md"
 REFACTOR_MODEL="opus"
 REFACTOR_TIMEOUT="${REFACTOR_TIMEOUT:-2400}"
+REFACTOR_DONE=0                  # Session flag — auto-refactor runs at most once
 DEV_PORTS="${DEV_PORTS:-}"       # Comma-separated list of ports to clean up
 
 for arg in "$@"; do
@@ -546,6 +547,84 @@ build_validator_prompt() {
   echo ""
 }
 
+build_refactor_prompt() {
+  cat "$REFACTOR_PROMPT_FILE"
+  echo ""
+  echo "---"
+  echo ""
+  echo "## Injected Context (from loop.sh)"
+  echo ""
+  if [ -f "$CONTEXT_FILE" ]; then
+    echo "### .agent/context.md:"
+    echo ""
+    head -50 "$CONTEXT_FILE"
+    echo ""
+  fi
+  if [ -f "$STATUS_JSON" ]; then
+    echo "### .agent/status.json:"
+    echo ""
+    cat "$STATUS_JSON"
+    echo ""
+  fi
+  if [ -f "architecture.md" ]; then
+    echo "### architecture.md:"
+    echo ""
+    cat "architecture.md"
+    echo ""
+  fi
+  echo "REQs done: $(count_done_reqs)/$(count_total_reqs)"
+}
+
+run_auto_refactor() {
+  echo -e "${BOLD}━━ Refactor Analysis ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo -e "  ${MAGENTA}${BOLD}Opus Refactor Analysis${RESET} ${DIM}→ RF-REQs added to PRD.md + status.json${RESET}"
+  echo ""
+
+  local refactor_log="$LOG_DIR/refactor-$(date +%Y%m%d-%H%M).jsonl"
+  echo "0" > "$COST_FILE"
+  echo "0" > "$TOOLS_FILE"
+  echo "" > "$STATUS_FILE"
+
+  local refactor_start refactor_prompt
+  refactor_start=$(date +%s)
+  refactor_prompt=$(build_refactor_prompt)
+
+  set +eo pipefail
+  (
+    timeout --foreground --signal=TERM --kill-after=30 "$REFACTOR_TIMEOUT" \
+      claude -p \
+        --dangerously-skip-permissions \
+        --output-format=stream-json \
+        --model "$REFACTOR_MODEL" \
+        --max-turns 60 \
+        --verbose \
+        <<< "$refactor_prompt"
+    echo $? > "$EXIT_FILE"
+  ) | tee "$refactor_log" | parse_progress
+  set -eo pipefail
+
+  local refactor_exit refactor_cost refactor_end refactor_dur
+  refactor_exit=$(cat "$EXIT_FILE" 2>/dev/null || echo "1")
+  refactor_cost=$(cat "$COST_FILE" 2>/dev/null || echo "0")
+  refactor_end=$(date +%s)
+  refactor_dur=$(format_duration $(( refactor_end - refactor_start )))
+  refactor_cost_fmt=$(LC_NUMERIC=C awk "BEGIN{printf \"%.4f\", ${refactor_cost}}")
+  TOTAL_COST=$(LC_NUMERIC=C awk "BEGIN{printf \"%.6f\", ${TOTAL_COST} + ${refactor_cost}}")
+
+  echo ""
+  echo -e "  ${BOLD}⏱  ${refactor_dur}${RESET}  │  cost: \$${refactor_cost_fmt}"
+
+  if [ "$refactor_exit" -eq 0 ]; then
+    local rf_count
+    rf_count=$(jq '[keys[] | select(startswith("RF-"))] | length' "$STATUS_JSON" 2>/dev/null || echo "0")
+    echo -e "  ${GREEN}${BOLD}Refactor analysis complete — ${rf_count} RF-REQ(s) in status.json${RESET}"
+  elif [ "$refactor_exit" -eq 124 ]; then
+    echo -e "${RED}${BOLD}Refactor analysis timed out after $(format_duration "$REFACTOR_TIMEOUT")${RESET}"
+  else
+    echo -e "${RED}Refactor analysis failed (exit: $refactor_exit)${RESET}"
+  fi
+}
+
 # ── Dev server / process cleanup ───────────────────────────────
 kill_dev_servers() {
   if [ -z "$DEV_PORTS" ]; then
@@ -1011,6 +1090,19 @@ while :; do
   local_open=$(count_open_reqs)
   local_in_progress=$(count_in_progress_reqs)
   if [ "$local_open" -eq 0 ] && [ "$local_in_progress" -eq 0 ]; then
+    if [ "$REFACTOR_DONE" -eq 0 ] && [ -f "$REFACTOR_PROMPT_FILE" ]; then
+      REFACTOR_DONE=1
+      emit_event "$(jq -nc \
+        --argjson ts "$(( $(date +%s) * 1000 ))" \
+        --argjson iter "$ITERATION" \
+        '{"type":"system:event","ts":$ts,"iter":$iter,"kind":"refactor_start","message":"All REQs done — starting refactor analysis"}')"
+      run_auto_refactor
+      local_open=$(count_open_reqs)
+      if [ "$local_open" -gt 0 ]; then
+        echo -e "  ${MAGENTA}${local_open} RF-REQ(s) added — continuing loop${RESET}"
+        continue
+      fi
+    fi
     echo -e "${GREEN}${BOLD}All requirements done!${RESET}"
     emit_event "$(jq -nc \
       --argjson ts "$(( $(date +%s) * 1000 ))" \
