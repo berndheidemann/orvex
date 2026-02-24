@@ -285,7 +285,7 @@ Integration in den orvex Entry-Point und Neucompilierung.
 
 ### REQ-016: PROMPT_FILE-Mechanismus für Edu-Loop
 
-- **Status:** in_progress
+- **Status:** done
 - **Priority:** P1
 - **Size:** S
 - **Depends on:** REQ-012
@@ -298,11 +298,11 @@ Wenn `orvex` (Loop, kein Subcommand) in einem Projektverzeichnis mit `LERNSITUAT
 **Fallback:** Wenn `AGENT_EDU.md` nicht gefunden wird (z.B. alte Installation), fällt loop_dev.sh auf `AGENT.md` zurück und loggt eine Warnung.
 
 #### Acceptance Criteria
-- [ ] `loop_dev.sh` prüft beim Start ob `LERNSITUATION.md` im Projektverzeichnis existiert
-- [ ] Wenn ja: `PROMPT_FILE` wird auf `templates/AGENT_EDU.md` (relativ zum orvex-Installationsverzeichnis) gesetzt; loop_dev.sh loggt "Using AGENT_EDU.md (edu project detected)"
-- [ ] Wenn nein: bestehendes Verhalten (`AGENT.md`) bleibt unverändert
-- [ ] Wenn `AGENT_EDU.md` nicht gefunden: Fallback auf `AGENT.md` mit Warnung im Log
-- [ ] `orvex init` + normaler Loop (kein edu-Projekt) laufen identisch wie vorher
+- [x] `loop_dev.sh` prüft beim Start ob `LERNSITUATION.md` im Projektverzeichnis existiert
+- [x] Wenn ja: `PROMPT_FILE` wird auf `templates/AGENT_EDU.md` (relativ zum orvex-Installationsverzeichnis) gesetzt; loop_dev.sh loggt "Using AGENT_EDU.md (edu project detected)"
+- [x] Wenn nein: bestehendes Verhalten (`AGENT.md`) bleibt unverändert
+- [x] Wenn `AGENT_EDU.md` nicht gefunden: Fallback auf `AGENT.md` mit Warnung im Log
+- [x] `orvex init` + normaler Loop (kein edu-Projekt) laufen identisch wie vorher
 
 #### Verification
 Manueller Test:
