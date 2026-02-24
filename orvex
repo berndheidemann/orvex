@@ -93,8 +93,8 @@ for f in PRD.md AGENT.md VALIDATOR.md; do
   fi
 done
 
-if [ -f PRD.md ] && ! grep -q '^### REQ-' PRD.md 2>/dev/null; then
-  echo "❌  PRD.md contains no requirements (expected: '### REQ-XXX:')"
+if [ -f PRD.md ] && ! grep -qE '^### (REQ|CONT)-' PRD.md 2>/dev/null; then
+  echo "❌  PRD.md contains no requirements (expected: '### REQ-XXX:' or '### CONT-XXX:')"
   errors=$((errors + 1))
 fi
 

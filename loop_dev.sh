@@ -427,7 +427,8 @@ get_next_req_block() {
   [ -z "$hint" ] && return
   awk -v title="$hint" '
     $0 == title { found=1 }
-    found && /^(### REQ-|^---)/ && $0 != title { exit }
+    found && /^### (REQ-|CONT-)/ && $0 != title { exit }
+    found && /^---/ { exit }
     found { print }
   ' "$PRD_FILE"
 }
