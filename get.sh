@@ -23,7 +23,8 @@ echo ""
 # ── Clone or update ────────────────────────────────────────────
 if [ -d "$INSTALL_DIR/.git" ]; then
   echo -e "  Updating existing installation..."
-  git -C "$INSTALL_DIR" pull --ff-only
+  git -C "$INSTALL_DIR" fetch origin
+  git -C "$INSTALL_DIR" reset --hard origin/main
 else
   echo -e "  Cloning orvex..."
   git clone https://github.com/berndheidemann/orvex.git "$INSTALL_DIR"
