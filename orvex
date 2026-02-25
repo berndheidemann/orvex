@@ -10,8 +10,11 @@
 
 set -euo pipefail
 
-# Resolve the orvex installation directory (line ~10 per ADR-013)
-FRAMEWORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve the orvex installation directory — follow symlinks (line ~10 per ADR-013)
+_SELF="${BASH_SOURCE[0]}"
+while [ -L "$_SELF" ]; do _SELF="$(readlink "$_SELF")"; done
+FRAMEWORK_DIR="$(cd "$(dirname "$_SELF")" && pwd)"
+unset _SELF
 
 BOLD='\033[1m'
 GREEN='\033[0;32m'
