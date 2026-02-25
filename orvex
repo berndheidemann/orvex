@@ -69,9 +69,13 @@ case "$CMD" in
     # Export FRAMEWORK_DIR so loop_dev.sh can find templates/AGENT_EDU.md (ADR-013)
     export FRAMEWORK_DIR
 
-    # Start the loop in background with TUI event writing enabled
+    # Start the loop in background with TUI event writing enabled.
+    # Redirect stdout/stderr to a log file — the TUI shows everything via
+    # events.jsonl; raw loop output would bleed into the terminal otherwise.
+    LOG_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/orvex-loop.log"
+    mkdir -p "$(dirname "$LOG_FILE")"
     export ORVEX_TUI=1
-    "$LOOP_SCRIPT" "$@" &
+    "$LOOP_SCRIPT" "$@" > "$LOG_FILE" 2>&1 &
     LOOP_PID=$!
 
     # Start the TUI dashboard in foreground (handles keyboard input)
