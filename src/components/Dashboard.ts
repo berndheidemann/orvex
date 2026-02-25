@@ -498,10 +498,17 @@ export function Dashboard(): React.ReactElement {
   const effectiveReqId = currentReq ?? activeReqId;
   const reqTitle = effectiveReqId ? (prdTitles[effectiveReqId] ?? "") : "";
 
-  // Build feed: tool:call + loop:phase + iteration:start events interleaved in arrival order
+  // Build feed: tool:call + loop:phase + iteration:start events interleaved in arrival order.
+  // Per iteration, keep only the LAST iteration:start (it has the real reqId after preflight).
+  // Earlier ones (emitted before preflight with reqId:null) are replaced by the later one.
+  const iterStartLastIdx = new Map<number, number>(); // iter → last index of iteration:start
+  events.forEach((ev, idx) => { if (ev.type === "iteration:start") iterStartLastIdx.set(ev.iter, idx); });
   const feedItems = events.filter(
-    (ev): ev is FeedItem =>
-      ev.type === "tool:call" || ev.type === "loop:phase" || ev.type === "iteration:start"
+    (ev, idx): ev is FeedItem => {
+      if (ev.type === "tool:call" || ev.type === "loop:phase") return true;
+      if (ev.type === "iteration:start") return iterStartLastIdx.get(ev.iter) === idx;
+      return false;
+    }
   );
   // tool:call-only slice for currentModel lookup
   const toolEvents = events.filter((ev): ev is ToolCall => ev.type === "tool:call");
