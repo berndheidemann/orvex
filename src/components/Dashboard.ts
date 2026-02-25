@@ -495,7 +495,9 @@ export function Dashboard(): React.ReactElement {
 
   const activeEntry = entries.find(([, req]) => req.status === "in_progress");
   const activeReqId = activeEntry ? activeEntry[0] : null;
-  const effectiveReqId = currentReq ?? activeReqId;
+  // Prefer activeReqId (from status.json) over currentReq (iter label like CONT-DIFF-001-012)
+  // so the top bar shows the specific in-progress REQ, not the batch label.
+  const effectiveReqId = activeReqId ?? currentReq;
   const reqTitle = effectiveReqId ? (prdTitles[effectiveReqId] ?? "") : "";
 
   // Build feed: tool:call + loop:phase + iteration:start events interleaved in arrival order.
@@ -627,7 +629,7 @@ export function Dashboard(): React.ReactElement {
         h(ActivityFeed, {
           feedItems,
           currentIter: displayIter,
-          currentReq: currentReq ?? activeReqId,
+          currentReq: activeReqId ?? currentReq,
           model: currentModel,
           rows,
         }),
