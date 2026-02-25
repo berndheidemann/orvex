@@ -14,7 +14,7 @@ import { ContextEditor } from "./ContextEditor.ts";
 import { ProgressBar } from "./ProgressBar.ts";
 import { STATUS_COLORS } from "../types.ts";
 import type { IterationEntry } from "../types.ts";
-import type { ToolCall, SystemEvent, LoopEvent } from "../events.ts";
+import type { ToolCall, LoopPhaseEvent, SystemEvent, LoopEvent } from "../events.ts";
 import { AGENT_DIR } from "../lib/agentDir.ts";
 import { runClaude } from "../lib/runClaude.ts";
 
@@ -131,17 +131,33 @@ function BlockedDetail(props: {
   );
 }
 
+type FeedItem = ToolCall | LoopPhaseEvent;
+
+const PHASE_HEADER_COLORS: Record<string, string> = {
+  preflight:       "gray",
+  implementing:    "yellow",
+  validating:      "cyan",
+  post_processing: "green",
+};
+
+const PHASE_HEADER_LABELS: Record<string, string> = {
+  preflight:       "PREFLIGHT",
+  implementing:    "IMPLEMENTING",
+  validating:      "VALIDATING",
+  post_processing: "POST-PROCESSING",
+};
+
 function ActivityFeed(props: {
-  toolEvents: ToolCall[];
+  feedItems: FeedItem[];
   currentIter: number;
   currentReq: string | null;
   model: string;
   rows: number;
   isActive?: boolean;
 }): React.ReactElement {
-  const { toolEvents, currentIter, currentReq, model, rows, isActive = true } = props;
+  const { feedItems, currentIter, currentReq, model, rows, isActive = true } = props;
   const [scrollOffset, setScrollOffset] = useState(0);
-  const prevLenRef = useRef(toolEvents.length);
+  const prevLenRef = useRef(feedItems.length);
   const prevIterRef = useRef(currentIter);
 
   // Auto-scroll to latest when a new iteration starts
@@ -154,23 +170,22 @@ function ActivityFeed(props: {
 
   // Auto-scroll: when new events arrive and user is at bottom, stay there
   useEffect(() => {
-    const newLen = toolEvents.length;
+    const newLen = feedItems.length;
     if (prevLenRef.current !== newLen) {
       prevLenRef.current = newLen;
-      // Only auto-scroll if already at bottom (offset 0)
       if (scrollOffset === 0) setScrollOffset(0); // no-op but triggers recalc
     }
-  }, [toolEvents.length, scrollOffset]);
+  }, [feedItems.length, scrollOffset]);
 
   const maxVisible = Math.max(3, rows - FEED_OVERHEAD);
-  const total = toolEvents.length;
+  const total = feedItems.length;
   const maxOffset = Math.max(0, total - maxVisible);
   const clampedOffset = Math.min(scrollOffset, maxOffset);
   const isAutoScroll = clampedOffset === 0;
 
   const end = total - clampedOffset;
   const start = Math.max(0, end - maxVisible);
-  const shown = toolEvents.slice(start, end);
+  const shown = feedItems.slice(start, end);
 
   useInput((_input, key) => {
     if (key.upArrow) {
@@ -179,6 +194,8 @@ function ActivityFeed(props: {
       setScrollOffset((prev: number) => Math.max(0, prev - 1));
     }
   }, { isActive });
+
+  const hasToolCalls = feedItems.some((ev) => ev.type === "tool:call");
 
   return h(
     Box,
@@ -191,24 +208,29 @@ function ActivityFeed(props: {
           `▶ Iter ${currentIter}${currentReq ? ` · ${currentReq}` : ""}${model ? ` · ${model}` : ""}`,
         )
       : h(Text, { dimColor: true }, "(waiting for first iteration…)"),
-    // Tool-call feed
-    shown.length === 0
+    // Feed
+    !hasToolCalls
       ? h(Text, { dimColor: true }, "(no tool calls yet)")
       : h(
           Box,
           { flexDirection: "column" },
-          ...shown.map((ev, idx) =>
-            h(
+          ...shown.map((ev, idx) => {
+            if (ev.type === "loop:phase") {
+              const label = PHASE_HEADER_LABELS[ev.phase] ?? ev.phase.toUpperCase();
+              const color = PHASE_HEADER_COLORS[ev.phase] ?? "white";
+              return h(
+                Text,
+                { key: String(start + idx), bold: true, color: color as Parameters<typeof Text>[0]["color"] },
+                `── ${label} ──`,
+              );
+            }
+            return h(
               Box,
               { key: String(start + idx) },
-              h(
-                Text,
-                { color: CATEGORY_COLORS[ev.category] ?? "white" },
-                `[${ev.category}]  `,
-              ),
+              h(Text, { color: CATEGORY_COLORS[ev.category] ?? "white" }, `[${ev.category}]  `),
               h(Text, { dimColor: true }, ev.summary.replace(/\s*\n\s*/g, " ").slice(0, FEED_SUMMARY_MAX_LEN)),
-            )
-          ),
+            );
+          }),
         ),
     // Scroll indicator (only when scrolled up)
     !isAutoScroll
@@ -468,7 +490,11 @@ export function Dashboard(): React.ReactElement {
   const effectiveReqId = currentReq ?? activeReqId;
   const reqTitle = effectiveReqId ? (prdTitles[effectiveReqId] ?? "") : "";
 
-  // Extract tool:call events and current model (needed for phase gate below)
+  // Build feed: tool:call + loop:phase events interleaved in arrival order
+  const feedItems = events.filter(
+    (ev): ev is FeedItem => ev.type === "tool:call" || ev.type === "loop:phase"
+  );
+  // tool:call-only slice for currentModel lookup
   const toolEvents = events.filter((ev): ev is ToolCall => ev.type === "tool:call");
 
   // Phase tracking — livePhase kommt aus useEventsReader (eigener State,
@@ -584,7 +610,7 @@ export function Dashboard(): React.ReactElement {
         h(Text, { bold: true, color: "white" }, "Activity Feed"),
         h(Text, { dimColor: true }, "─".repeat(30)),
         h(ActivityFeed, {
-          toolEvents,
+          feedItems,
           currentIter: displayIter,
           currentReq: currentReq ?? activeReqId,
           model: currentModel,
