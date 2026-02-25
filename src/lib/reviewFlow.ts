@@ -189,8 +189,11 @@ export async function runReviewSequence(
   handle: ReviewFlowHandle,
   items: ReviewItem[],
   fileContent: string,
-  options?: { existing?: boolean; alwaysReview?: boolean },
+  options?: { existing?: boolean; alwaysReview?: boolean; signal?: AbortSignal },
 ): Promise<void> {
+  // If already aborted, skip the entire review sequence
+  if (options?.signal?.aborted) return;
+
   handle.setSynthDone({
     items,
     fileContent,
@@ -198,12 +201,27 @@ export async function runReviewSequence(
   });
   const doReview = await new Promise<boolean>((resolve) => {
     handle.synthDoneConfirmRef.current = resolve;
+    // Resolve with false (skip) if the parent flow is aborted
+    if (options?.signal) {
+      const onAbort = () => { resolve(false); };
+      if (options.signal.aborted) { resolve(false); return; }
+      options.signal.addEventListener("abort", onAbort, { once: true });
+    }
   });
   handle.setSynthDone(null);
+
+  if (options?.signal?.aborted) return;
+
   if ((options?.alwaysReview || doReview) && items.length > 0) {
     handle.setReviewSynced((_prev) => makeInitialReviewState(items, fileContent));
     await new Promise<void>((resolve) => {
       handle.reviewDoneRef.current = resolve;
+      // Resolve immediately if the parent flow is aborted
+      if (options?.signal) {
+        const onAbort = () => { resolve(); };
+        if (options.signal.aborted) { resolve(); return; }
+        options.signal.addEventListener("abort", onAbort, { once: true });
+      }
     });
     handle.setReviewSynced((_prev) => null);
   }

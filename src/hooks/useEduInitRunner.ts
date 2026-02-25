@@ -276,7 +276,7 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
           // Skip generation, offer review of existing file
           const existingContent = await Deno.readTextFile(LERNSITUATION_OUTPUT_PATH).catch(() => "");
           const existingSections = parseSections(existingContent);
-          await runReviewSequence(lernTarget, existingSections, existingContent, { existing: true });
+          await runReviewSequence(lernTarget, existingSections, existingContent, { existing: true, signal: ctrl.signal });
         } else {
           await runDebatePhase(
             {
@@ -310,7 +310,7 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
 
           const lernsituationContent = await Deno.readTextFile(LERNSITUATION_OUTPUT_PATH).catch(() => "");
           const lernsituationSections = parseSections(lernsituationContent);
-          await runReviewSequence(lernTarget, lernsituationSections, lernsituationContent);
+          await runReviewSequence(lernTarget, lernsituationSections, lernsituationContent, { signal: ctrl.signal });
         }
 
         // ── Phase 1.5: Drehbuch-Synthese → lernpfad.md ─────────────
@@ -360,7 +360,7 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
           // PRD already generated — skip debate, offer review of existing file
           const existingPrd = await Deno.readTextFile(EDU_PRD_OUTPUT_PATH).catch(() => "");
           const existingReqs = parseReqs(existingPrd);
-          await runReviewSequence(prdTarget, existingReqs, existingPrd, { existing: true });
+          await runReviewSequence(prdTarget, existingReqs, existingPrd, { existing: true, signal: ctrl.signal });
         } else {
           const [lernkontextRaw, lernsituationRaw, lernpfadRaw] = await Promise.all([
             Deno.readTextFile("learning-context.md").catch(() => ""),
@@ -399,7 +399,7 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
 
           const prdContent = await Deno.readTextFile(EDU_PRD_OUTPUT_PATH).catch(() => "");
           const prdItems = parseReqs(prdContent);
-          await runReviewSequence(prdTarget, prdItems, prdContent);
+          await runReviewSequence(prdTarget, prdItems, prdContent, { signal: ctrl.signal });
         }
 
         // ── Phase 3: Arch-Debate → architecture.md ──────────────────
@@ -427,7 +427,7 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
 
         const archContent = await Deno.readTextFile(ARCH_OUTPUT_PATH).catch(() => "");
         const archItems = parseAdrs(archContent);
-        await runReviewSequence(archTarget, archItems, archContent);
+        await runReviewSequence(archTarget, archItems, archContent, { signal: ctrl.signal });
 
         // ── Inject REQ-000 Walking Skeleton ──────────────────────────
         const statusPath = `${AGENT_DIR}/status.json`;
