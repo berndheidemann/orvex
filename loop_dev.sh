@@ -217,8 +217,8 @@ init_status_json() {
 /^- [*][*]Gr/ {
   s = $0; sub(/.*e:[*][*] */, "", s); sub(/[[:space:]]*$/, "", s); size = s
 }
-/^- [*][*]Abh/ {
-  s = $0; sub(/.*von:[*][*] */, "", s); sub(/[[:space:]]*$/, "", s); deps = s
+/^- [*][*](Abh|Dep)/ {
+  s = $0; sub(/^.*:[*][*] */, "", s); sub(/[[:space:]]*$/, "", s); deps = s
 }
 END {
   if (req != "") printf "%s\t%s\t%s\t%s\t%s\n", req, status, prio, size, deps
@@ -269,8 +269,8 @@ sync_status_json() {
 /^- [*][*]Gr/ {
   s = $0; sub(/.*e:[*][*] */, "", s); sub(/[[:space:]]*$/, "", s); size = s
 }
-/^- [*][*]Abh/ {
-  s = $0; sub(/.*von:[*][*] */, "", s); sub(/[[:space:]]*$/, "", s); deps = s
+/^- [*][*](Abh|Dep)/ {
+  s = $0; sub(/^.*:[*][*] */, "", s); sub(/[[:space:]]*$/, "", s); deps = s
 }
 END {
   if (req != "") printf "%s\t%s\t%s\t%s\t%s\n", req, status, prio, size, deps
@@ -315,6 +315,21 @@ AWKEOF
   fi
 
   rm -f "$awk_tmp"
+}
+
+check_prd_bundle_notation() {
+  [ -f "$PRD_FILE" ] || return
+  # Detect range notation like CONT-DIFF-001–012 (en-dash or em-dash between digits)
+  local bundles
+  bundles=$(grep -n '^### \(REQ\|CONT\)-[^ :]*[–—][0-9]' "$PRD_FILE" 2>/dev/null || true)
+  if [ -n "$bundles" ]; then
+    echo -e "  ${RED}${BOLD}ERROR: Bundle-Notation in PRD.md — Loop abgebrochen${RESET}"
+    while IFS= read -r line; do
+      echo -e "  ${RED}  $line${RESET}"
+    done <<< "$bundles"
+    echo -e "  ${YELLOW}  Jede Teilaufgabe als eigene REQ-ID anlegen, z.B. CONT-DIFF-001, CONT-DIFF-002, ...${RESET}"
+    exit 1
+  fi
 }
 
 count_open_reqs() {
@@ -1038,6 +1053,7 @@ SANDBOX_LABEL=""
 echo -e "${BOLD}Orvex Agent Loop${RESET}  ${DIM}model=${MODEL}  max=$([ "$MAX_ITERATIONS" -eq 0 ] && echo '∞' || echo "$MAX_ITERATIONS")  idle=$(format_duration "$IDLE_TIMEOUT")  hard=$(format_duration "$ITER_TIMEOUT")${RESET}${SANDBOX_LABEL}"
 
 # ── Pre-loop: init + recovery + branch ──────────────────────
+check_prd_bundle_notation
 init_status_json
 sync_status_json
 

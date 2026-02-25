@@ -43,6 +43,16 @@ Phase 2: PRD-Debate
     CONT-DIFF-NNNB  Erweiterungsniveau    (zu einem CONT-EXPL/TASK)
     REQ-NNN         Technische Komponente (Quiz-Baustein, Fortschrittsanzeige, etc.)
 
+  VERBOTEN — Bundle-Notation:
+    ### CONT-DIFF-001–012   ← FALSCH: orvex behandelt das als eine atomare REQ.
+                               Der Loop weist dieselbe REQ dutzende Iterationen
+                               zu, ohne je "done" zu erreichen.
+
+  KORREKT — jede Teilaufgabe als eigene REQ:
+    ### CONT-DIFF-001: Challenge Stunde 1 — ...
+    ### CONT-DIFF-002: Challenge Stunde 2 — ...
+    ...jede mit eigenen Akzeptanzkriterien.
+
 Phase 3: Arch-Debate  (unverändert)
   Output: architecture.md
           (entscheidet u.a. Content-Format: MDX / JSON / Frontmatter-Schema)
