@@ -13,6 +13,36 @@ LOOP_SCRIPT="$FRAMEWORK_DIR/loop_dev.sh"
 TUI_BIN="$FRAMEWORK_DIR/orvex-tui"
 TEMPLATES_DIR="$FRAMEWORK_DIR/templates"
 
+# ── Post-init scaffolding ─────────────────────────────────────
+# Copies template files, initializes git, and creates initial commit
+# after init or edu-init. Safe to call multiple times — all steps are
+# guarded by existence checks.
+post_init_scaffold() {
+  # Only run if PRD.md was generated (init succeeded)
+  [ -f PRD.md ] || return 0
+
+  # Copy template files (skip if already present — user may have customized)
+  for f in AGENT.md VALIDATOR.md REFACTOR.md REFACTOR_TEMPLATE.md; do
+    if [ ! -f "$f" ] && [ -f "$TEMPLATES_DIR/$f" ]; then
+      cp "$TEMPLATES_DIR/$f" "$f"
+      echo "  ✅  $f"
+    fi
+  done
+
+  # Init git repo if none exists
+  if ! git rev-parse --git-dir >/dev/null 2>&1; then
+    git init -q
+    echo "  ✅  git init"
+  fi
+
+  # Initial commit if no commits yet
+  if ! git rev-parse HEAD >/dev/null 2>&1; then
+    git add -A
+    git commit -q -m "chore: orvex init — PRD + architecture"
+    echo "  ✅  Initial commit"
+  fi
+}
+
 # ── Edu-Init logic ────────────────────────────────────────────
 do_edu_init() {
   if ! git -C . rev-parse --git-dir > /dev/null 2>&1; then
@@ -24,6 +54,8 @@ do_edu_init() {
 
   ORVEX_AGENT_DIR="$(pwd)/.agent" \
   "$TUI_BIN" --edu-init
+
+  post_init_scaffold
 
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -71,6 +103,8 @@ do_init() {
   ORVEX_INIT_MODE=1 \
   ORVEX_AGENT_DIR="$(pwd)/.agent" \
   "$TUI_BIN"
+
+  post_init_scaffold
 
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
