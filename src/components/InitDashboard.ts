@@ -448,11 +448,35 @@ export function RunnerDashboard(props: RunnerDashboardProps): React.ReactElement
   }
 
   if (error) {
+    // Strip "Error: " prefix added by String(e) on Error objects
+    const errMsg = error.replace(/^Error:\s*/, "");
+    const lower = errMsg.toLowerCase();
+
+    let errTitle = "Fehler";
+    let errHint: string | null = null;
+    if (lower.includes("expired") || lower.includes("oauth") || lower.includes("authenticat")) {
+      errTitle = "Fehler — Authentifizierung";
+      errHint = "claude /login  →  dann orvex neu starten";
+    } else if (lower.includes("timed out") || lower.includes("timeout")) {
+      errTitle = "Fehler — Timeout";
+      errHint = "orvex neu starten — der Prozess setzt fort wo er aufgehört hat";
+    } else if (lower.includes("rate limit") || lower.includes("overloaded")) {
+      errTitle = "Fehler — Rate Limit";
+      errHint = "Kurz warten, dann orvex neu starten";
+    }
+
     return h(
       Box,
       { flexDirection: "column", padding: 1 },
-      h(Text, { color: "red", bold: true }, "⚠  Error"),
-      h(Text, {}, error),
+      h(Text, { color: "red", bold: true }, `⚠  ${errTitle}`),
+      h(Text, {}, ""),
+      h(Text, { wrap: "wrap" }, errMsg),
+      errHint
+        ? h(Box, { flexDirection: "column", marginTop: 1 },
+            h(Text, { dimColor: true }, "─".repeat(Math.min(columns, 50))),
+            h(Text, { color: "yellow" }, `→  ${errHint}`),
+          )
+        : null,
       liveLines.length > 0
         ? h(
             Box,

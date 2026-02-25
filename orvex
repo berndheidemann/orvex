@@ -25,6 +25,32 @@ do_edu_init() {
   ORVEX_AGENT_DIR="$(pwd)/.agent" \
   "$TUI_BIN" --edu-init
 
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  ⚠️   Bitte vor dem ersten Start sorgfältig prüfen:"
+  echo ""
+  echo "  LERNSITUATION.md"
+  echo "    • Lernziele vollständig und klar formuliert?"
+  echo "    • Lernphasen und Zeitplanung realistisch?"
+  echo "    • Differenzierungsmaßnahmen passend?"
+  echo ""
+  echo "  PRD.md"
+  echo "    • Alle wichtigen Features erfasst?"
+  echo "    • Akzeptanzkriterien präzise und testbar?"
+  echo "    • Prioritäten korrekt?  (P0 = MVP · P1 = wichtig · P2 = nice-to-have)"
+  echo ""
+  if [ -f architecture.md ] && grep -q 'ADR-' architecture.md 2>/dev/null; then
+    echo "  architecture.md"
+    echo "    • Tech-Stack für das Projekt geeignet?"
+    echo "    • Architektur-Entscheidungen nachvollziehbar?"
+    echo "    • Projektstruktur sinnvoll?"
+    echo ""
+  fi
+  echo "  KI-Entwürfe sind ein Ausgangspunkt —"
+  echo "  kein Ersatz für eigenes Domänenwissen."
+  echo ""
+  echo "  Wenn bereit: orvex erneut aufrufen"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   exit 0
 }
 

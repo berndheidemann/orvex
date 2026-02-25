@@ -192,9 +192,11 @@ function EduRunner(props: {
 
 export function EduInitDashboard(props: {
   lernsituationExists: boolean;
+  lernpfadExists: boolean;
+  prdExists: boolean;
   onDone?: () => void;
 }): React.ReactElement {
-  const { lernsituationExists, onDone } = props;
+  const { lernsituationExists, lernpfadExists, prdExists, onDone } = props;
   const [config, setConfig] = useState<EduInitConfig | null>(null);
   const projectContext = useProjectContext();
 
@@ -203,7 +205,7 @@ export function EduInitDashboard(props: {
   }
 
   return h(EduRunner, {
-    config: { ...config, lernsituationExists },
+    config: { ...config, lernsituationExists, lernpfadExists, prdExists },
     onDone,
   });
 }
