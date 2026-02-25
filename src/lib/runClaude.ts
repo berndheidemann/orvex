@@ -128,7 +128,13 @@ export async function runClaude(
     reader.releaseLock();
   }
 
-  await drainStderr;
+  // Race drainStderr against a timeout — if the subprocess holds stderr
+  // open (e.g. zombie child, stuck pipe), we don't want to hang forever.
+  const DRAIN_TIMEOUT_MS = 10_000;
+  await Promise.race([
+    drainStderr,
+    new Promise<void>((resolve) => setTimeout(resolve, DRAIN_TIMEOUT_MS)),
+  ]);
 
   // Fallback: use result event text if no assistant content was captured
   if (!fullText.trim() && resultFallback.trim()) {
