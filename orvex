@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# orvex — Autonomous agent loop with live TUI dashboard
+#
+# Usage:
+#   orvex              # Start loop + TUI dashboard
+#   orvex N            # Max N iterations
+#   orvex init         # Interactive project init (PRD + architecture)
+#   orvex edu-init     # Interactive edu-init (LERNSITUATION + PRD + architecture)
+#   orvex --help       # Show loop help
+
+set -euo pipefail
+
+# Resolve the orvex installation directory (line ~10 per ADR-013)
+FRAMEWORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+BOLD='\033[1m'
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+YELLOW='\033[0;33m'
+RED='\033[0;31m'
+RESET='\033[0m'
+
+TUI_BIN="$FRAMEWORK_DIR/orvex-tui"
+LOOP_SCRIPT="$FRAMEWORK_DIR/loop_dev.sh"
+
+# Validate installation
+if [ ! -x "$TUI_BIN" ]; then
+  echo -e "${RED}Error: orvex-tui binary not found at $TUI_BIN${RESET}"
+  echo -e "  Run: cd $FRAMEWORK_DIR && deno task build"
+  exit 1
+fi
+if [ ! -f "$LOOP_SCRIPT" ]; then
+  echo -e "${RED}Error: loop_dev.sh not found at $LOOP_SCRIPT${RESET}"
+  exit 1
+fi
+
+CMD="${1:-}"
+
+case "$CMD" in
+  init)
+    shift
+    ORVEX_INIT_MODE=1 exec "$TUI_BIN"
+    ;;
+
+  edu-init)
+    exec "$TUI_BIN" --edu-init
+    ;;
+
+  -h|--help)
+    # Show loop help directly (no TUI needed)
+    cd "$(pwd)"
+    exec "$LOOP_SCRIPT" --help
+    ;;
+
+  *)
+    # ── Loop mode ──────────────────────────────────────────────────────────
+
+    # Validate PRD if present (ADR-012: accept REQ-NNN and CONT-NNN)
+    if [ -f PRD.md ] && ! grep -qE '^### (REQ|CONT)-' PRD.md 2>/dev/null; then
+      echo -e "${RED}${BOLD}Error: PRD.md found but contains no requirements${RESET}"
+      echo -e "  Expected headings like ${CYAN}### REQ-001${RESET} or ${CYAN}### CONT-EXPL-001${RESET}"
+      echo -e "  Run ${BOLD}orvex init${RESET} or ${BOLD}orvex edu-init${RESET} to generate a valid PRD.md"
+      exit 1
+    fi
+
+    # Export FRAMEWORK_DIR so loop_dev.sh can find templates/AGENT_EDU.md (ADR-013)
+    export FRAMEWORK_DIR
+
+    # Start the loop in background with TUI event writing enabled
+    export ORVEX_TUI=1
+    "$LOOP_SCRIPT" "$@" &
+    LOOP_PID=$!
+
+    # Start the TUI dashboard in foreground (handles keyboard input)
+    "$TUI_BIN" || true
+
+    # When TUI exits (user pressed q or loop finished), stop the loop
+    kill "$LOOP_PID" 2>/dev/null || true
+    wait "$LOOP_PID" 2>/dev/null || true
+    ;;
+esac
