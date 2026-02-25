@@ -106,6 +106,7 @@ USAGE
   orvex                 Start (or resume) the agent loop in the current project
   orvex init            Create PRD.md / architecture.md interactively, then start
   orvex edu-init        Create a didactic learning situation (LERNSITUATION.md)
+  orvex --reset         Wipe .agent/ state (status, events, logs) and start fresh
   orvex help            Show this help
 
 DASHBOARD KEYS
@@ -147,6 +148,17 @@ fi
 # ── orvex edu-init ────────────────────────────────────────────
 if [ "${1:-}" = "edu-init" ]; then
   do_edu_init
+fi
+
+# ── orvex --reset ─────────────────────────────────────────────
+if [ "${1:-}" = "--reset" ] || [ "${1:-}" = "reset" ]; then
+  if [ -d .agent ]; then
+    rm -rf .agent
+    echo "✅  .agent/ removed — status, events, and logs cleared"
+  else
+    echo "Nothing to reset — .agent/ does not exist"
+  fi
+  exit 0
 fi
 
 # ── Validation ────────────────────────────────────────────────
