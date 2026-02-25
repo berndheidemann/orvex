@@ -85,10 +85,6 @@ export function useEventsReader(intervalMs: number = 500): EventsState {
               if (ev.reqId) {
                 iterToReqRef.current[ev.iter] = ev.reqId;
               }
-            } else if (ev.type === "req:status" && ev.to === "in_progress") {
-              // REQ wurde vom Agenten als aktiv markiert — zuverlässiger als iteration:start.reqId
-              setCurrentReq(ev.reqId);
-              iterToReqRef.current[ev.iter] = ev.reqId;
             } else if (ev.type === "loop:phase") {
               setCurrentIter((prev: number) => Math.max(prev, ev.iter));
               setCurrentPhase(ev.phase);
