@@ -25,6 +25,37 @@ RESET='\033[0m'
 
 TUI_BIN="$FRAMEWORK_DIR/orvex-tui"
 LOOP_SCRIPT="$FRAMEWORK_DIR/loop_dev.sh"
+TEMPLATES_DIR="$FRAMEWORK_DIR/templates"
+
+# ── Post-init scaffolding ─────────────────────────────────────
+# Copies template files, initializes git, and creates initial commit
+# after init or edu-init. Safe to call multiple times — all steps are
+# guarded by existence checks.
+post_init_scaffold() {
+  # Only run if PRD.md was generated (init succeeded)
+  [ -f PRD.md ] || return 0
+
+  # Copy template files (skip if already present — user may have customized)
+  for f in AGENT.md VALIDATOR.md REFACTOR.md REFACTOR_TEMPLATE.md; do
+    if [ ! -f "$f" ] && [ -f "$TEMPLATES_DIR/$f" ]; then
+      cp "$TEMPLATES_DIR/$f" "$f"
+      echo "  ✅  $f"
+    fi
+  done
+
+  # Init git repo if none exists
+  if ! git rev-parse --git-dir >/dev/null 2>&1; then
+    git init -q
+    echo "  ✅  git init"
+  fi
+
+  # Initial commit if no commits yet
+  if ! git rev-parse HEAD >/dev/null 2>&1; then
+    git add -A
+    git commit -q -m "chore: orvex init — PRD + architecture"
+    echo "  ✅  Initial commit"
+  fi
+}
 
 # Validate installation
 if [ ! -x "$TUI_BIN" ]; then
@@ -42,11 +73,23 @@ CMD="${1:-}"
 case "$CMD" in
   init)
     shift
-    ORVEX_INIT_MODE=1 exec "$TUI_BIN"
+    ORVEX_INIT_MODE=1 "$TUI_BIN"
+    post_init_scaffold
     ;;
 
   edu-init)
-    exec "$TUI_BIN" --edu-init
+    "$TUI_BIN" --edu-init
+    post_init_scaffold
+    ;;
+
+  --reset|reset)
+    if [ -d .agent ]; then
+      rm -rf .agent
+      echo "✅  .agent/ removed — status, events, and logs cleared"
+    else
+      echo "Nothing to reset — .agent/ does not exist"
+    fi
+    exit 0
     ;;
 
   -h|--help)
