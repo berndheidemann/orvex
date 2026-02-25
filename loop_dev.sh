@@ -1235,7 +1235,7 @@ while :; do
   fi
 
   # Emit iteration:start event
-  _iter_req_id=$(echo "${NEXT_REQ_HINT:-}" | grep -Eo 'REQ-[0-9]+[a-z]?' | head -1 || true)
+  _iter_req_id=$(echo "${NEXT_REQ_HINT:-}" | sed 's/^### \([^:]*\):.*/\1/' || true)
   _iter_mode="implement"
   [ "$IS_VALIDATION" -eq 1 ] && _iter_mode="validate"
   emit_event "$(jq -nc \
