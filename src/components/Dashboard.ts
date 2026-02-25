@@ -500,9 +500,8 @@ export function Dashboard(): React.ReactElement {
   // Phase tracking — livePhase kommt aus useEventsReader (eigener State,
   // nicht aus dem gekürzten events-Puffer) und bleibt korrekt auch wenn
   // loop:phase Events aus dem MAX_EVENTS-Limit herausfallen.
-  // Phase wird nur angezeigt, wenn ein REQ aktiv ist (livePhase wird bei
-  // iteration:end auf null gesetzt, daher kein Stale-Problem zwischen Iterationen).
-  const currentPhase = effectiveReqId ? livePhase : null;
+  // Kein Gate nötig: livePhase wird bei iteration:end auf null gesetzt.
+  const currentPhase = livePhase;
   const phaseStep = currentPhase ? (PHASE_STEPS[currentPhase] ?? 0) : 0;
 
   // Progress bar width: ~1/3 terminal width
@@ -644,7 +643,7 @@ export function Dashboard(): React.ReactElement {
         effectiveReqId ? "▶" : " "),
       effectiveReqId
         ? h(Text, { bold: true }, effectiveReqId)
-        : h(Text, { dimColor: true }, "(waiting for loop to start…)"),
+        : h(Text, { dimColor: true }, displayIter > 0 ? " " : "(waiting for loop to start…)"),
       effectiveReqId && reqTitle
         ? h(Text, {}, `·  ${reqTitle.slice(0, 55)}`)
         : null,
