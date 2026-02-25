@@ -6,48 +6,9 @@ Orvex orchestrates Claude Code to implement requirements iteratively — one REQ
 
 ```
 orvex init        # generate PRD + architecture interactively
+orvex edu-init    # generate a didactic learning situation (edu workflow)
 orvex             # start the loop
 ```
-
----
-
-## How it works
-
-### `orvex init`
-
-You describe your project. Three specialized agents (Product Manager, UX Researcher, Business Analyst) debate requirements across multiple rounds, then a synthesis model distills the discussion into a structured `PRD.md`. The same debate-and-synthesize pattern produces `architecture.md` via a second panel of agents (Software Architect, Senior Developer, DevOps Engineer). You review and edit both interactively before anything gets built. A **Walking Skeleton** REQ is automatically prepended — it sets up the full tech stack first and every other REQ depends on it.
-
-![orvex init flow](orvex-init-concept.svg)
-
-### `orvex` (loop)
-
-`loop_dev.sh` picks the next open requirement in priority order, calls Claude Sonnet to implement it, verifies the result (build + tests + linter), and commits. Every N iterations Claude Opus independently audits all completed requirements and can revert them if they fail. Built-in safeguards prevent the loop from getting stuck or producing phantom progress.
-
-![orvex agent loop](orvex-agent-loop-concept.svg)
-
-### TUI
-
-`orvex-tui` renders a live dashboard with progress bars, a cost-tracked activity feed, and keyboard controls (pause / skip / edit context / quit).
-
-```
-orvex
- ├─ spawns loop_dev.sh  (background)
- └─ launches orvex-tui  (foreground)
-       │
-       ├─ polls  .agent/status.json       (REQ progress)
-       ├─ reads  .agent/iterations.jsonl  (events)
-       └─ sends  .agent/control.fifo      (p / s / e / q)
-```
-
----
-
-## Prerequisites
-
-| Tool | Purpose |
-|------|---------|
-| [Claude Code CLI](https://docs.anthropic.com/claude-code) (`claude`) | AI agent execution |
-| [Deno](https://deno.land) ≥ 2 | Build the TUI binary |
-| `bash`, `jq`, `git` | Loop orchestration |
 
 ---
 
@@ -94,6 +55,61 @@ The loop starts. The TUI shows live progress.
 
 ---
 
+## How it works
+
+### `orvex init`
+
+You describe your project. Three specialized agents (Product Manager, UX Researcher, Business Analyst) debate requirements across multiple rounds, then a synthesis model distills the discussion into a structured `PRD.md`. The same debate-and-synthesize pattern produces `architecture.md` via a second panel of agents (Software Architect, Senior Developer, DevOps Engineer). You review and edit both interactively before anything gets built. A **Walking Skeleton** REQ is automatically prepended — it sets up the full tech stack first and every other REQ depends on it.
+
+![orvex init flow](orvex-init-concept.svg)
+
+### `orvex edu-init`
+
+For building interactive educational learning experiences. Three pedagogical agents (Fachsystematiker, Lernprozess-Advokat, Realitäts-Constraint-Agent) debate and produce `LERNSITUATION.md` with learning objectives (Bloom taxonomy), differentiation plan, and cognitive load analysis. A synthesis step generates `lernpfad.md` (lesson sequence with timing). A second debate panel (Fachlehrkraft, Lerndesigner, Didaktik-Analyst) translates this into a `PRD.md` with edu-specific requirement types:
+
+| Type | Meaning |
+|------|---------|
+| `CONT-EXPL-NNN` | Explanatory text (Bloom level annotated) |
+| `CONT-TASK-NNN` | Exercise / task (calculation, case study, reflection) |
+| `CONT-DIAG-NNN` | Diagnostic task (maps to a misconception) |
+| `CONT-DIFF-NNNA/B` | Differentiation variant (basic / advanced level) |
+| `REQ-NNN` | Technical component (quiz engine, progress tracking, …) |
+
+After `edu-init`, run `orvex` as usual — the loop implements all REQ and CONT requirements.
+
+### `orvex` (loop)
+
+`loop_dev.sh` picks the next open requirement in priority order, calls Claude Sonnet to implement it, verifies the result (build + tests + linter), and commits. Every N iterations Claude Opus independently audits all completed requirements and can revert them if they fail. Built-in safeguards prevent the loop from getting stuck or producing phantom progress.
+
+![orvex agent loop](orvex-agent-loop-concept.svg)
+
+### TUI
+
+`orvex-tui` renders a live dashboard: active REQ with title and current phase at the top, cost-tracked runtime stats, REQ and phase progress bars, a scrollable activity feed with phase headers (preflight / implementing / validating / post-processing), and keyboard controls.
+
+```
+orvex
+ ├─ spawns loop_dev.sh  (background)
+ └─ launches orvex-tui  (foreground)
+       │
+       ├─ polls  .agent/status.json       (REQ progress)
+       ├─ reads  .agent/events.jsonl      (live event stream)
+       ├─ reads  .agent/iterations.jsonl  (iteration summaries)
+       └─ sends  .agent/control.fifo      (p / s / e / q)
+```
+
+---
+
+## Prerequisites
+
+| Tool | Purpose |
+|------|---------|
+| [Claude Code CLI](https://docs.anthropic.com/claude-code) (`claude`) | AI agent execution |
+| [Deno](https://deno.land) ≥ 2 | Build the TUI binary |
+| `bash`, `jq`, `git` | Loop orchestration |
+
+---
+
 ## PRD format
 
 Requirements live in `PRD.md` and follow this structure:
@@ -128,6 +144,7 @@ Dependencies are respected — a REQ only starts when all `Depends on` entries a
 | `p` | Pause / resume loop |
 | `s` | Skip current REQ |
 | `e` | Edit `.agent/context.md` inline |
+| `r` | Toggle requirement focus mode (navigate list, scroll detail) |
 | `q` | Quit |
 
 ---
@@ -160,9 +177,8 @@ Orvex stores runtime state in `.agent/` inside your project:
 |------|---------|
 | `status.json` | Authoritative REQ status (machine-written) |
 | `context.md` | Context injected into every iteration (rewritten each time, max 50 lines) |
-| `architecture.md` | Architecture decisions — append-only ADRs |
-| `learnings.md` | Persistent insights — append-only |
-| `iterations.jsonl` | Event stream consumed by the TUI |
+| `events.jsonl` | Live event stream consumed by the TUI |
+| `iterations.jsonl` | Per-iteration summaries (cost, duration, model) |
 | `logs/iter-*.jsonl` | Per-iteration detail logs |
 
 ---

@@ -14,7 +14,7 @@ import { ContextEditor } from "./ContextEditor.ts";
 import { ProgressBar } from "./ProgressBar.ts";
 import { STATUS_COLORS } from "../types.ts";
 import type { IterationEntry } from "../types.ts";
-import type { ToolCall, LoopPhaseEvent, SystemEvent, LoopEvent } from "../events.ts";
+import type { ToolCall, LoopPhaseEvent, IterationStart, SystemEvent, LoopEvent } from "../events.ts";
 import { AGENT_DIR } from "../lib/agentDir.ts";
 import { runClaude } from "../lib/runClaude.ts";
 
@@ -131,7 +131,7 @@ function BlockedDetail(props: {
   );
 }
 
-type FeedItem = ToolCall | LoopPhaseEvent;
+type FeedItem = ToolCall | LoopPhaseEvent | IterationStart;
 
 const PHASE_HEADER_COLORS: Record<string, string> = {
   preflight:       "gray",
@@ -215,13 +215,21 @@ function ActivityFeed(props: {
           Box,
           { flexDirection: "column" },
           ...shown.map((ev, idx) => {
+            if (ev.type === "iteration:start") {
+              const req = ev.reqId ? ` · ${ev.reqId}` : "";
+              return h(
+                Text,
+                { key: String(start + idx), bold: true, color: "cyan" },
+                `▷ Iter ${ev.iter}${req}`,
+              );
+            }
             if (ev.type === "loop:phase") {
               const label = PHASE_HEADER_LABELS[ev.phase] ?? ev.phase.toUpperCase();
               const color = PHASE_HEADER_COLORS[ev.phase] ?? "white";
               return h(
                 Text,
                 { key: String(start + idx), bold: true, color: color as Parameters<typeof Text>[0]["color"] },
-                `── ${label} ──`,
+                `   ── ${label} ──`,
               );
             }
             return h(
@@ -490,9 +498,10 @@ export function Dashboard(): React.ReactElement {
   const effectiveReqId = currentReq ?? activeReqId;
   const reqTitle = effectiveReqId ? (prdTitles[effectiveReqId] ?? "") : "";
 
-  // Build feed: tool:call + loop:phase events interleaved in arrival order
+  // Build feed: tool:call + loop:phase + iteration:start events interleaved in arrival order
   const feedItems = events.filter(
-    (ev): ev is FeedItem => ev.type === "tool:call" || ev.type === "loop:phase"
+    (ev): ev is FeedItem =>
+      ev.type === "tool:call" || ev.type === "loop:phase" || ev.type === "iteration:start"
   );
   // tool:call-only slice for currentModel lookup
   const toolEvents = events.filter((ev): ev is ToolCall => ev.type === "tool:call");
