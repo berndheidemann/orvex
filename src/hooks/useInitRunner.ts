@@ -168,7 +168,7 @@ export function useInitRunner(
           const existingPrdContent = await Deno.readTextFile(PRD_OUTPUT_PATH).catch(() => "");
           const existingPrdItems = parseReqs(existingPrdContent);
           if (existingPrdItems.length > 0) {
-            await runReviewSequence(prdTarget, existingPrdItems, existingPrdContent, { existing: true });
+            await runReviewSequence(prdTarget, existingPrdItems, existingPrdContent, { existing: true, signal: ctrl.signal });
           }
         }
 
@@ -192,7 +192,7 @@ export function useInitRunner(
               };
             }));
 
-            await runReviewSequence(prdTarget, existingPrdItems, existingPrdContent, { existing: true });
+            await runReviewSequence(prdTarget, existingPrdItems, existingPrdContent, { existing: true, signal: ctrl.signal });
           } else {
             await runPhase("prd", PRD_OUTPUT_PATH, buildPrdPrompt, description, ctrl.signal, prdRounds, model);
 
@@ -201,7 +201,7 @@ export function useInitRunner(
 
             // Always start PRD review — control flow is deterministic here,
             // we just ran runPhase("prd"). No LLM-output-dependent branching.
-            await runReviewSequence(prdTarget, prdItems, prdContent, { alwaysReview: true });
+            await runReviewSequence(prdTarget, prdItems, prdContent, { alwaysReview: true, signal: ctrl.signal });
           }
         }
 
@@ -224,7 +224,7 @@ export function useInitRunner(
           const archContent = await Deno.readTextFile(ARCH_OUTPUT_PATH).catch(() => "");
           const archItems = parseAdrs(archContent);
 
-          await runReviewSequence(archTarget, archItems, archContent);
+          await runReviewSequence(archTarget, archItems, archContent, { signal: ctrl.signal });
         } else {
           await Deno.writeTextFile(
             ARCH_OUTPUT_PATH,
