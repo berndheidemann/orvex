@@ -1156,6 +1156,10 @@ while :; do
   emit_event "$(jq -nc \
     --argjson ts "$(( $(date +%s) * 1000 ))" \
     --argjson iter "$ITERATION" \
+    '{"type":"iteration:start","ts":$ts,"iter":$iter,"reqId":null,"mode":"implement","model":"unknown"}')"
+  emit_event "$(jq -nc \
+    --argjson ts "$(( $(date +%s) * 1000 ))" \
+    --argjson iter "$ITERATION" \
     '{"type":"loop:phase","ts":$ts,"iter":$iter,"phase":"preflight"}')"
 
   ITER_LABEL="$ITERATION$([ "$MAX_ITERATIONS" -gt 0 ] && echo "/$MAX_ITERATIONS" || true)"
