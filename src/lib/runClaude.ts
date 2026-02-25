@@ -1,6 +1,21 @@
 
 const DEBUG_LOG = `${Deno.cwd()}/.orvex-debug.log`;
 
+/** Extract a human-readable message from a Claude CLI error result string.
+ *  The raw value often looks like: "Some prefix. API Error: 4xx {"type":"error","error":{"type":"...","message":"..."}}".
+ *  We prefer the inner error.message; fall back to stripping the JSON blob. */
+function extractApiErrorMessage(raw: string): string {
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      const obj = JSON.parse(jsonMatch[0]);
+      if (typeof obj.error?.message === "string") return obj.error.message;
+    } catch { /* not valid JSON */ }
+  }
+  // Strip trailing "API Error: 4xx {…}" so only the human part remains
+  return raw.replace(/\s*\.?\s*API Error:\s*\d+\s*\{[\s\S]*\}$/, "").trim() || raw;
+}
+
 async function debugLog(msg: string): Promise<void> {
   const ts = new Date().toISOString().slice(11, 23);
   await Deno.writeTextFile(DEBUG_LOG, `[${ts}] ${msg}\n`, { append: true }).catch(() => {});
@@ -69,7 +84,8 @@ export async function runClaude(
   const reader = proc.stdout.getReader();
   let jsonBuf = "";
   let fullText = "";
-  let resultFallback = "";  // from {"type":"result","result":"..."} event
+  let resultFallback = "";   // from {"type":"result","result":"..."} event
+  let resultIsError = false; // true when is_error:true on the result event
 
   try {
     while (!signal.aborted) {
@@ -103,6 +119,7 @@ export async function runClaude(
           } else if (obj.type === "result" && typeof obj.result === "string") {
             await debugLog(`RESULT len=${obj.result.length} isError=${obj.is_error}`);
             resultFallback = obj.result;
+            resultIsError = obj.is_error === true;
           }
         } catch { /* non-JSON line, ignore */ }
       }
@@ -121,6 +138,13 @@ export async function runClaude(
 
   const status = await proc.status;
   await debugLog(`DONE exitCode=${status.code} fullTextLen=${fullText.length}`);
+
+  // Treat is_error:true as a hard failure — the result text is an error message,
+  // not content. Without this check "Request timed out" would be returned as if
+  // it were valid output and silently written to output files.
+  if (resultIsError) {
+    throw new Error(extractApiErrorMessage(fullText || resultFallback));
+  }
   if (!status.success && fullText.trim() === "") {
     throw new Error(`claude exited with code ${status.code}`);
   }

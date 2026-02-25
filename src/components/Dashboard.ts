@@ -24,9 +24,9 @@ const MAX_BLOCKED_ENTRIES = 3;
 
 // Fixed rows consumed outside the feed entry list:
 // main.ts: "Orvex" + divider = 2
-// Dashboard: status + REQ bar + Phase bar + 2 dividers + hint = 6
-// ActivityFeed: header + divider + iter line = 3  → total = 11
-const FEED_OVERHEAD = 11;
+// Dashboard: active-REQ bar + status + REQ bar + Phase bar + 2 dividers + hint = 7
+// ActivityFeed: header + divider + iter line = 3  → total = 12
+const FEED_OVERHEAD = 12;
 const FEED_SUMMARY_MAX_LEN = 60;
 const REQ_TITLE_MAX_LEN = 30;
 const BAR_WIDTH_DIVISOR = 3;
@@ -49,14 +49,13 @@ const PHASE_LABELS: Record<string, string> = {
   post_processing: "post-processing",
 };
 
-// Phases map to step 1–3 (implementing and validating are both step 2)
 const PHASE_STEPS: Record<string, number> = {
   preflight:       1,
   implementing:    2,
-  validating:      2,
-  post_processing: 3,
+  validating:      3,
+  post_processing: 4,
 };
-const PHASE_TOTAL = 3;
+const PHASE_TOTAL = 4;
 
 function formatTimestamp(ts: string): string {
   return ts.replace("T", " ").replace(/\+.*$/, "").replace(/Z$/, "");
@@ -466,6 +465,8 @@ export function Dashboard(): React.ReactElement {
 
   const activeEntry = entries.find(([, req]) => req.status === "in_progress");
   const activeReqId = activeEntry ? activeEntry[0] : null;
+  const effectiveReqId = currentReq ?? activeReqId;
+  const reqTitle = effectiveReqId ? (prdTitles[effectiveReqId] ?? "") : "";
 
   // Extract tool:call events and current model (needed for phase gate below)
   const toolEvents = events.filter((ev): ev is ToolCall => ev.type === "tool:call");
@@ -473,8 +474,9 @@ export function Dashboard(): React.ReactElement {
   // Phase tracking — livePhase kommt aus useEventsReader (eigener State,
   // nicht aus dem gekürzten events-Puffer) und bleibt korrekt auch wenn
   // loop:phase Events aus dem MAX_EVENTS-Limit herausfallen.
-  // Bar bleibt leer bis zum ersten Tool-Call (kein Vorspringen auf Schritt 2).
-  const currentPhase = toolEvents.length > 0 ? livePhase : null;
+  // Phase wird nur angezeigt, wenn ein REQ aktiv ist (livePhase wird bei
+  // iteration:end auf null gesetzt, daher kein Stale-Problem zwischen Iterationen).
+  const currentPhase = effectiveReqId ? livePhase : null;
   const phaseStep = currentPhase ? (PHASE_STEPS[currentPhase] ?? 0) : 0;
 
   // Progress bar width: ~1/3 terminal width
@@ -608,6 +610,22 @@ export function Dashboard(): React.ReactElement {
   return h(
     Box,
     { flexDirection: "column" },
+    // Active-REQ status bar — always rendered for stable height
+    h(
+      Box,
+      { flexDirection: "row", gap: 1 },
+      h(Text, { bold: true, color: effectiveReqId ? "yellow" : undefined },
+        effectiveReqId ? "▶" : " "),
+      effectiveReqId
+        ? h(Text, { bold: true }, effectiveReqId)
+        : h(Text, { dimColor: true }, "(waiting for loop to start…)"),
+      effectiveReqId && reqTitle
+        ? h(Text, {}, `·  ${reqTitle.slice(0, 55)}`)
+        : null,
+      effectiveReqId && currentPhase
+        ? h(Text, { dimColor: true }, `  ${PHASE_LABELS[currentPhase]}`)
+        : null,
+    ),
     // Status bar
     h(
       Box,

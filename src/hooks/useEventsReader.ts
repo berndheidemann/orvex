@@ -90,6 +90,7 @@ export function useEventsReader(intervalMs: number = 500): EventsState {
               setCurrentPhase(ev.phase);
             } else if (ev.type === "iteration:end") {
               setCurrentReq(null);
+              setCurrentPhase(null);
               setTotalLiveCost((prev: number) => prev + ev.costUsd);
               if (ev.modelCosts) {
                 const costs = ev.modelCosts;

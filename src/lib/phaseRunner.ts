@@ -153,14 +153,32 @@ export async function runDebatePhase(
   // instead of overwriting it with the confirmation text.
   const contentBeforeSynth = await Deno.readTextFile(outputPath).catch(() => "");
 
-  // maxTurns=1: one shot, no room for "write file → output confirmation" pattern
-  const synthContent = await runClaude(
-    synthPrompt,
-    sink.addChunk.bind(sink),
-    signal,
-    synthModel,
-    1,
-  );
+  // maxTurns=1: one shot, no room for "write file → output confirmation" pattern.
+  // Hard timeout: synthesis inputs can be very large (multiple round outputs);
+  // without a cap the API call can run for hours before timing out on the server.
+  const synthCtrl = new AbortController();
+  const SYNTH_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
+  const synthTimeout = setTimeout(() => synthCtrl.abort(), SYNTH_TIMEOUT_MS);
+  const parentAbort = () => synthCtrl.abort();
+  signal.addEventListener("abort", parentAbort, { once: true });
+
+  let synthContent: string;
+  try {
+    synthContent = await runClaude(
+      synthPrompt,
+      sink.addChunk.bind(sink),
+      synthCtrl.signal,
+      synthModel,
+      1,
+    );
+  } finally {
+    clearTimeout(synthTimeout);
+    signal.removeEventListener("abort", parentAbort);
+  }
+
+  if (synthCtrl.signal.aborted && !signal.aborted) {
+    throw new Error(`${phaseLabel} synthesis timed out after ${SYNTH_TIMEOUT_MS / 60000} minutes`);
+  }
 
   // Prefer file content if the agent wrote it during synthesis
   const contentAfterSynth = await Deno.readTextFile(outputPath).catch(() => "");

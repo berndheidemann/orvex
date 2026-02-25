@@ -64,6 +64,10 @@ export interface EduInitConfig {
   archRounds?: number;
   /** Whether LERNSITUATION.md already exists (ADR-011) */
   lernsituationExists?: boolean;
+  /** Whether lernpfad.md already exists — skip regeneration on resume */
+  lernpfadExists?: boolean;
+  /** Whether PRD.md already exists — skip EDU-PRD debate on resume */
+  prdExists?: boolean;
 }
 
 export interface EduInitRunnerState {
@@ -131,14 +135,18 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
     prdRounds = 2,
     archRounds = 2,
     lernsituationExists = false,
+    lernpfadExists = false,
+    prdExists = false,
   } = config;
 
   const [phases, setPhases] = useState<PhaseState[]>(() => {
     const p = makeEduPhases(didaktikRounds, prdRounds, archRounds);
-    if (!lernsituationExists) return p;
-    // Skip Phase 1 (didaktik) if LERNSITUATION.md already exists
+    const preCompleted = new Set<string>();
+    if (lernsituationExists) preCompleted.add("didaktik");
+    if (prdExists) preCompleted.add("prd");
+    if (preCompleted.size === 0) return p;
     return p.map((phase) => {
-      if (phase.id !== "didaktik") return phase;
+      if (!preCompleted.has(phase.id)) return phase;
       return {
         ...phase,
         status: "done" as PhaseStatus,
@@ -306,80 +314,93 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
         }
 
         // ── Phase 1.5: Drehbuch-Synthese → lernpfad.md ─────────────
-        const lernsituationForDrehbuch = await Deno.readTextFile(LERNSITUATION_OUTPUT_PATH).catch(() => "");
-        setActiveLabel("Lernpfad · Synthese…");
-        lineBufferRef.current = "";
-        const drehbuchPrompt = buildDrehbuchPrompt(lernsituationForDrehbuch);
+        if (lernpfadExists) {
+          setActiveLabel("Lernpfad · vorhanden — wird übersprungen");
+          await new Promise((r) => setTimeout(r, 800));
+          setActiveLabel("");
+        } else {
+          const lernsituationForDrehbuch = await Deno.readTextFile(LERNSITUATION_OUTPUT_PATH).catch(() => "");
+          setActiveLabel("Lernpfad · Synthese…");
+          lineBufferRef.current = "";
+          const drehbuchPrompt = buildDrehbuchPrompt(lernsituationForDrehbuch);
 
-        // Synthesis-specific controller: 4-minute timeout + chain from parent abort
-        const synthCtrl = new AbortController();
-        const synthTimeout = setTimeout(() => synthCtrl.abort(), 4 * 60 * 1000);
-        const parentAbort = () => synthCtrl.abort();
-        ctrl.signal.addEventListener("abort", parentAbort, { once: true });
+          // Synthesis-specific controller: 4-minute timeout + chain from parent abort
+          const synthCtrl = new AbortController();
+          const synthTimeout = setTimeout(() => synthCtrl.abort(), 4 * 60 * 1000);
+          const parentAbort = () => synthCtrl.abort();
+          ctrl.signal.addEventListener("abort", parentAbort, { once: true });
 
-        let drehbuchContent = "";
-        try {
-          drehbuchContent = await runClaude(
-            drehbuchPrompt,
-            addChunk,
-            synthCtrl.signal,
-            SYNTH_MODEL,
-            5,   // maxTurns 5: allow model to finish after a tool call
-          );
-        } finally {
-          clearTimeout(synthTimeout);
-          ctrl.signal.removeEventListener("abort", parentAbort);
-        }
+          let drehbuchContent = "";
+          try {
+            drehbuchContent = await runClaude(
+              drehbuchPrompt,
+              addChunk,
+              synthCtrl.signal,
+              SYNTH_MODEL,
+              5,   // maxTurns 5: allow model to finish after a tool call
+            );
+          } finally {
+            clearTimeout(synthTimeout);
+            ctrl.signal.removeEventListener("abort", parentAbort);
+          }
 
-        if (synthCtrl.signal.aborted && !ctrl.signal.aborted) {
-          throw new Error("Lernpfad-Synthese: Timeout nach 4 Minuten");
+          if (synthCtrl.signal.aborted && !ctrl.signal.aborted) {
+            throw new Error("Lernpfad-Synthese: Timeout nach 4 Minuten");
+          }
+          if (!drehbuchContent.trim()) {
+            throw new Error("Drehbuch-Synthese produced no content");
+          }
+          await Deno.writeTextFile(LERNPFAD_OUTPUT_PATH, drehbuchContent);
+          setActiveLabel("");
+          lineBufferRef.current = "";
         }
-        if (!drehbuchContent.trim()) {
-          throw new Error("Drehbuch-Synthese produced no content");
-        }
-        await Deno.writeTextFile(LERNPFAD_OUTPUT_PATH, drehbuchContent);
-        setActiveLabel("");
-        lineBufferRef.current = "";
 
         // ── Phase 2: EDU-PRD-Debate → PRD.md ───────────────────────
-        const [lernkontextRaw, lernsituationRaw, lernpfadRaw] = await Promise.all([
-          Deno.readTextFile("learning-context.md").catch(() => ""),
-          Deno.readTextFile(LERNSITUATION_OUTPUT_PATH).catch(() => ""),
-          Deno.readTextFile(LERNPFAD_OUTPUT_PATH).catch(() => ""),
-        ]);
-        const combinedContext = [
-          "## learning-context.md",
-          lernkontextRaw,
-          "",
-          "## LERNSITUATION.md",
-          lernsituationRaw,
-          "",
-          "## lernpfad.md",
-          lernpfadRaw,
-        ].join("\n");
+        if (prdExists) {
+          // PRD already generated — skip debate, offer review of existing file
+          const existingPrd = await Deno.readTextFile(EDU_PRD_OUTPUT_PATH).catch(() => "");
+          const existingReqs = parseReqs(existingPrd);
+          await runReviewSequence(prdTarget, existingReqs, existingPrd, { existing: true });
+        } else {
+          const [lernkontextRaw, lernsituationRaw, lernpfadRaw] = await Promise.all([
+            Deno.readTextFile("learning-context.md").catch(() => ""),
+            Deno.readTextFile(LERNSITUATION_OUTPUT_PATH).catch(() => ""),
+            Deno.readTextFile(LERNPFAD_OUTPUT_PATH).catch(() => ""),
+          ]);
+          const combinedContext = [
+            "## learning-context.md",
+            lernkontextRaw,
+            "",
+            "## LERNSITUATION.md",
+            lernsituationRaw,
+            "",
+            "## lernpfad.md",
+            lernpfadRaw,
+          ].join("\n");
 
-        await runDebatePhase(
-          {
-            phaseId: "prd",
-            phaseLabel: "EDU-PRD",
-            outputPath: EDU_PRD_OUTPUT_PATH,
-            agents: EDU_PRD_AGENTS,
-            buildPrompt: buildEduPrdPrompt,
-            context: combinedContext,
-            numRounds: prdRounds,
-            phaseModel: model,
-            synthModel: SYNTH_MODEL,
-            formatRoundSummary: (roundNum, outputs) =>
-              formatRoundSummary(roundNum, EDU_PRD_AGENTS, outputs),
-            formatSynthesisSummary: (content) => formatSynthesisSummary(content, "prd"),
-          },
-          makeSink(),
-          ctrl.signal,
-        );
+          await runDebatePhase(
+            {
+              phaseId: "prd",
+              phaseLabel: "EDU-PRD",
+              outputPath: EDU_PRD_OUTPUT_PATH,
+              agents: EDU_PRD_AGENTS,
+              buildPrompt: buildEduPrdPrompt,
+              context: combinedContext,
+              numRounds: prdRounds,
+              phaseModel: model,
+              synthModel: SYNTH_MODEL,
+              formatRoundSummary: (roundNum, outputs) =>
+                formatRoundSummary(roundNum, EDU_PRD_AGENTS, outputs),
+              formatSynthesisSummary: (content) => formatSynthesisSummary(content, "prd"),
+            },
+            makeSink(),
+            ctrl.signal,
+          );
 
-        const prdContent = await Deno.readTextFile(EDU_PRD_OUTPUT_PATH).catch(() => "");
-        const prdItems = parseReqs(prdContent);
-        await runReviewSequence(prdTarget, prdItems, prdContent);
+          const prdContent = await Deno.readTextFile(EDU_PRD_OUTPUT_PATH).catch(() => "");
+          const prdItems = parseReqs(prdContent);
+          await runReviewSequence(prdTarget, prdItems, prdContent);
+        }
 
         // ── Phase 3: Arch-Debate → architecture.md ──────────────────
         await Deno.mkdir(AGENT_DIR, { recursive: true });
