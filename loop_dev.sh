@@ -24,18 +24,25 @@ mkdir -p .agent
 
 # ── Control FIFO (TUI → loop_dev.sh) ─────────────────────────────
 CONTROL_FIFO=".agent/control.fifo"
-[ -p "$CONTROL_FIFO" ] || mkfifo "$CONTROL_FIFO"
-
 LOCKFILE=".agent/loop.lock"
+
+# ── Stale-artifact cleanup ───────────────────────────────────────────
+# A SIGKILL'd loop leaves lock + FIFO behind (cleanup trap never ran).
+# Detect dead PID → remove both before acquiring fresh lock + FIFO.
 if [ -f "$LOCKFILE" ]; then
   _lock_pid=$(cat "$LOCKFILE" 2>/dev/null || echo "")
   if [ -n "$_lock_pid" ] && kill -0 "$_lock_pid" 2>/dev/null; then
     echo "Error: Loop already running (PID: $_lock_pid, lockfile: $LOCKFILE)"
     exit 1
   fi
-  rm -f "$LOCKFILE"
+  # Dead PID → stale lock; FIFO from same dead loop is also stale
+  rm -f "$LOCKFILE" "$CONTROL_FIFO"
 fi
 echo $$ > "$LOCKFILE"
+
+# Always create fresh FIFO so TUI connects to this loop, not a ghost
+rm -f "$CONTROL_FIFO"
+mkfifo "$CONTROL_FIFO"
 
 # ── Colors ──────────────────────────────────────────────────────
 BOLD='\033[1m'
