@@ -116,6 +116,14 @@ case "$CMD" in
       exit 1
     fi
 
+    # Re-copy missing template files (e.g. after manual deletion)
+    for f in AGENT.md VALIDATOR.md REFACTOR.md REFACTOR_TEMPLATE.md; do
+      if [ ! -f "$f" ] && [ -f "$TEMPLATES_DIR/$f" ]; then
+        cp "$TEMPLATES_DIR/$f" "$f"
+        echo -e "  ${GREEN}✅  $f restored from template${RESET}"
+      fi
+    done
+
     # Export FRAMEWORK_DIR so loop_dev.sh can find templates/AGENT_EDU.md (ADR-013)
     export FRAMEWORK_DIR
 
