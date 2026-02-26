@@ -22,11 +22,11 @@ YELLOW="\033[33m"
 RESET="\033[0m"
 
 # ── Ensure Deno is available ───────────────────────────────────
+export DENO_INSTALL="${DENO_INSTALL:-$HOME/.deno}"
+export PATH="$DENO_INSTALL/bin:$PATH"
 if ! command -v deno &>/dev/null; then
   echo -e "${BOLD}Deno not found — installing...${RESET}"
   curl -fsSL https://deno.land/install.sh | sh
-  export DENO_INSTALL="${DENO_INSTALL:-$HOME/.deno}"
-  export PATH="$DENO_INSTALL/bin:$PATH"
   echo -e "  ✅  Deno $(deno --version | head -1)"
 fi
 
