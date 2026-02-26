@@ -173,7 +173,32 @@ After verifying the production build, also smoke-test the dev server — dev-mod
 3. Check browser console for pre-transform errors or failed module imports
 4. If errors exist → fix before marking done. Document in `.agent/learnings.md`.
 
-### 4.4 Full Verification (every 3 iterations)
+### 4.4 UX Sanity Check (for UI REQs)
+
+**Trigger:** The REQ has at least one Acceptance Criterion that describes user-visible behavior (UI element, feedback message, navigation, form interaction). Skip for pure API/backend/infrastructure REQs.
+
+After functional verification (4.3) passes, run through this checklist using MCP Playwright against the running application. Each item is a concrete yes/no check — not subjective judgment.
+
+**Checklist (check all that apply to this REQ):**
+
+1. **Feedback visibility:** After the primary action (submit, save, delete, etc.), is the success/error message visible in the current viewport WITHOUT scrolling? Take a screenshot immediately after the action to verify.
+2. **Loading states:** If the action involves an async operation (API call, file upload, computation), is there a visible loading indicator between action and result? (spinner, skeleton, disabled button, progress bar)
+3. **Error communication:** Trigger one invalid input or expected error. Is the error message (a) visible without scrolling, (b) adjacent to the relevant input/area, and (c) specific enough to understand what went wrong?
+4. **Empty/zero states:** If the feature displays a list or collection, what does it show when there are zero items? Is there a meaningful message or CTA instead of a blank area?
+5. **Interactive element clarity:** Are buttons/links/inputs visually distinguishable from static text? (no "mystery meat navigation")
+6. **Keyboard flow:** Can the primary action be completed using keyboard only? (Tab through fields, Enter to submit) — test this literally via Playwright keyboard actions.
+7. **Double-action protection:** Click the primary action button twice rapidly. Does the system handle this gracefully? (no duplicate submissions, no errors)
+
+**Execution:** Walk through the applicable items using Playwright (snapshot + targeted checks). Budget: max 5 turns total for this phase.
+
+**On failure:**
+- Fix the issue directly (these are concrete, well-defined problems)
+- Re-run only the failed check, not the entire checklist
+- If a fix would exceed the turn budget: document as a new S-sized REQ in PRD.md (prefix `UX-` in title) and continue — the functional implementation is still `done`
+
+**Important:** This checklist is intentionally short and concrete. It catches the most common UX blind spots of auto-generated code. It is NOT a substitute for human usability testing and does NOT cover aesthetics, branding, or subjective "feel".
+
+### 4.5 Full Verification (every 3 iterations)
 
 Triggered by `FULL_VERIFY=1` (loop_dev.sh sets this every 3 iterations):
 
@@ -181,7 +206,7 @@ Triggered by `FULL_VERIFY=1` (loop_dev.sh sets this every 3 iterations):
 - Test error cases and edge cases in the UI
 - Regression check: are earlier REQs still working?
 
-### 4.5 Content & Visual QA (situational)
+### 4.6 Content & Visual QA (situational)
 
 Only run when the REQ produces **content Artifacts** — meaning not primarily logic or infrastructure, but:
 
@@ -242,7 +267,7 @@ First read the `#### Content Verification` section of the REQ in PRD.md. It desc
 
 Content QA is only considered passed when the reviewer Task returns "No findings."
 
-### 4.6 Error Handling
+### 4.7 Error Handling
 
 - **Verify errors** → fix (max 3 attempts)
 - **Not fixable** → status `blocked`, reason, exit
