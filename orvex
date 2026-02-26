@@ -99,6 +99,13 @@ case "$CMD" in
     ;;
 
   *)
+    # ── Auto-init if no PRD.md exists ──────────────────────────────────────
+    if [ ! -f PRD.md ]; then
+      ORVEX_INIT_MODE=1 "$TUI_BIN"
+      post_init_scaffold
+      exit 0
+    fi
+
     # ── Loop mode ──────────────────────────────────────────────────────────
 
     # Validate PRD if present (ADR-012: accept REQ-NNN and CONT-NNN)
