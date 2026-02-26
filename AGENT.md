@@ -107,6 +107,8 @@ Task(subagent_type="general-purpose", model="opus", prompt="
      - The user journey to test comes from the `#### Verification` section of the REQ in PRD.md — do not invent it freely
      - The spec tests the complete flow (Happy Path + at least one error case)
      - Naming: one spec file per REQ, accumulated across all iterations → regression suite
+     - **No journey shortcuts:** Any mechanism a real user cannot use (localStorage injection, direct API calls to set state, page.goto that skips required preceding steps, direct DB manipulation) is only acceptable for steps that meet BOTH conditions: (a) not part of this REQ's Acceptance Criteria, AND (b) verified by a dedicated spec elsewhere. When in doubt: walk the full flow. A shortcut that hides a step creates a blind spot for that step.
+     - **CARDINAL RULE (also for specs):** Write specs like a real user — without internal knowledge the user would not have.
 4. Check all Acceptance Criteria — check off completed ones in `PRD.md`
 5. **Checkpoint commit** (safety net against timeout):
    ```bash
@@ -163,6 +165,13 @@ Use MCP Playwright against the **running application** (no static HTML, no mock 
 - Real database states, real auth tokens
 
 **Never acceptable:** Verification only by reading the code, testing against mocks when the real infrastructure is available, or skipping verification because "the code obviously looks correct".
+
+**Dev-mode smoke check (Vite / bundler projects):**
+After verifying the production build, also smoke-test the dev server — dev-mode errors (e.g. Vite pre-transform failures, missing assets, HMR issues) are invisible in the production build but break the developer and first-time-contributor experience:
+1. Start dev server: `npm run dev` (or equivalent), wait until ready
+2. Open the app entry page via MCP Playwright (or `curl -s http://localhost:PORT | grep -i error`)
+3. Check browser console for pre-transform errors or failed module imports
+4. If errors exist → fix before marking done. Document in `.agent/learnings.md`.
 
 ### 4.4 Full Verification (every 3 iterations)
 
