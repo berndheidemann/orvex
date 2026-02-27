@@ -1,9 +1,11 @@
-import { assertEquals, assertMatch } from "jsr:@std/assert";
+import { assertEquals, assertMatch, assertStringIncludes } from "jsr:@std/assert";
 import {
   makePhases,
   extractKernthese,
   formatRoundSummary,
   formatSynthesisSummary,
+  updateStatusAfterSplit,
+  buildSplitPrompt,
   PRD_AGENTS,
   ARCH_AGENTS,
 } from "./initAgents.ts";
@@ -212,4 +214,104 @@ Deno.test("injectSpikeIntoStatus: mixed CONT + REQ fixture", () => {
 Deno.test("injectSpikeIntoStatus: runPhase re-export exists in initAgents", async () => {
   const mod = await import("./initAgents.ts");
   assertEquals(typeof mod.runPhase, "function");
+});
+
+// ── updateStatusAfterSplit ──────────────────────────────────────
+
+const SPLIT_PRD_FIXTURE = `# PRD — Test
+
+## Requirements
+
+### REQ-001: Backend API
+
+- **Status:** open
+- **Priority:** P0
+- **Size:** M
+- **Depends on:** ---
+
+#### Description
+Backend only.
+
+#### Acceptance Criteria
+- [ ] API works
+
+#### Verification
+\`deno test\` → green
+
+---
+
+### REQ-002: Frontend (split from REQ-001)
+
+- **Status:** open
+- **Priority:** P0
+- **Size:** S
+- **Depends on:** REQ-001
+
+#### Description
+Frontend only.
+
+#### Acceptance Criteria
+- [ ] UI renders
+
+#### Verification
+\`deno test\` → green
+
+---
+
+### REQ-003: Unrelated feature
+
+- **Status:** open
+- **Priority:** P1
+- **Size:** S
+- **Depends on:** ---
+
+#### Acceptance Criteria
+- [ ] works
+
+#### Verification
+\`deno test\` → green
+`;
+
+Deno.test("updateStatusAfterSplit: adds new REQ missing from status", () => {
+  const statusJson = JSON.stringify({
+    "REQ-001": { status: "open", priority: "P0", size: "M", deps: [] },
+    "REQ-003": { status: "open", priority: "P1", size: "S", deps: [] },
+  });
+  const result = JSON.parse(updateStatusAfterSplit(statusJson, SPLIT_PRD_FIXTURE));
+  assertEquals("REQ-002" in result, true);
+  assertEquals(result["REQ-002"].priority, "P0");
+  assertEquals(result["REQ-002"].size, "S");
+  assertEquals(result["REQ-002"].deps, ["REQ-001"]);
+});
+
+Deno.test("updateStatusAfterSplit: does not overwrite existing REQ", () => {
+  const statusJson = JSON.stringify({
+    "REQ-001": { status: "done", priority: "P0", size: "L", deps: [] },
+  });
+  const result = JSON.parse(updateStatusAfterSplit(statusJson, SPLIT_PRD_FIXTURE));
+  // REQ-001 must keep its existing values (status: done, size: L)
+  assertEquals(result["REQ-001"].status, "done");
+  assertEquals(result["REQ-001"].size, "L");
+});
+
+Deno.test("updateStatusAfterSplit: returns original on invalid JSON", () => {
+  const bad = "not json";
+  assertEquals(updateStatusAfterSplit(bad, SPLIT_PRD_FIXTURE), bad);
+});
+
+Deno.test("updateStatusAfterSplit: REQ with no Depends on gets empty deps", () => {
+  const statusJson = "{}";
+  const result = JSON.parse(updateStatusAfterSplit(statusJson, SPLIT_PRD_FIXTURE));
+  assertEquals(result["REQ-001"].deps, []);
+  assertEquals(result["REQ-003"].deps, []);
+});
+
+// ── buildSplitPrompt ────────────────────────────────────────────
+
+Deno.test("buildSplitPrompt: contains split criteria and output rules", () => {
+  const prompt = buildSplitPrompt("# PRD\n\n### REQ-001: Example\n");
+  assertStringIncludes(prompt, "Size: L");
+  assertStringIncludes(prompt, "more than 5 Acceptance Criteria");
+  assertStringIncludes(prompt, "SPLIT: none");
+  assertStringIncludes(prompt, "### REQ-001: Example");
 });

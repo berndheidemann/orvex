@@ -21,6 +21,8 @@ import {
   formatSynthesisSummary,
   injectSpikeReq,
   injectSpikeIntoStatus,
+  splitOversizedReqs,
+  updateStatusAfterSplit,
 } from "../lib/initAgents.ts";
 import { runDebatePhase } from "../lib/phaseRunner.ts";
 import { makeAddChunk, makePhaseSink } from "../lib/sinkFactory.ts";
@@ -202,6 +204,21 @@ export function useInitRunner(
             // Always start PRD review — control flow is deterministic here,
             // we just ran runPhase("prd"). No LLM-output-dependent branching.
             await runReviewSequence(prdTarget, prdItems, prdContent, { alwaysReview: true, signal: ctrl.signal });
+          }
+        }
+
+        // ── REQ Size Check — split oversized REQs before arch sees the PRD ──
+        {
+          const prdForSplit = await Deno.readTextFile(PRD_OUTPUT_PATH).catch(() => "");
+          const splitPrd = await splitOversizedReqs(prdForSplit, ctrl.signal);
+          if (splitPrd !== prdForSplit) {
+            const splitStatusPath = `${AGENT_DIR}/status.json`;
+            const splitStatusRaw = await Deno.readTextFile(splitStatusPath).catch(() => "{}");
+            const splitStatusUpdated = updateStatusAfterSplit(splitStatusRaw, splitPrd);
+            await Promise.all([
+              Deno.writeTextFile(PRD_OUTPUT_PATH, splitPrd),
+              Deno.writeTextFile(splitStatusPath, splitStatusUpdated),
+            ]);
           }
         }
 

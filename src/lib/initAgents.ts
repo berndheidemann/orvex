@@ -4,6 +4,7 @@ import type {
 export type { Agent } from "./phaseRunner.ts";
 import type { Agent } from "./phaseRunner.ts";
 import { K_HEADER, makeRounds, formatOthersOutput } from "./debateUtils.ts";
+import { runClaude } from "./runClaude.ts";
 
 // ── Constants ──────────────────────────────────────────────────
 
@@ -462,6 +463,115 @@ export function injectSpikeIntoStatus(statusJson: string): string {
     };
   }
   return JSON.stringify(updated, null, 2);
+}
+
+// ── REQ Split ───────────────────────────────────────────────────
+
+export function buildSplitPrompt(prdContent: string): string {
+  return `You are a Requirements Engineer. Your task: review the PRD below and split any REQ that is too large for a single implementation iteration.
+
+## Split criteria
+
+A REQ MUST be split if ANY of these apply:
+1. **Size: L** — always split
+2. **Size: M** AND has more than 5 Acceptance Criteria
+3. **Size: M** AND the Description mixes both frontend/UI work AND backend/API/server-side work in the same REQ
+
+A REQ must NOT be split if:
+- Size is XS or S (always fine as-is)
+- Size is M with ≤ 5 ACs and a single clear technical concern
+
+## How to split
+
+When splitting REQ-NNN into two parts:
+- Keep REQ-NNN as the first part (typically the foundational layer: data model, API, backend)
+- Insert a new REQ immediately after with the next available sequential number
+- Renumber all subsequent REQs to maintain sequential order (REQ-001, REQ-002, ...)
+- The second part should list the first part's ID in "Depends on"
+- Assign Size S or M to each part — never L
+- Divide the Acceptance Criteria cleanly between the two parts (no duplication, no omission)
+- Keep Priority the same on both parts
+- Preserve all other fields (Status: open, Verification, etc.)
+
+## Output rules (MANDATORY)
+
+If NO REQ needs splitting → respond with exactly one line:
+SPLIT: none
+
+If splits were made → respond with the COMPLETE updated PRD.md:
+- Start directly with '#' (no text before it)
+- Reproduce ALL existing content — do NOT summarize or omit any REQ
+- No explanation, no preamble, no commentary after the document
+
+## PRD to review
+
+${prdContent}`;
+}
+
+/**
+ * Calls Claude (Sonnet, single turn) to split any oversized REQs in the PRD.
+ * Returns the modified PRD content, or the original if no splits are needed
+ * or if the LLM output cannot be validated as a PRD.
+ */
+export async function splitOversizedReqs(
+  prdContent: string,
+  signal: AbortSignal,
+): Promise<string> {
+  const prompt = buildSplitPrompt(prdContent);
+  let result: string;
+  try {
+    result = await runClaude(prompt, () => {}, signal, SYNTH_MODEL, 1);
+  } catch {
+    return prdContent; // on error, pass through unchanged
+  }
+
+  const trimmed = result.trim();
+
+  // "SPLIT: none" → no changes needed
+  if (trimmed === "SPLIT: none" || trimmed === "") return prdContent;
+
+  // Must start with '#' to be a valid PRD
+  if (!trimmed.startsWith("#")) return prdContent;
+
+  return trimmed;
+}
+
+/**
+ * After a split, new REQ IDs may exist in PRD.md that are missing from status.json.
+ * This function adds any such new REQs with metadata parsed from the PRD block.
+ */
+export function updateStatusAfterSplit(
+  statusJson: string,
+  prdContent: string,
+): string {
+  let status: Record<string, { status: string; priority: string; size: string; deps: string[] }>;
+  try {
+    status = JSON.parse(statusJson);
+  } catch {
+    return statusJson;
+  }
+
+  const blocks = prdContent
+    .split(/(?=^### REQ-\d+:)/m)
+    .filter((b) => /^### REQ-\d+:/.test(b));
+
+  for (const block of blocks) {
+    const idMatch = block.match(/^### (REQ-\d+):/m);
+    if (!idMatch) continue;
+    const reqId = idMatch[1];
+    if (reqId in status) continue; // already tracked
+
+    const priority = block.match(/\*\*Priority:\*\*\s*(P[012])/)?.[1] ?? "P1";
+    const size = block.match(/\*\*Size:\*\*\s*(XS|S|M|L)/)?.[1] ?? "M";
+    const depsRaw = block.match(/\*\*Depends on:\*\*\s*(.+)/)?.[1]?.trim() ?? "---";
+    const deps = depsRaw === "---"
+      ? []
+      : depsRaw.split(/[,\s]+/).filter((d) => /^REQ-\d+$/.test(d));
+
+    status[reqId] = { status: "open", priority, size, deps };
+  }
+
+  return JSON.stringify(status, null, 2);
 }
 
 // ── Re-export runPhase for hooks ────────────────────────────────
