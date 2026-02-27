@@ -6,14 +6,13 @@ import { EduInitDashboard } from "./components/EduInitDashboard.ts";
 
 const { createElement: h } = React;
 
-const INIT_MODE = Deno.env.get("ORVEX_INIT_MODE") === "1";
 const INIT_DESCRIPTION = Deno.env.get("ORVEX_INIT_DESCRIPTION") ?? "";
 const EDU_INIT_MODE = Deno.env.get("ORVEX_EDU_INIT_MODE") === "1" || Deno.args.includes("--edu-init");
 
 // Auto-detect project state from filesystem:
 //   bothExist  → PRD.md + architecture.md vorhanden → direkt zum Dashboard
 //   archOnly   → PRD.md vorhanden, architecture.md fehlt → Arch-only Init
-//   (neither)  → PRD.md fehlt → voller Init-Flow
+//   (neither)  → PRD.md fehlt → voller Init-Flow (automatisch, kein Flag nötig)
 let archOnly = false;
 let bothExist = false;
 let archOnlyPrdTitle = "";
@@ -58,8 +57,8 @@ function App(): React.ReactElement {
     return h(Box, null, h(Text, { color: "green" }, "Edu-Init abgeschlossen — starte orvex zum Loslegen"));
   }
 
-  // INIT_MODE wird ignoriert wenn PRD.md + architecture.md bereits existieren.
-  if ((INIT_MODE && !bothExist || archOnly) && !initDone) {
+  // Init-Flow: automatisch wenn PRD.md oder architecture.md fehlen.
+  if (!bothExist && !initDone) {
     return h(InitDashboard, {
       description: INIT_DESCRIPTION || archOnlyPrdTitle,
       archOnly,
@@ -70,10 +69,10 @@ function App(): React.ReactElement {
     });
   }
 
-  // Init mode completed → exit the TUI so the orvex script shows
-  // its review instructions. The user then runs `orvex` again which
-  // starts loop_dev.sh and launches the real dashboard.
-  if (INIT_MODE && initDone) {
+  // Voller Init abgeschlossen (nicht arch-only) → exit, damit der User
+  // mit `orvex` neu startet und die Review-Instruktionen sieht.
+  // Arch-only fällt durch zum Dashboard — Arch wurde gerade erstellt, Loop kann starten.
+  if (!archOnly && initDone) {
     setTimeout(() => Deno.exit(0), 80);
     return h(Box, null, h(Text, { color: "green" }, "✅  Init abgeschlossen — starte orvex zum Loslegen"));
   }
@@ -102,7 +101,7 @@ const instance = render(h(App, null));
 await instance.waitUntilExit();
 cleanup();
 // Show resume hint when exiting from the real dashboard (not init flows)
-if (bothExist && !INIT_MODE && !EDU_INIT_MODE) {
+if (bothExist && !EDU_INIT_MODE) {
   console.log("\n💡  Entwicklung jederzeit fortsetzen mit: orvex");
   console.log("    Nur die aktuelle Iteration wird wiederholt — der Agent sieht den aktuellen Code.\n");
 }
