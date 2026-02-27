@@ -173,30 +173,129 @@ After verifying the production build, also smoke-test the dev server — dev-mod
 3. Check browser console for pre-transform errors or failed module imports
 4. If errors exist → fix before marking done. Document in `.agent/learnings.md`.
 
-### 4.4 UX Sanity Check (for UI REQs)
+### 4.4 UX Critic Loop (for UI REQs)
 
-**Trigger:** The REQ has at least one Acceptance Criterion that describes user-visible behavior (UI element, feedback message, navigation, form interaction). Skip for pure API/backend/infrastructure REQs.
+**Trigger:** The REQ has at least one Acceptance Criterion describing user-visible behavior
+(UI element, feedback, navigation, form interaction). Skip for pure API/backend/infra REQs.
 
-After functional verification (4.3) passes, run through this checklist using MCP Playwright against the running application. Each item is a concrete yes/no check — not subjective judgment.
+**Structure:** Max 2 critic rounds. After round 2: done, regardless of remaining issues.
 
-**Checklist (check all that apply to this REQ):**
+---
 
-1. **Feedback visibility:** After the primary action (submit, save, delete, etc.), is the success/error message visible in the current viewport WITHOUT scrolling? Take a screenshot immediately after the action to verify.
-2. **Loading states:** If the action involves an async operation (API call, file upload, computation), is there a visible loading indicator between action and result? (spinner, skeleton, disabled button, progress bar)
-3. **Error communication:** Trigger one invalid input or expected error. Is the error message (a) visible without scrolling, (b) adjacent to the relevant input/area, and (c) specific enough to understand what went wrong?
-4. **Empty/zero states:** If the feature displays a list or collection, what does it show when there are zero items? Is there a meaningful message or CTA instead of a blank area?
-5. **Interactive element clarity:** Are buttons/links/inputs visually distinguishable from static text? (no "mystery meat navigation")
-6. **Keyboard flow:** Can the primary action be completed using keyboard only? (Tab through fields, Enter to submit) — test this literally via Playwright keyboard actions.
-7. **Double-action protection:** Click the primary action button twice rapidly. Does the system handle this gracefully? (no duplicate submissions, no errors)
+#### Step 1 — Run UX Critic (Round 1)
 
-**Execution:** Walk through the applicable items using Playwright (snapshot + targeted checks). Budget: max 5 turns total for this phase.
+Spawn a UX Critic sub-agent via Task:
 
-**On failure:**
-- Fix the issue directly (these are concrete, well-defined problems)
-- Re-run only the failed check, not the entire checklist
-- If a fix would exceed the turn budget: document as a new S-sized REQ in PRD.md (prefix `UX-` in title) and continue — the functional implementation is still `done`
+```
+Task(
+  subagent_type: "general-purpose",
+  prompt: """
+  You are a UX Critic. Your task: find real blocking problems in a running web UI.
+  Use MCP Playwright against the running application. Do NOT invent findings.
 
-**Important:** This checklist is intentionally short and concrete. It catches the most common UX blind spots of auto-generated code. It is NOT a substitute for human usability testing and does NOT cover aesthetics, branding, or subjective "feel".
+  ## REQ being reviewed
+  [REQ-ID] — [Title]
+  Acceptance Criteria: [paste the ACs]
+  App URL: [URL]
+
+  ## Blocking categories to check (all that apply to this REQ)
+
+  1. **Functional** — primary action (button, form submit, link) does nothing or throws
+     an error. Test: click/submit and observe result. Take screenshot.
+
+  2. **System feedback** — no visible success/error message after action; no loading
+     indicator for async operations; no inline validation on invalid input; blank area
+     instead of empty-state message for empty lists. Test each applicable sub-case.
+     Take screenshot at the moment of expected feedback.
+
+  3. **Navigation** — dead-end (no way back), broken link, wrong redirect after action.
+     Test: complete the action, then verify you can navigate back/forward as expected.
+
+  4. **Readability** — text overflow, truncation with ellipsis where full text is needed,
+     elements overlapping, or text color contrast making text unreadable.
+     Take screenshot of the affected area.
+
+  5. **Consistency** — two instances of the same element type (e.g., two primary buttons)
+     with conflicting visual styles on the SAME page. Also: grep the codebase for the
+     existing component/class used for this element type elsewhere and flag if the new
+     implementation structurally deviates (different HTML structure or different class
+     names for same semantic role).
+
+  ## Output format (strict)
+
+  For each issue found:
+  BLOCKING: [category] — [what exactly is wrong] — [how to reproduce in 1 sentence]
+
+  For observations that are suboptimal but don't block task completion:
+  NOTE: [what was observed]
+
+  If nothing blocking found:
+  BLOCKING: none
+
+  Take at least one screenshot per BLOCKING issue to document the state.
+  """
+)
+```
+
+---
+
+#### Step 2 — Process Round 1 Result
+
+Read the critic's report. For each `BLOCKING` issue:
+
+1. **Verify reproducibility** (max 2 Playwright actions): confirm you can reproduce the
+   issue yourself before touching code. If you cannot reproduce: skip that fix, note
+   `NOT REPRODUCED` next to the issue.
+
+2. **Fix confirmed issues.** Re-run only the specific check that failed, not the full
+   loop.
+
+If `BLOCKING: none` → skip to Phase 4.5.
+
+---
+
+#### Step 3 — Run UX Critic (Round 2, only if fixes were made)
+
+Spawn the same critic sub-agent again with an amended prompt:
+
+```
+Task(
+  subagent_type: "general-purpose",
+  prompt: """
+  [Same prompt as Round 1]
+
+  ## Round 2 context
+  These issues were reported in Round 1 and fixes were applied:
+  [list Round 1 BLOCKING issues and the fix applied for each]
+
+  Check whether each fix resolved its issue. Also check whether any fix introduced
+  a NEW blocking issue not present in Round 1 — flag these explicitly as:
+  REGRESSION: [category] — [what is newly broken]
+  """
+)
+```
+
+---
+
+#### Step 4 — Finalize
+
+After Round 2 (or after Round 1 if no blocking issues were found):
+
+- **Resolved issues:** normal, continue to Phase 4.5.
+- **Unresolved BLOCKING issues after Round 2:** do NOT block the REQ. Add them to the
+  Phase 5.5 status block under `ux_unresolved` (see below).
+- **REGRESSION issues from Round 2:** add under `ux_regression` in the status block.
+  These warrant immediate attention — they are regressions introduced by the fix itself.
+
+**Phase 5.5 status block additions:**
+```
+ux_unresolved: [comma-separated list of unresolved issue descriptions, or "none"]
+ux_regression: [comma-separated list of regression descriptions, or "none"]
+```
+
+**Important:** This phase catches the most common UX blind spots of auto-generated code.
+It is NOT a substitute for human usability testing and does NOT cover aesthetics,
+branding, subjective "feel", or accessibility beyond keyboard flow.
 
 ### 4.5 Full Verification (every 3 iterations)
 
