@@ -64,7 +64,7 @@ If preflight fails and the error does **not** belong to the current REQ:
 Call Opus as an architecture planner:
 
 ```
-Task(subagent_type="general-purpose", model="opus", prompt="
+Task(subagent_type="general-purpose", model="opus", max_turns=10, prompt="
   You are planning the implementation of [REQ-ID] — [Title].
 
   ## Task
@@ -189,6 +189,7 @@ Spawn a UX Critic sub-agent via Task:
 ```
 Task(
   subagent_type: "general-purpose",
+  max_turns: 20,
   prompt: """
   You are a UX Critic. Your task: find real blocking problems in a running web UI.
   Use MCP Playwright against the running application. Do NOT invent findings.
@@ -261,6 +262,7 @@ Spawn the same critic sub-agent again with an amended prompt:
 ```
 Task(
   subagent_type: "general-purpose",
+  max_turns: 20,
   prompt: """
   [Same prompt as Round 1]
 
@@ -318,6 +320,7 @@ If one of these types is present, call an independent content reviewer via Task:
 ```
 Task(
   subagent_type: "general-purpose",
+  max_turns: 15,
   prompt: """
   You are a critical content reviewer. Your task: find real errors.
   No findings is also a valid answer — do not invent criticism.
