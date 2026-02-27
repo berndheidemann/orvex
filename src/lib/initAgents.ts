@@ -484,7 +484,10 @@ A REQ must NOT be split if:
 ## How to split
 
 When splitting REQ-NNN into two parts:
-- Keep REQ-NNN as the first part (typically the foundational layer: data model, API, backend)
+- Keep REQ-NNN as the first part. Split along the natural technical boundary:
+  - Full-stack REQ → backend/data layer first, frontend/UI second
+  - Purely frontend REQ → core structure/rendering first, interactions/state/edge cases second
+  - Purely backend REQ → data model/persistence first, business logic/API second
 - Insert a new REQ immediately after with the next available sequential number
 - Renumber all subsequent REQs to maintain sequential order (REQ-001, REQ-002, ...)
 - The second part should list the first part's ID in "Depends on"
@@ -532,6 +535,10 @@ export async function splitOversizedReqs(
 
   // Must start with '#' to be a valid PRD
   if (!trimmed.startsWith("#")) return prdContent;
+
+  // Guard against truncated output: output must contain at least as many REQs as the original
+  const countReqs = (c: string) => (c.match(/^### REQ-\d+:/gm) ?? []).length;
+  if (countReqs(trimmed) < countReqs(prdContent)) return prdContent;
 
   return trimmed;
 }

@@ -255,7 +255,11 @@ If `BLOCKING: none` → skip to Phase 4.5.
 
 ---
 
-#### Step 3 — Run UX Critic (Round 2, only if fixes were made)
+#### Step 3 — Run UX Critic (Round 2, only if code was changed)
+
+**Skip Round 2 if all Round 1 BLOCKING issues were marked NOT REPRODUCED** — no code
+was changed, so the critic would see the identical state as in Round 1.
+Only run if at least one issue was confirmed and fixed (code was modified).
 
 Spawn the same critic sub-agent again with an amended prompt:
 
@@ -264,7 +268,8 @@ Task(
   subagent_type: "general-purpose",
   max_turns: 20,
   prompt: """
-  [Same prompt as Round 1]
+  Copy the full Round 1 prompt here verbatim — REQ-ID, Title, Acceptance Criteria,
+  App URL, and all five blocking categories with their test instructions — then append:
 
   ## Round 2 context
   These issues were reported in Round 1 and fixes were applied:

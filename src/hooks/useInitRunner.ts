@@ -209,6 +209,7 @@ export function useInitRunner(
 
         // ── REQ Size Check — split oversized REQs before arch sees the PRD ──
         {
+          setActiveLabel("REQ Size Check · scanning for oversized REQs…");
           const prdForSplit = await Deno.readTextFile(PRD_OUTPUT_PATH).catch(() => "");
           const splitPrd = await splitOversizedReqs(prdForSplit, ctrl.signal);
           if (splitPrd !== prdForSplit) {
@@ -220,6 +221,7 @@ export function useInitRunner(
               Deno.writeTextFile(splitStatusPath, splitStatusUpdated),
             ]);
           }
+          setActiveLabel("");
         }
 
         setAwaitingArchConfirm(true);

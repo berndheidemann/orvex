@@ -306,6 +306,15 @@ Deno.test("updateStatusAfterSplit: REQ with no Depends on gets empty deps", () =
   assertEquals(result["REQ-003"].deps, []);
 });
 
+Deno.test("updateStatusAfterSplit: empty prd leaves status unchanged", () => {
+  const statusJson = JSON.stringify({
+    "REQ-001": { status: "open", priority: "P0", size: "M", deps: [] },
+  });
+  const result = JSON.parse(updateStatusAfterSplit(statusJson, ""));
+  assertEquals(result["REQ-001"].status, "open");
+  assertEquals(Object.keys(result).length, 1);
+});
+
 // ── buildSplitPrompt ────────────────────────────────────────────
 
 Deno.test("buildSplitPrompt: contains split criteria and output rules", () => {
@@ -315,3 +324,14 @@ Deno.test("buildSplitPrompt: contains split criteria and output rules", () => {
   assertStringIncludes(prompt, "SPLIT: none");
   assertStringIncludes(prompt, "### REQ-001: Example");
 });
+
+Deno.test("buildSplitPrompt: contains frontend split guidance", () => {
+  const prompt = buildSplitPrompt("");
+  assertStringIncludes(prompt, "Purely frontend REQ");
+  assertStringIncludes(prompt, "Purely backend REQ");
+});
+
+// Note: splitOversizedReqs is not unit-tested here because it invokes the Claude CLI
+// via runClaude(). The input validation logic (startsWith("#"), REQ count guard) is
+// exercised by the prompt structure tests above. Integration testing requires a
+// running claude binary.
