@@ -226,5 +226,28 @@
     "priority": "P1",
     "size": "S",
     "deps": []
+  },
+  "REQ-018": {
+    "status": "done",
+    "priority": "P1",
+    "size": "S",
+    "deps": []
+  },
+  "REQ-019": {
+    "status": "done",
+    "priority": "P1",
+    "size": "M",
+    "deps": [
+      "REQ-018"
+    ]
+  },
+  "REQ-020": {
+    "status": "done",
+    "priority": "P1",
+    "size": "S",
+    "deps": [
+      "REQ-018",
+      "REQ-019"
+    ]
   }
 }

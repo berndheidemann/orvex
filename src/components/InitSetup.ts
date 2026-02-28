@@ -4,13 +4,14 @@ import { useTerminalSize } from "../hooks/useTerminalSize.ts";
 
 const { createElement: h, useState } = React;
 
-type ActiveField = "description" | "model" | "prdRounds" | "archRounds";
+type ActiveField = "description" | "model" | "prdRounds" | "archRounds" | "appType";
 
 export interface InitConfig {
   description: string;
   model: string;
   prdRounds: number;
   archRounds: number;
+  appType: string;
   archNote?: string; // optional focus/context for arch agents (archOnly mode)
 }
 
@@ -105,6 +106,7 @@ export function InitSetup(props: {
   const [modelIdx, setModelIdx] = useState(0);
   const [prdRounds, setPrdRounds] = useState(2);
   const [archRounds, setArchRounds] = useState(3);
+  const [appType, setAppType] = useState("web");
   const [activeField, setActiveField] = useState<ActiveField>("description");
   const [error, setError] = useState("");
 
@@ -117,6 +119,7 @@ export function InitSetup(props: {
       model: MODELS[modelIdx].id,
       prdRounds,
       archRounds,
+      appType: appType.trim() || "web",
     });
   };
 
@@ -154,16 +157,24 @@ export function InitSetup(props: {
         setPrdRounds(Number(input));
       }
     } else if (activeField === "archRounds") {
-      if (key.tab) {
-        setActiveField("description");
-      } else if (key.return) {
-        tryStart();
+      if (key.tab || key.return) {
+        setActiveField("appType");
       } else if (key.leftArrow || input === "-") {
         setArchRounds((r: number) => Math.max(1, r - 1));
       } else if (key.rightArrow || input === "+") {
         setArchRounds((r: number) => Math.min(5, r + 1));
       } else if (/^[1-5]$/.test(input)) {
         setArchRounds(Number(input));
+      }
+    } else if (activeField === "appType") {
+      if (key.tab) {
+        setActiveField("description");
+      } else if (key.return) {
+        tryStart();
+      } else if (key.backspace || key.delete) {
+        setAppType((t: string) => t.slice(0, -1));
+      } else if (input && !key.ctrl && !key.meta) {
+        setAppType((t: string) => t + input);
       }
     }
   });
@@ -175,7 +186,9 @@ export function InitSetup(props: {
       ? "[Enter / Tab] Next    [← →] Switch model    [1–3] select directly"
       : activeField === "prdRounds"
       ? "[Enter / Tab] Next    [← →] Rounds    [1–5] enter directly"
-      : "[Enter] Start    [Tab] First field    [← →] Rounds    [1–5] enter directly";
+      : activeField === "archRounds"
+      ? "[Enter / Tab] Next    [← →] Rounds    [1–5] enter directly"
+      : "[Enter] Start    [Tab] First field    [Backspace] Delete";
 
   return h(
     Box,
@@ -229,6 +242,23 @@ export function InitSetup(props: {
       active: activeField === "archRounds",
       explanation: ROUND_EXPLANATIONS.arch,
     }),
+    // App type
+    h(
+      Box,
+      { flexDirection: "column", marginBottom: 1 },
+      h(
+        Text,
+        { bold: activeField === "appType", color: activeField === "appType" ? "yellow" : undefined },
+        "App type:",
+      ),
+      h(Text, { dimColor: true }, "  web · android · ios · react-native · flutter · desktop · backend · api"),
+      h(
+        Box,
+        { flexDirection: "row" },
+        h(Text, { color: "yellow" }, activeField === "appType" ? "▶ " : "  "),
+        h(Text, {}, (appType || "web") + (activeField === "appType" ? "█" : "")),
+      ),
+    ),
     h(Text, { dimColor: true }, divider),
     h(Text, { dimColor: true }, hint),
   );
@@ -284,6 +314,7 @@ export function ArchSetup(props: {
           model: MODELS[modelIdx].id,
           prdRounds: 0,
           archRounds,
+          appType: "web",
           archNote: note.trim() || undefined,
         });
       } else if (key.leftArrow || input === "-") {

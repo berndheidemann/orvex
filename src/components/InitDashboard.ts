@@ -594,12 +594,13 @@ function InitRunner(props: {
   model: string;
   prdRounds: number;
   archRounds: number;
+  appType?: string;
   skipPrd?: boolean;
   onDone?: () => void;
 }): React.ReactElement {
-  const { description, model, prdRounds, archRounds, skipPrd = false, onDone } = props;
+  const { description, model, prdRounds, archRounds, appType = "web", skipPrd = false, onDone } = props;
   const rawWasBackspace = useRawBackspace();
-  const state = useInitRunner(description, prdRounds, archRounds, model, skipPrd);
+  const state = useInitRunner(description, prdRounds, archRounds, model, skipPrd, appType);
 
   useInput((input, key) => {
     // PRD review — editor open: ReviewEditor handles its own input
@@ -804,6 +805,7 @@ export function InitDashboard(props: {
     model: config.model,
     prdRounds: config.prdRounds,
     archRounds: config.archRounds,
+    appType: config.appType,
     skipPrd: archOnly,
     onDone,
   });

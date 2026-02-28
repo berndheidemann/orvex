@@ -715,6 +715,174 @@ Manual: `orvex init` and `orvex edu-init` display identically to before
 
 ---
 
+### REQ-018: App-Typ-Feld im `orvex init`-Dialog
+
+- **Status:** open
+- **Priority:** P1
+- **Size:** S
+- **Depends on:** ---
+
+#### Description
+
+Der `orvex init`-Dialog (TUI-Komponente `InitSetup` in `src/components/InitDashboard.ts`) erhält ein drittes Eingabefeld: **App-Typ**. Das Feld erscheint nach der bestehenden Beschreibungs-Eingabe und fragt welche Art von Anwendung entwickelt wird. Die Antwort wird in `.agent/context.md` persistiert, damit der Agenten-Loop sie in Phase 1 (Orient) lesen und das Verhalten anpassen kann.
+
+**Feldoptionen (Tab-Completion oder freie Eingabe):**
+`web` | `android` | `ios` | `react-native` | `flutter` | `desktop` | `backend` | `other`
+
+**Standardwert:** `web` (Enter ohne Eingabe übernimmt den Default).
+
+**Persistierung:** `loop_dev.sh` schreibt beim initialen Aufbau von `.agent/context.md` eine Zeile `app_type: <wert>`. Der Wert ist für alle späteren Iterationen lesbar. Ist kein `app_type` gesetzt (Altprojekte), gilt implizit `web`.
+
+#### Acceptance Criteria
+
+- [ ] `InitSetup` zeigt ein drittes Feld "App-Typ" nach der Beschreibungs-Eingabe
+- [ ] Leerer Enter übernimmt Default `web`, nicht-leerer Enter übernimmt eingegebenen Wert
+- [ ] Nach Abschluss enthält `.agent/context.md` eine Zeile der Form `app_type: android`
+- [ ] Alle bestehenden Init-Flows (`orvex init`, `orvex edu-init`) bleiben unverändert funktionsfähig
+- [ ] `deno check src/main.ts` fehlerfrei
+- [ ] Alle bestehenden Tests grün
+
+#### Verification
+
+```bash
+deno check src/main.ts   # exit code 0
+deno test src/           # all green
+# Manuell: orvex init durchlaufen → .agent/context.md enthält "app_type: ..."
+grep "app_type" .agent/context.md
+```
+
+---
+
+### REQ-019: Konditionaler E2E-Testpfad in `templates/AGENT.md`
+
+- **Status:** open
+- **Priority:** P1
+- **Size:** M
+- **Depends on:** REQ-018
+
+#### Description
+
+`templates/AGENT.md` Phase 4.3 (Functional Verification) erhält einen zweiten Testpfad für nicht-web App-Typen. Der Agent liest `app_type` in Phase 1 aus `.agent/context.md` und wählt den passenden Testpfad:
+
+**Pfad A — `app_type: web` (unverändert):**
+Playwright gegen laufende Web-App (localhost). Bestehende Instruktionen bleiben 1:1 erhalten.
+
+**Pfad B — `app_type: android`:**
+
+```
+1. UI-Hierarchie lesen (entspricht Playwright Accessibility Tree):
+   adb shell uiautomator dump /sdcard/ui.xml
+   adb pull /sdcard/ui.xml /tmp/ui.xml
+   # → XML parsen: Elemente finden via text/resource-id, Koordinaten extrahieren
+
+2. Interagieren:
+   adb shell input tap <x> <y>          # Element klicken
+   adb shell input text "Eingabe"       # Tippen
+   adb shell input keyevent 4           # Back
+
+3. Zustand visuell verifizieren:
+   adb shell screencap /sdcard/screen.png
+   adb pull /sdcard/screen.png /tmp/screen.png
+   # → Screenshot mit Read-Tool laden → Claude liest das Bild visuell
+
+4. Ablauf je REQ:
+   - App starten (falls nicht laufend): adb shell am start -n <package>/<activity>
+   - User Journey durchführen (Schritt 1-3 wiederholen)
+   - Error-Cases testen
+   - Jede Assertion mit Screenshot dokumentieren
+```
+
+**Pfad C — `app_type: backend` oder `app_type: api`:**
+Keine UI-Tests. Curl gegen laufenden Service + Unit/Integration Tests (bestehende Instruktion aus Phase 4.3, zweiter Abschnitt).
+
+**Für `ios`, `react-native`, `flutter`, `desktop`, `other`:**
+Warnung ausgeben: "App-Typ `<typ>` hat keinen konfigurierten E2E-Testpfad. Manuelle Verifikation erforderlich." — REQ trotzdem als `done` markierbar, aber Warnung in `.agent/learnings.md` dokumentieren.
+
+#### Acceptance Criteria
+
+- [ ] `templates/AGENT.md` Phase 4.3 enthält konditionalen Block: `if app_type == web → Playwright`, `if app_type == android → ADB-Pfad`, `if app_type == backend/api → curl`
+- [ ] Der Android-Pfad beschreibt vollständig: uiautomator dump → Koordinaten → input tap → screencap → visuelles Lesen
+- [ ] Der bestehende Playwright-Block ist inhaltlich unverändert (nur bedingt ausgeführt)
+- [ ] Die Warnung für unkonfigurierte Typen ist klar formuliert und nennt `.agent/learnings.md` als Dokumentationsort
+- [ ] `templates/AGENT_EDU.md` erhält denselben konditionalen Block (da edu-Projekte denselben Testpfad brauchen)
+
+#### Verification
+
+```bash
+grep -A5 "app_type" templates/AGENT.md    # konditionaler Block sichtbar
+grep "uiautomator" templates/AGENT.md     # ADB-Pfad vorhanden
+grep "Playwright" templates/AGENT.md      # Playwright-Pfad noch vorhanden
+```
+
+---
+
+### REQ-020: E2E-Capability-Check als REQ-000-Gate
+
+- **Status:** open
+- **Priority:** P1
+- **Size:** S
+- **Depends on:** REQ-018, REQ-019
+
+#### Description
+
+REQ-000 (Walking Skeleton) gilt erst als `done`, wenn die konfigurierte E2E-Infrastruktur nachweislich funktioniert. Ein neuer Pflicht-Schritt am Ende der REQ-000-Verification prüft dies empirisch — ohne Heuristik, ohne Warnung die ignoriert werden kann.
+
+**Capability-Check je App-Typ** (wird in `templates/AGENT.md` Phase 4.3 als letzter Schritt von REQ-000 ergänzt):
+
+```
+app_type: web
+  → Playwright verbindet sich mit localhost:<PORT>
+  → Nimmt einen Screenshot
+  → Screenshot nicht leer (kein Fehler-Screen)
+  → PASS → REQ-000: done
+
+app_type: android
+  → adb devices → mindestens 1 Gerät/Emulator online?
+  → adb shell uiautomator dump → XML erreichbar?
+  → adb shell screencap + adb pull → Screenshot lesbar?
+  → PASS → REQ-000: done
+
+  FAIL → REQ-000: blocked
+  Fehlermeldung:
+  "E2E-Infrastruktur für Android nicht bereit.
+   Fehlende Voraussetzungen:
+   - Android SDK: https://developer.android.com/studio
+   - ADB im PATH: brew install android-platform-tools
+   - Emulator starten: AVD Manager → Start
+   Danach: orvex neu starten."
+
+app_type: backend/api
+  → laufender Service antwortet auf Health-Endpoint (curl)
+  → PASS
+
+app_type: other/unknown
+  → Check wird übersprungen, Warnung in learnings.md
+```
+
+**Konsequenz eines FAILs:** Da alle anderen REQs `Depends on: REQ-000` haben, blockiert ein fehlgeschlagener Capability-Check den gesamten Loop automatisch. Kein REQ wird jemals ohne funktionierende E2E-Schicht als `done` markiert.
+
+#### Acceptance Criteria
+
+- [ ] `templates/AGENT.md` REQ-000-Verification enthält den Capability-Check als letzten Pflicht-Schritt
+- [ ] Bei FAIL wird REQ-000 auf `blocked` gesetzt (nicht `done`)
+- [ ] Die Fehlermeldung nennt konkrete fehlende Tools + Installationsweg je App-Typ
+- [ ] Bei PASS läuft der Loop normal weiter
+- [ ] Der Check für `app_type: web` unterscheidet sich nicht vom bestehenden Playwright-Smoke-Test (kein neuer Aufwand für Web-Projekte)
+- [ ] `app_type: other` überspringt den Check mit Warnung (kein Hard-Fail für unbekannte Typen)
+
+#### Verification
+
+```bash
+grep -A10 "Capability-Check\|E2E-Infrastruktur\|adb devices" templates/AGENT.md
+# Manuell (Android):
+#   adb kill-server  → alle Geräte offline
+#   orvex starten → REQ-000 wird blocked mit Fehlermeldung
+#   adb start-server + Emulator starten
+#   orvex neu starten → REQ-000 wird done
+```
+
+---
+
 ### RF-010: Fix usePrdTitles regex to match RF and CONT headings
 
 - **Priority:** P1

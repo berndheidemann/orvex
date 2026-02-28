@@ -14,7 +14,7 @@ You are an autonomous development agent. You process **one unit of work per iter
 
 ## Phase 1: Orient
 
-1. Read `.agent/context.md` — project status, what exists, current findings
+1. Read `.agent/context.md` — project status, what exists, current findings. Note the `app_type:` line — it is set once during `orvex init` and must be preserved verbatim in every context.md rewrite (Phase 5.1).
 2. Read `architecture.md` — existing architecture decisions (do not violate these!)
 3. Read `.agent/learnings.md` — persistent findings from earlier iterations
 4. Read `PRD.md` — find the next open requirement:
@@ -160,7 +160,11 @@ No rebuild needed ONLY if no code changes have been made since the last build.
 
 **CARDINAL RULE:** Test like a real user — without internal knowledge the user would not have.
 
-**For UI projects: Playwright is mandatory**
+**E2E testing path — read `app_type` from `.agent/context.md` (default: `web` if not set)**
+
+---
+
+**`app_type: web` (or not set) — Playwright mandatory**
 
 Use MCP Playwright against the **running application** (no static HTML, no mock page):
 - Start the app if necessary, test against the real running instance
@@ -168,9 +172,42 @@ Use MCP Playwright against the **running application** (no static HTML, no mock 
 - Example: For a login REQ do not only test `POST /api/login`, but: open page → fill in fields → submit → check redirect → verify logged-in state
 - Test error cases in the UI: wrong inputs, missing required fields, network errors
 
-**For API/backend projects:**
-- Tests against running service (not against mocks)
-- Real database states, real auth tokens
+---
+
+**`app_type: android` — ADB + UIAutomator + Claude Vision**
+
+Use `adb` via Bash. Claude can read screenshots visually (multimodal).
+
+```bash
+# 1. UI-Hierarchie lesen (= Playwright Accessibility Tree)
+adb shell uiautomator dump /sdcard/ui.xml
+adb pull /sdcard/ui.xml /tmp/ui.xml
+
+# 2. Interagieren
+adb shell input tap <x> <y>
+adb shell input text "Eingabe"
+adb shell input keyevent 4   # Back
+
+# 3. Visuell verifizieren
+adb shell screencap /sdcard/screen.png
+adb pull /sdcard/screen.png /tmp/screen.png
+# → mit Read-Tool laden → Screenshot visuell prüfen
+```
+
+---
+
+**`app_type: backend` oder `app_type: api` — curl gegen laufenden Service**
+
+- Tests gegen laufenden Service (nicht gegen Mocks)
+- Echte Datenbankzustände, echte Auth-Tokens
+
+---
+
+**`app_type: ios`, `react-native`, `flutter`, `desktop`, `other`**
+
+Kein konfigurierter E2E-Testpfad. Manuelle Verifikation, Warnung in `.agent/learnings.md`.
+
+---
 
 **Never acceptable:** Verification only by reading the code, testing against mocks when the real infrastructure is available, or skipping verification because "the code obviously looks correct".
 

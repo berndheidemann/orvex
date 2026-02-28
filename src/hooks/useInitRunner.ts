@@ -46,6 +46,7 @@ export function useInitRunner(
   archRounds = 3,
   model = DEFAULT_MODEL,
   skipPrd = false,
+  appType = "web",
 ): InitRunnerState {
   const [phases, setPhases] = useState<PhaseState[]>(() => {
     const p = makePhases(prdRounds, archRounds);
@@ -260,9 +261,18 @@ export function useInitRunner(
         ]);
         const prdWithSpike = injectSpikeReq(prdRaw);
         const statusWithSpike = injectSpikeIntoStatus(statusRaw);
+        const contextPath = `${AGENT_DIR}/context.md`;
+        const contextExists = await Deno.stat(contextPath).then(() => true).catch(() => false);
         await Promise.all([
           Deno.writeTextFile(PRD_OUTPUT_PATH, prdWithSpike),
           Deno.writeTextFile(statusPath, statusWithSpike),
+          // Write initial context.md with app_type if not already present
+          contextExists
+            ? Promise.resolve()
+            : Deno.writeTextFile(
+                contextPath,
+                `app_type: ${appType}\n\nProject initialized. REQ-000 (Walking Skeleton) is next.\n`,
+              ),
         ]);
 
         setDone(true);
