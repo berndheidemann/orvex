@@ -70,53 +70,61 @@ Deno.test("Named exports: DidaktikAnalyst exists", () => {
 
 // ── makeEduPhases tests ─────────────────────────────────────────
 
-Deno.test("makeEduPhases(2,2,2) returns 3 phases", () => {
-  const phases = makeEduPhases(2, 2, 2);
-  assertEquals(phases.length, 3);
+Deno.test("makeEduPhases(2,1,2,2) returns 4 phases", () => {
+  const phases = makeEduPhases(2, 1, 2, 2);
+  assertEquals(phases.length, 4);
 });
 
-Deno.test("makeEduPhases: IDs are didaktik, prd, arch", () => {
-  const phases = makeEduPhases(2, 2, 2);
+Deno.test("makeEduPhases: IDs are didaktik, learning-design, prd, arch", () => {
+  const phases = makeEduPhases(2, 1, 2, 2);
   assertEquals(phases[0].id, "didaktik");
-  assertEquals(phases[1].id, "prd");
-  assertEquals(phases[2].id, "arch");
+  assertEquals(phases[1].id, "learning-design");
+  assertEquals(phases[2].id, "prd");
+  assertEquals(phases[3].id, "arch");
 });
 
 Deno.test("makeEduPhases: first phase starts running", () => {
-  const phases = makeEduPhases(2, 2, 2);
+  const phases = makeEduPhases(2, 1, 2, 2);
   assertEquals(phases[0].status, "running");
 });
 
 Deno.test("makeEduPhases: prd and arch phases start pending", () => {
-  const phases = makeEduPhases(2, 2, 2);
+  const phases = makeEduPhases(2, 1, 2, 2);
   assertEquals(phases[1].status, "pending");
   assertEquals(phases[2].status, "pending");
+  assertEquals(phases[3].status, "pending");
 });
 
 Deno.test("makeEduPhases: didaktik has rounds + synthesis", () => {
-  const phases = makeEduPhases(2, 2, 2);
+  const phases = makeEduPhases(2, 1, 2, 2);
   // 2 debate rounds + 1 synthesis = 3 total
   assertEquals(phases[0].rounds.length, 3);
 });
 
-Deno.test("makeEduPhases: prd has rounds + synthesis", () => {
-  const phases = makeEduPhases(2, 2, 2);
-  assertEquals(phases[1].rounds.length, 3);
+Deno.test("makeEduPhases: learning-design has rounds + synthesis", () => {
+  const phases = makeEduPhases(2, 1, 2, 2);
+  // 1 debate round + 1 synthesis = 2 total
+  assertEquals(phases[1].rounds.length, 2);
 });
 
-Deno.test("makeEduPhases: arch has rounds + synthesis", () => {
-  const phases = makeEduPhases(2, 2, 2);
+Deno.test("makeEduPhases: prd has rounds + synthesis", () => {
+  const phases = makeEduPhases(2, 1, 2, 2);
   assertEquals(phases[2].rounds.length, 3);
 });
 
+Deno.test("makeEduPhases: arch has rounds + synthesis", () => {
+  const phases = makeEduPhases(2, 1, 2, 2);
+  assertEquals(phases[3].rounds.length, 3);
+});
+
 Deno.test("makeEduPhases: didaktik outputPath is LERNSITUATION.md", () => {
-  const phases = makeEduPhases(2, 2, 2);
+  const phases = makeEduPhases(2, 1, 2, 2);
   assertEquals(phases[0].outputPath, "LERNSITUATION.md");
 });
 
-Deno.test("makeEduPhases(1,1,1) works with different round counts", () => {
-  const phases = makeEduPhases(1, 1, 1);
-  assertEquals(phases.length, 3);
+Deno.test("makeEduPhases(1,1,1,1) works with different round counts", () => {
+  const phases = makeEduPhases(1, 1, 1, 1);
+  assertEquals(phases.length, 4);
   assertEquals(phases[0].rounds.length, 2); // 1 round + synthesis
 });
 

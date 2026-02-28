@@ -49,6 +49,29 @@ function EduRunner(props: {
       return;
     }
 
+    // LearningDesign review editor handles its own input
+    if (state.learningDesignReview?.editorOpen) return;
+
+    // LearningDesign synth-done
+    if (state.learningDesignSynthDone) {
+      if (key.return || input === "y" || input === "j") state.confirmLearningDesignSynthDone();
+      else if (state.learningDesignSynthDone.existing && (key.escape || input === "n")) state.skipLearningDesignReview();
+      return;
+    }
+
+    // LearningDesign review
+    if (state.learningDesignReview) {
+      if (state.learningDesignReview.inputMode === "none") {
+        if (key.return) { state.advanceLearningDesignReview(); return; }
+        if (input === "e") { state.openLearningDesignReviewEditor(); return; }
+        if (input === "r") { state.startLearningDesignReviewTyping(); return; }
+      } else if (state.learningDesignReview.inputMode === "typing") {
+        if (key.return) { state.submitLearningDesignReviewRewrite(state.learningDesignReview.typedInput); return; }
+        state.onLearningDesignReviewType(input, fixedKey);
+      }
+      return;
+    }
+
     // PRD review editor handles its own input
     if (state.prdReview?.editorOpen) return;
 
@@ -119,6 +142,29 @@ function EduRunner(props: {
   // LernSituation review
   if (state.lernSituationReview) {
     return h(ReviewUI, { review: state.lernSituationReview, type: "lernsituation" });
+  }
+
+  // LearningDesign synth-done
+  if (state.learningDesignSynthDone) {
+    return h(SynthDoneUI, { type: "learning-design", state: state.learningDesignSynthDone });
+  }
+
+  // LearningDesign review editor
+  if (state.learningDesignReview?.editorOpen) {
+    const item = state.learningDesignReview.items[state.learningDesignReview.currentIdx];
+    if (item) {
+      return h(ReviewEditor, {
+        title: item.id,
+        initialContent: item.content,
+        onSave: state.saveReviewEdit,
+        onCancel: state.cancelReviewEdit,
+      });
+    }
+  }
+
+  // LearningDesign review
+  if (state.learningDesignReview) {
+    return h(ReviewUI, { review: state.learningDesignReview, type: "learning-design" });
   }
 
   // PRD synth-done
@@ -193,10 +239,11 @@ function EduRunner(props: {
 export function EduInitDashboard(props: {
   lernsituationExists: boolean;
   lernpfadExists: boolean;
+  learningDesignExists: boolean;
   prdExists: boolean;
   onDone?: () => void;
 }): React.ReactElement {
-  const { lernsituationExists, lernpfadExists, prdExists, onDone } = props;
+  const { lernsituationExists, lernpfadExists, learningDesignExists, prdExists, onDone } = props;
   const [config, setConfig] = useState<EduInitConfig | null>(null);
   const projectContext = useProjectContext();
 
@@ -205,7 +252,7 @@ export function EduInitDashboard(props: {
   }
 
   return h(EduRunner, {
-    config: { ...config, lernsituationExists, lernpfadExists, prdExists },
+    config: { ...config, lernsituationExists, lernpfadExists, learningDesignExists, prdExists },
     onDone,
   });
 }

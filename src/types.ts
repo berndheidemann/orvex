@@ -20,7 +20,7 @@ export interface RoundState {
 }
 
 export interface PhaseState {
-  id: "prd" | "arch" | "didaktik";
+  id: "prd" | "arch" | "didaktik" | "learning-design";
   label: string;
   outputPath: string;
   status: PhaseStatus;

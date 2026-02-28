@@ -24,13 +24,16 @@ import {
 import { makeAddChunk, makePhaseSink } from "../lib/sinkFactory.ts";
 import {
   DIDAKTIK_AGENTS,
+  LEARNING_DESIGN_AGENTS,
   EDU_PRD_AGENTS,
   LERNSITUATION_OUTPUT_PATH,
   LERNPFAD_OUTPUT_PATH,
+  LEARNING_DESIGN_OUTPUT_PATH,
   EDU_PRD_OUTPUT_PATH,
   makeEduPhases,
   buildDidaktikPrompt,
   buildDrehbuchPrompt,
+  buildLearningDesignPrompt,
   buildEduPrdPrompt,
 } from "../lib/eduAgents.ts";
 import {
@@ -60,12 +63,15 @@ export interface EduInitConfig {
   heterogenitaet: string;
   model?: string;
   didaktikRounds?: number;
+  learningDesignRounds?: number;
   prdRounds?: number;
   archRounds?: number;
   /** Whether LERNSITUATION.md already exists (ADR-011) */
   lernsituationExists?: boolean;
   /** Whether lernpfad.md already exists — skip regeneration on resume */
   lernpfadExists?: boolean;
+  /** Whether learning-design.md already exists — skip generation on resume */
+  learningDesignExists?: boolean;
   /** Whether PRD.md already exists — skip EDU-PRD debate on resume */
   prdExists?: boolean;
 }
@@ -80,10 +86,12 @@ export interface EduInitRunnerState {
   error: string | null;
   // Synth-done screens (transition between generation and review)
   lernSituationSynthDone: SynthDoneState | null;
+  learningDesignSynthDone: SynthDoneState | null;
   prdSynthDone: SynthDoneState | null;
   archSynthDone: SynthDoneState | null;
   // Review states
   lernSituationReview: ReviewState | null;
+  learningDesignReview: ReviewState | null;
   prdReview: ReviewState | null;
   archReview: ReviewState | null;
   // True whenever the hook is waiting for user confirmation (any review/synth screen)
@@ -97,6 +105,15 @@ export interface EduInitRunnerState {
   startLernSituationReviewTyping: () => void;
   submitLernSituationReviewRewrite: (prompt: string) => void;
   onLernSituationReviewType: (char: string, key: InputKey) => void;
+  // LearningDesign synth-done callbacks
+  confirmLearningDesignSynthDone: () => void;
+  skipLearningDesignReview: () => void;
+  // LearningDesign review callbacks
+  advanceLearningDesignReview: () => void;
+  openLearningDesignReviewEditor: () => void;
+  startLearningDesignReviewTyping: () => void;
+  submitLearningDesignReviewRewrite: (prompt: string) => void;
+  onLearningDesignReviewType: (char: string, key: InputKey) => void;
   // PRD synth-done callbacks
   confirmPrdSynthDone: () => void;
   skipPrdReview: () => void;
@@ -132,17 +149,20 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
     heterogenitaet,
     model = DEFAULT_MODEL,
     didaktikRounds = 2,
+    learningDesignRounds = 1,
     prdRounds = 2,
     archRounds = 2,
     lernsituationExists = false,
     lernpfadExists = false,
+    learningDesignExists = false,
     prdExists = false,
   } = config;
 
   const [phases, setPhases] = useState<PhaseState[]>(() => {
-    const p = makeEduPhases(didaktikRounds, prdRounds, archRounds);
+    const p = makeEduPhases(didaktikRounds, learningDesignRounds, prdRounds, archRounds);
     const preCompleted = new Set<string>();
     if (lernsituationExists) preCompleted.add("didaktik");
+    if (learningDesignExists) preCompleted.add("learning-design");
     if (prdExists) preCompleted.add("prd");
     if (preCompleted.size === 0) return p;
     return p.map((phase) => {
@@ -179,6 +199,14 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
     setError: (err: string) => setError(err),
   });
 
+  const learningDesignTarget = useReviewTarget({
+    outputPath: LEARNING_DESIGN_OUTPUT_PATH,
+    rewriteType: "section",
+    rewriteModel: DEFAULT_MODEL,
+    ctrlRef,
+    setError: (err: string) => setError(err),
+  });
+
   const prdTarget = useReviewTarget({
     outputPath: EDU_PRD_OUTPUT_PATH,
     rewriteType: "req",
@@ -197,6 +225,7 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
 
   const { saveReviewEdit, cancelReviewEdit } = useSharedEditCallbacks([
     lernTarget,
+    learningDesignTarget,
     prdTarget,
     archTarget,
   ]);
@@ -204,9 +233,11 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
   // awaitingConfirm: true whenever any synth-done or review screen is active
   const awaitingConfirm =
     lernTarget.synthDone !== null ||
+    learningDesignTarget.synthDone !== null ||
     prdTarget.synthDone !== null ||
     archTarget.synthDone !== null ||
     lernTarget.review !== null ||
+    learningDesignTarget.review !== null ||
     prdTarget.review !== null ||
     archTarget.review !== null;
 
@@ -355,6 +386,63 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
           lineBufferRef.current = "";
         }
 
+        // ── Phase 1.7: Learning Design Debate → learning-design.md ─
+        const [lernkontextRaw, lernsituationRaw, lernpfadRaw] = await Promise.all([
+          Deno.readTextFile("learning-context.md").catch(() => ""),
+          Deno.readTextFile(LERNSITUATION_OUTPUT_PATH).catch(() => ""),
+          Deno.readTextFile(LERNPFAD_OUTPUT_PATH).catch(() => ""),
+        ]);
+        const lernDesignContext = [
+          "## learning-context.md",
+          lernkontextRaw,
+          "",
+          "## LERNSITUATION.md",
+          lernsituationRaw,
+          "",
+          "## lernpfad.md",
+          lernpfadRaw,
+        ].join("\n");
+
+        if (learningDesignExists) {
+          const existingLd = await Deno.readTextFile(LEARNING_DESIGN_OUTPUT_PATH).catch(() => "");
+          const existingLdSections = parseSections(existingLd);
+          await runReviewSequence(learningDesignTarget, existingLdSections, existingLd, { existing: true, signal: ctrl.signal });
+        } else {
+          await runDebatePhase(
+            {
+              phaseId: "learning-design",
+              phaseLabel: "Learning Design",
+              outputPath: LEARNING_DESIGN_OUTPUT_PATH,
+              agents: LEARNING_DESIGN_AGENTS,
+              buildPrompt: buildLearningDesignPrompt,
+              context: lernDesignContext,
+              numRounds: learningDesignRounds,
+              phaseModel: model,
+              synthModel: SYNTH_MODEL,
+              formatRoundSummary: (roundNum, outputs) =>
+                formatRoundSummary(roundNum, LEARNING_DESIGN_AGENTS, outputs),
+              formatSynthesisSummary: (content) => {
+                const sections = parseSections(content);
+                const sectionLines = sections.length > 0
+                  ? sections.map((s) => `  ✓ ${s.title}`)
+                  : ["  (no sections found)"];
+                return [
+                  "Synthesis · learning-design.md created",
+                  "─".repeat(26),
+                  "",
+                  ...sectionLines,
+                ];
+              },
+            },
+            makeSink(),
+            ctrl.signal,
+          );
+
+          const ldContent = await Deno.readTextFile(LEARNING_DESIGN_OUTPUT_PATH).catch(() => "");
+          const ldSections = parseSections(ldContent);
+          await runReviewSequence(learningDesignTarget, ldSections, ldContent, { signal: ctrl.signal });
+        }
+
         // ── Phase 2: EDU-PRD-Debate → PRD.md ───────────────────────
         if (prdExists) {
           // PRD already generated — skip debate, offer review of existing file
@@ -362,11 +450,7 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
           const existingReqs = parseReqs(existingPrd);
           await runReviewSequence(prdTarget, existingReqs, existingPrd, { existing: true, signal: ctrl.signal });
         } else {
-          const [lernkontextRaw, lernsituationRaw, lernpfadRaw] = await Promise.all([
-            Deno.readTextFile("learning-context.md").catch(() => ""),
-            Deno.readTextFile(LERNSITUATION_OUTPUT_PATH).catch(() => ""),
-            Deno.readTextFile(LERNPFAD_OUTPUT_PATH).catch(() => ""),
-          ]);
+          const learningDesignRaw = await Deno.readTextFile(LEARNING_DESIGN_OUTPUT_PATH).catch(() => "");
           const combinedContext = [
             "## learning-context.md",
             lernkontextRaw,
@@ -376,6 +460,9 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
             "",
             "## lernpfad.md",
             lernpfadRaw,
+            "",
+            "## learning-design.md",
+            learningDesignRaw,
           ].join("\n");
 
           await runDebatePhase(
@@ -461,9 +548,11 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
     done,
     error,
     lernSituationSynthDone: lernTarget.synthDone,
+    learningDesignSynthDone: learningDesignTarget.synthDone,
     prdSynthDone: prdTarget.synthDone,
     archSynthDone: archTarget.synthDone,
     lernSituationReview: lernTarget.review,
+    learningDesignReview: learningDesignTarget.review,
     prdReview: prdTarget.review,
     archReview: archTarget.review,
     awaitingConfirm,
@@ -474,6 +563,13 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
     startLernSituationReviewTyping: lernTarget.startTyping,
     submitLernSituationReviewRewrite: lernTarget.submitRewrite,
     onLernSituationReviewType: lernTarget.onType,
+    confirmLearningDesignSynthDone: learningDesignTarget.confirmSynthDone,
+    skipLearningDesignReview: learningDesignTarget.skipReview,
+    advanceLearningDesignReview: learningDesignTarget.advance,
+    openLearningDesignReviewEditor: learningDesignTarget.openEditor,
+    startLearningDesignReviewTyping: learningDesignTarget.startTyping,
+    submitLearningDesignReviewRewrite: learningDesignTarget.submitRewrite,
+    onLearningDesignReviewType: learningDesignTarget.onType,
     confirmPrdSynthDone: prdTarget.confirmSynthDone,
     skipPrdReview: prdTarget.skipReview,
     advancePrdReview: prdTarget.advance,

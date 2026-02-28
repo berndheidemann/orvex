@@ -32,6 +32,8 @@ let lernsituationExists = false;
 try { await Deno.stat("LERNSITUATION.md"); lernsituationExists = true; } catch { /* */ }
 let lernpfadExists = false;
 try { await Deno.stat("lernpfad.md"); lernpfadExists = true; } catch { /* */ }
+let learningDesignExists = false;
+try { await Deno.stat("learning-design.md"); learningDesignExists = true; } catch { /* */ }
 let prdExists = false;
 try { await Deno.stat("PRD.md"); prdExists = true; } catch { /* */ }
 
@@ -48,6 +50,7 @@ function App(): React.ReactElement {
     return h(EduInitDashboard, {
       lernsituationExists,
       lernpfadExists,
+      learningDesignExists,
       prdExists,
       onDone: () => setInitDone(true),
     });

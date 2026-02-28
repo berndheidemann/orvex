@@ -96,6 +96,52 @@ Task(subagent_type="general-purpose", model="opus", max_turns=10, prompt="
 
 ---
 
+## Phase 2.6: Design Gate (for UI REQs with design.md)
+
+**Skip entirely if:**
+- `app_type` is `backend`, `api`, `android`, `ios`, `flutter`, `react-native`, `desktop`, or `other`
+- `design.md` does not exist in the project root
+- The REQ has no Acceptance Criterion describing a visible UI element, form, layout, or interaction
+
+**When triggered:** `app_type: web` (or not set) AND `design.md` exists AND the REQ is UI-facing.
+
+Read `design.md` to understand the project's design system (tokens, component primitives, interaction patterns). Then generate a focused Component Spec for this REQ:
+
+```
+Task(
+  subagent_type="general-purpose",
+  model="haiku",
+  max_turns=5,
+  prompt="
+  You are a UI Component Specifier. Task: translate a REQ + design system into a compact component spec.
+
+  Read: design.md
+
+  REQ: [REQ-ID] — [Title]
+  Acceptance Criteria:
+  [paste ACs verbatim]
+
+  Produce a component spec (max 30 lines):
+
+  ## Component: [ComponentName]
+  **File:** [path/to/component file]
+  **Uses tokens:** [list relevant tokens from design.md — colors, spacing, typography]
+  **Props:** [key props with types]
+  **Variants:** [if multiple visual variants exist]
+  **Interaction:** [what changes on user action — click, hover, submit, error]
+  **Empty/loading state:** [what to show before data is available]
+
+  Output the spec only. No code, no prose.
+  "
+)
+```
+
+Save the output to `.agent/req-designs/[REQ-ID].md` (create the directory if needed).
+
+In Phase 3: read `.agent/req-designs/[REQ-ID].md` before starting implementation. The spec is a **guideline** — deviate only when technically necessary. If you deviate, document why in `learnings.md`.
+
+---
+
 ## Phase 3: Implement
 
 1. Set the REQ to status `in_progress` — **first** in `.agent/status.json`, then in `PRD.md`

@@ -28,6 +28,11 @@ You are an autonomous development agent. You process **one unit of work per iter
    - Content-Typ-zu-Lernziel-Matrix — the planned content type and Bloom level per section
    - Typical Misconceptions — use these for DIAG distractor design
    - If `lernpfad.md` exists: read it for the concrete LE-Sequenz and time budget per section
+6. **[EDU] Read `learning-design.md`** — if it exists, read it to understand:
+   - Visualisierungsstrategie per Content-Typ (EXPL / TASK / DIAG / DIFF) — apply when implementing any CONT-REQ
+   - Kognitive-Last-Prinzipien — respect element count limits and split-attention rules
+   - Interaktions- & Feedback-Muster — apply the defined hint system, error messages, and feedback timing
+   - Visuelles Vokabular — use the defined colors, typography, and iconography consistently
 6. **REQ-000 (Walking Skeleton):** If REQ-000 is open, it is always chosen first — regardless of other P0 REQs. Implement infrastructure only: dependencies, build, linter, test runner, dev server, a minimal E2E layer without business content. No data models with real content, no business logic, no UI features.
 7. **S-Batching:** If the selected REQ has Size `S`, check whether the next REQ (same priority, no dependency on the first) is also `S`. If so, process both in this iteration. Max 3 S-REQs per iteration. Each S-REQ goes through Phase 3 and Phase 4 individually — shared Phase 5 at the end. **XS is treated like S (no Opus Planner, batchable).**
    - **Import Check:** Would the implementation of a batch candidate import or call code that another REQ in the batch has yet to produce? If so: do NOT include that REQ in the batch.
@@ -103,6 +108,54 @@ Task(subagent_type="general-purpose", model="opus", prompt="
 ```
 
 **Opus' plan is binding.** Deviate only if technically impossible.
+
+---
+
+## Phase 2.6: Design Gate [EDU: liest learning-design.md]
+
+**Skip entirely if:**
+- `learning-design.md` does not exist in the project root
+- The REQ is pure infrastructure (REQ-000), backend-only, or has no Acceptance Criterion describing visible UI, interactive content, or visualization
+
+**When triggered:** `learning-design.md` exists AND the REQ involves a visible component, interactive element, or content visualization (applies to most CONT-REQs and UI-facing REQs).
+
+Read `learning-design.md` to understand this project's visualization strategies, interaction patterns, and visual vocabulary. Then generate a focused Component Spec for this REQ:
+
+```
+Task(
+  subagent_type="general-purpose",
+  model="haiku",
+  max_turns=5,
+  prompt="
+  You are a UI Component Specifier for an educational learning application.
+  Task: translate a REQ + learning design system into a compact component spec.
+
+  Read: learning-design.md
+
+  REQ: [REQ-ID] — [Title]
+  Acceptance Criteria:
+  [paste ACs verbatim]
+
+  Produce a component spec (max 40 lines):
+
+  ## Component: [ComponentName]
+  **File:** [path/to/component file]
+  **Content-Typ:** EXPL | TASK | DIAG | DIFF | UI
+  **Visualization:** [Which strategy from learning-design.md applies?]
+  **Interaction:** [What changes on user action — click, input, submit, hint request?]
+  **Feedback pattern:** [Which feedback type from learning-design.md? Immediate/delayed/hint-based?]
+  **Scaffolding:** [How many levels? What does each reveal?]
+  **Empty/loading state:** [What to show before content is available?]
+  **Cognitive load note:** [Which element-count or split-attention rule applies here?]
+
+  Output the spec only. No code, no prose.
+  "
+)
+```
+
+Save the output to `.agent/req-designs/[REQ-ID].md` (create the directory if needed).
+
+In Phase 3: read `.agent/req-designs/[REQ-ID].md` before starting implementation. The spec is a **guideline** — deviate only when technically necessary. If you deviate, document why in `learnings.md`.
 
 ---
 

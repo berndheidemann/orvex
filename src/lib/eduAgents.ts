@@ -8,6 +8,7 @@ import { K_HEADER, makeRounds, formatOthersOutput } from "./debateUtils.ts";
 
 export const LERNSITUATION_OUTPUT_PATH = "LERNSITUATION.md";
 export const LERNPFAD_OUTPUT_PATH = "lernpfad.md";
+export const LEARNING_DESIGN_OUTPUT_PATH = "learning-design.md";
 export const EDU_PRD_OUTPUT_PATH = "PRD.md";
 
 // ── Agent definitions ───────────────────────────────────────────
@@ -36,6 +37,25 @@ export const Fachsystematiker = DIDAKTIK_AGENTS[0];
 export const LernprozessAdvokat = DIDAKTIK_AGENTS[1];
 export const RealitaetsConstraintAgent = DIDAKTIK_AGENTS[2];
 
+/** Phase 1.7 agents: Learning Design Debate */
+export const LEARNING_DESIGN_AGENTS: Agent[] = [
+  {
+    name: "Learning Experience Designer",
+    persona:
+      "You are a Learning Experience Designer (LXD). Your focus: translating Bloom-level learning objectives and lernpfad structure into concrete visualization strategies. You decide when a concept needs an animation, an interactive simulation, a static diagram, or a narrative explanation. You know how to make abstract content tangible for specific age groups. You push for content-type-specific design patterns: EXPL content needs progressive disclosure and concept anchoring, TASK content needs clear action affordances and guided scaffolding, DIAG content needs distractor-aware answer patterns. You always connect visualization choices back to the specific Lernziele from LERNSITUATION.md.",
+  },
+  {
+    name: "Cognitive Load Specialist",
+    persona:
+      "You are a Cognitive Load Specialist. Your focus: working memory limits, split-attention effects, redundancy principle, and signaling. You analyze every design proposal for extraneous cognitive load (unnecessary visual complexity, unclear navigation, missing orientation cues) and demand its elimination. You define scaffolding depth per Bloom level: Erinnern/Verstehen content needs retrieval cues and worked examples; Analysieren/Bewerten content needs comparison frames and argument structures. You require that every interactive element has a clear cognitive purpose — no decorative interaction, no gratuitous animation. You ground all decisions in the specific Jahrgangsstufe and Vorwissen from learning-context.md.",
+  },
+  {
+    name: "Interaction & Feedback Designer",
+    persona:
+      "You are an Interaction & Feedback Designer for learning systems. Your focus: feedback timing, hint architectures, error-response design, and motivational interaction patterns. You define when feedback must be immediate (DIAG items, formative checks) vs. delayed (open-ended TASK). You design the hint system: how many hints, what each reveals, how hints relate to the specific misconceptions in LERNSITUATION.md. You specify feedback messages: not 'Wrong — try again' but diagnostic messages that address the specific misconception. You decide when gamification elements (progress indicators, streaks, unlocks) serve learning and when they distract from it.",
+  },
+];
+
 /** Phase 2 agents: EDU-PRD-Debate */
 export const EDU_PRD_AGENTS: Agent[] = [
   {
@@ -63,13 +83,15 @@ export const DidaktikAnalyst = EDU_PRD_AGENTS[2];
 // ── Phase structure factory ─────────────────────────────────────
 
 /**
- * Creates the 3-phase structure for edu-init flows:
- * 1. "didaktik" — Didaktik-Debate → LERNSITUATION.md
- * 2. "prd"      — EDU-PRD-Debate → PRD.md
- * 3. "arch"     — Architecture Design → architecture.md
+ * Creates the 4-phase structure for edu-init flows:
+ * 1. "didaktik"         — Didaktik-Debate → LERNSITUATION.md
+ * 2. "learning-design"  — Learning Design Debate → learning-design.md
+ * 3. "prd"              — EDU-PRD-Debate → PRD.md
+ * 4. "arch"             — Architecture Design → architecture.md
  */
 export function makeEduPhases(
   didaktikRounds: number,
+  learningDesignRounds: number,
   prdRounds: number,
   archRounds: number,
 ): PhaseState[] {
@@ -80,6 +102,14 @@ export function makeEduPhases(
       outputPath: LERNSITUATION_OUTPUT_PATH,
       status: "running",
       rounds: makeRounds(DIDAKTIK_AGENTS, didaktikRounds),
+      startedAt: null,
+    },
+    {
+      id: "learning-design",
+      label: "Learning Design",
+      outputPath: LEARNING_DESIGN_OUTPUT_PATH,
+      status: "pending",
+      rounds: makeRounds(LEARNING_DESIGN_AGENTS, learningDesignRounds),
       startedAt: null,
     },
     {
@@ -276,6 +306,150 @@ For each section, produce a block:
 ---
 
 Total duration must match the 45-minute Unterrichtsstunde (or clearly indicate if multiple lessons are needed).
+
+${GERMAN_OUTPUT_DIRECTIVE}`;
+}
+
+/**
+ * Builds prompts for Phase 1.7 Learning Design Debate rounds.
+ * combinedContext = learning-context.md + LERNSITUATION.md + lernpfad.md (concatenated by caller).
+ * When roundIdx === numRounds, produces the synthesis prompt that generates learning-design.md.
+ */
+export function buildLearningDesignPrompt(
+  roundIdx: number,
+  agentIdx: number,
+  combinedContext: string,
+  allOutputs: string[][],
+  numRounds: number,
+): string {
+  const isSynthesis = roundIdx === numRounds;
+
+  if (isSynthesis) {
+    const lastRound = allOutputs[numRounds - 1] ?? [];
+    const all = LEARNING_DESIGN_AGENTS.map((a, i) =>
+      `--- ${a.name} (final position) ---\n${lastRound[i] ?? "(no output)"}`
+    ).join("\n\n");
+
+    return `TASK: Synthesize the following Learning Design debate into a complete learning-design.md document.
+
+OUTPUT RULES (mandatory):
+- Your response starts with the character '#'. No text before it.
+- Do NOT write files. Do NOT execute commands. Do NOT use tools.
+- No introduction, no confirmation, no <k> block.
+- Your text response IS the document — complete and direct.
+
+Educational context (learning-context.md + LERNSITUATION.md + lernpfad.md):
+${combinedContext}
+
+Final positions from the Learning Design debate:
+
+${all}
+
+Produce a structured learning-design.md following this schema exactly:
+
+# Learning Design: [derived title from LERNSITUATION]
+
+## Visualisierungsstrategie pro Content-Typ
+
+### EXPL (Erklärungsinhalte)
+- **Primäre Darstellungsform:** [Animation | Statisches Diagramm | Narrativer Text | Interaktive Visualisierung | ...]
+- **Begründung:** [Why this form for this content and this Jahrgangsstufe?]
+- **Progressive Disclosure:** [How is complexity revealed step by step?]
+- **Konzeptverankerung:** [What prior knowledge hooks does every EXPL unit need?]
+
+### TASK (Übungsaufgaben)
+- **Interaction Pattern:** [Input form | Drag & Drop | Sequence | Free text | ...]
+- **Scaffolding-Stufen:** [How many scaffolding levels? What does each reveal?]
+- **Feedback-Typ:** [Immediate | Delayed | Hint-based]
+- **Aufgabenstruktur:** [How is a task unit visually structured?]
+
+### DIAG (Diagnostik / Quiz)
+- **Item-Format:** [Single-choice | Multiple-choice | Slider | ...]
+- **Distraktoren-Design:** [How are wrong answers visually presented?]
+- **Feedback bei Fehler:** [What diagnostic message pattern is used?]
+- **Feedback bei Erfolg:** [Confirmation pattern — reinforcing, not celebratory]
+
+### DIFF (Differenzierung)
+- **Grundniveau-Marker:** [How is Grundniveau visually differentiated from Erweiterungsniveau?]
+- **Erweiterungsniveau-Marker:** [...]
+- **Übergangsmechanik:** [How does a learner move between levels?]
+
+## Kognitive-Last-Prinzipien
+
+- **Maximale Elemente pro Bildschirmbereich:** [Number based on working memory model]
+- **Split-Attention-Strategie:** [How are related text and visual elements positioned?]
+- **Signaling:** [What visual cues mark the most important elements?]
+- **Redundanzreduktion:** [What information must NOT appear twice in different forms?]
+
+## Interaktions- & Feedback-Muster
+
+### Hinweissystem
+- **Anzahl Hinweisebenen:** [N]
+- **Hinweis 1:** [What does it reveal?]
+- **Hinweis N:** [What does the deepest hint reveal?]
+- **Freischaltlogik:** [When can a learner request the next hint?]
+
+### Fehlerbehandlung
+- **Fehlerfeedback-Muster:** [Template for diagnostic error message]
+- **Wiederholungslogik:** [How many attempts before solution is shown?]
+- **Misconception-Mapping:** [Which misconception from LERNSITUATION.md maps to which feedback message?]
+
+### Fortschrittsanzeige
+- **Darstellungsform:** [Progress bar | Step indicator | None]
+- **Granularität:** [Per-section | Per-LE | Per-item]
+- **Motivationsdesign:** [Encouragement pattern without gamification distraction]
+
+## Visuelles Vokabular
+
+- **Farbe für Erfolg/Fehler/Neutral:** [e.g. green/red/gray — but use semantic names, not hex]
+- **Typografie-Hierarchie:** [Heading levels and their semantic roles]
+- **Ikonographie:** [Which icons carry meaning? Define their semantic use]
+- **Leerraumnutzung:** [When to use whitespace as a cognitive separator?]
+
+${GERMAN_OUTPUT_DIRECTIVE}`;
+  }
+
+  const agent = LEARNING_DESIGN_AGENTS[agentIdx];
+
+  if (roundIdx === 0) {
+    return `${K_HEADER}${agent.persona}
+
+Educational context (learning-context.md + LERNSITUATION.md + lernpfad.md):
+${combinedContext}
+
+Analyze the learning design requirements from your expert perspective.
+Focus on: What visualization strategies, interaction patterns, and cognitive design decisions are critical for this specific learning content, age group, and Bloom levels?
+
+Use this format for each proposal:
+
+### DESIGN-NNN: [Title]
+- Priority: P0|P1|P2
+#### Claim
+[Your argument from your expert perspective]
+#### Evidence / Rationale
+[Why is this design decision critical for this specific Lernkontext?]
+#### Konkrete Umsetzung
+[What does this look like in practice? Be specific: colors, interactions, text patterns.]
+
+${GERMAN_OUTPUT_DIRECTIVE}`;
+  }
+
+  const context = formatOthersOutput(allOutputs, roundIdx - 1, agentIdx, LEARNING_DESIGN_AGENTS);
+
+  return `${K_HEADER}${agent.persona}
+
+Educational context (learning-context.md + LERNSITUATION.md + lernpfad.md):
+${combinedContext}
+
+Round ${roundIdx + 1} of the Learning Design debate. Positions from round ${roundIdx}:
+
+${context}
+
+Respond from your expert perspective:
+1. What did you miss in your own round-${roundIdx} position?
+2. Where do the other perspectives fall short — what do they miss from your domain?
+3. Where are there genuine conflicts between perspectives — how do you resolve them?
+4. Give your refined, complete final position for this round.
 
 ${GERMAN_OUTPUT_DIRECTIVE}`;
 }

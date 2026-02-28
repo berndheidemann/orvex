@@ -152,7 +152,7 @@ export function PhaseBlockCompact(props: {
 // Arch: shows full scrollable architecture.md content.
 
 export function SynthDoneUI(props: {
-  type: "prd" | "arch" | "lernsituation";
+  type: "prd" | "arch" | "lernsituation" | "learning-design";
   state: SynthDoneState;
 }): React.ReactElement {
   const { type, state } = props;
@@ -205,6 +205,8 @@ export function SynthDoneUI(props: {
     ? (state.existing ? "PRD.md — Review" : "PRD.md created")
     : type === "lernsituation"
     ? (state.existing ? "LERNSITUATION.md — Review" : "LERNSITUATION.md created")
+    : type === "learning-design"
+    ? (state.existing ? "learning-design.md — Review" : "learning-design.md created")
     : "architecture.md created";
 
   return h(
@@ -249,7 +251,7 @@ export function SynthDoneUI(props: {
 
 export function ReviewUI(props: {
   review: ReviewState;
-  type: "prd" | "arch" | "lernsituation";
+  type: "prd" | "arch" | "lernsituation" | "learning-design";
 }): React.ReactElement {
   const { review, type } = props;
   const { columns, rows } = useTerminalSize();
