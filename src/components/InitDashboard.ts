@@ -194,14 +194,20 @@ export function SynthDoneUI(props: {
   }
 
   const viewportH = Math.max(5, rows - HEADER_H - FOOTER_H);
-  const maxScroll = Math.max(0, lines.length - viewportH);
+  const textWidth = Math.max(10, columns - 2);
+  const visualRows = computeVisualRows(lines, textWidth);
+  const maxScroll = Math.max(0, visualRows.length - viewportH);
 
   useInput((_input, key) => {
     if (key.upArrow) setScrollOffset((prev: number) => Math.max(0, prev - 1));
     if (key.downArrow) setScrollOffset((prev: number) => Math.min(maxScroll, prev + 1));
   });
 
-  const visibleLines = lines.slice(scrollOffset, scrollOffset + viewportH);
+  useEffect(() => {
+    setScrollOffset((prev: number) => Math.min(prev, maxScroll));
+  }, [maxScroll]);
+
+  const visibleRows = visualRows.slice(scrollOffset, scrollOffset + viewportH);
   const title = type === "prd"
     ? (state.existing ? "PRD.md — Review" : "PRD.md created")
     : type === "lernsituation"
@@ -225,8 +231,10 @@ export function SynthDoneUI(props: {
     h(
       Box,
       { flexDirection: "column" },
-      ...visibleLines.map((line, i) =>
-        h(Text, { key: String(i), wrap: "truncate" }, line || " ")
+      ...visibleRows.map((vr, i) => {
+        const rowText = lines[vr.logicalRow]?.slice(vr.startCol, vr.endCol) ?? "";
+        return h(Text, { key: String(i) }, rowText || " ");
+      },
       ),
     ),
     h(Text, { dimColor: true }, divider),
@@ -236,7 +244,7 @@ export function SynthDoneUI(props: {
       { flexDirection: "row", gap: 3 },
       maxScroll > 0
         ? h(Text, { dimColor: true },
-            `  ↑/↓ scroll  (${scrollOffset + 1}–${Math.min(scrollOffset + viewportH, lines.length)} / ${lines.length})`)
+            `  ↑/↓ scroll  (${scrollOffset + 1}–${Math.min(scrollOffset + viewportH, visualRows.length)} / ${visualRows.length})`)
         : null,
     ),
     type === "prd"
@@ -367,7 +375,7 @@ export function ReviewUI(props: {
       : h(
           Box,
           { flexDirection: "row", gap: 2 },
-          h(Text, { dimColor: true }, "  [Enter] Next  [e] Edit  [r] Opus-Rewrite"),
+          h(Text, { dimColor: true }, "  [Enter] Next  [e] Edit  [r] Opus-Rewrite  [d] Delete"),
           maxScroll > 0
             ? h(Text, { dimColor: true },
                 `  ↑/↓ scroll (${scrollOffset + 1}–${Math.min(scrollOffset + viewportH, visualRows.length)} / ${visualRows.length})`)
@@ -630,6 +638,7 @@ function InitRunner(props: {
         if (key.return) { state.advancePrdReview(); return; }
         if (input === "e") { state.openPrdReviewEditor(); return; }
         if (input === "r") { state.startPrdReviewTyping(); return; }
+        if (input === "d") { void state.deletePrdReviewItem(); return; }
       } else if (state.prdReview.inputMode === "typing") {
         if (key.return) { state.submitPrdReviewRewrite(state.prdReview.typedInput); return; }
         const fixedKey = { ...key, backspace: key.backspace || (key.delete && rawWasBackspace.current) };
@@ -664,6 +673,7 @@ function InitRunner(props: {
         if (key.return) { state.advanceArchReview(); return; }
         if (input === "e") { state.openArchReviewEditor(); return; }
         if (input === "r") { state.startArchReviewTyping(); return; }
+        if (input === "d") { void state.deleteArchReviewItem(); return; }
       } else if (state.archReview.inputMode === "typing") {
         if (key.return) { state.submitArchReviewRewrite(state.archReview.typedInput); return; }
         const fixedKey = { ...key, backspace: key.backspace || (key.delete && rawWasBackspace.current) };

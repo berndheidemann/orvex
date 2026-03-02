@@ -3,6 +3,7 @@ import {
   parseReqs,
   parseAdrs,
   replaceItemInContent,
+  deleteItemInContent,
   parseAdrConstraints,
   buildRewritePrompt,
 } from "./reviewUtils.ts";
@@ -183,6 +184,30 @@ Deno.test("replaceItemInContent: leaves unrelated content unchanged", () => {
   const result = replaceItemInContent(file, "old section", "new section");
   assertEquals(result.includes("header"), true);
   assertEquals(result.includes("footer"), true);
+});
+
+// ── deleteItemInContent ────────────────────────────────────────
+
+Deno.test("deleteItemInContent: removes one section and compacts blank lines", () => {
+  const file = [
+    "# PRD",
+    "",
+    "### REQ-001: A",
+    "A text",
+    "",
+    "### REQ-002: B",
+    "B text",
+    "",
+    "### REQ-003: C",
+    "C text",
+    "",
+  ].join("\n");
+  const item = ["### REQ-002: B", "B text"].join("\n");
+  const result = deleteItemInContent(file, item);
+  assertEquals(result.includes("REQ-002"), false);
+  assertEquals(result.includes("REQ-001"), true);
+  assertEquals(result.includes("REQ-003"), true);
+  assertEquals(result.includes("\n\n\n"), false);
 });
 
 // ── parseAdrConstraints ────────────────────────────────────────

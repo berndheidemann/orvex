@@ -46,6 +46,15 @@ export function replaceItemInContent(
   return fileContent.replace(oldContent, newContent);
 }
 
+export function deleteItemInContent(
+  fileContent: string,
+  itemContent: string,
+): string {
+  const removed = fileContent.replace(itemContent, "");
+  const compact = removed.replace(/\n{3,}/g, "\n\n").trimEnd();
+  return compact.length > 0 ? `${compact}\n` : "";
+}
+
 export function parseAdrConstraints(adrContent: string): string[] {
   const match = adrContent.match(/^\*\*Restricts:\*\*\s*(.+)$/m);
   if (!match) return [];

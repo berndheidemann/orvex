@@ -90,6 +90,7 @@ export interface InitRunnerState {
   openPrdReviewEditor: () => void;
   startPrdReviewTyping: () => void;
   submitPrdReviewRewrite: (prompt: string) => void;
+  deletePrdReviewItem: () => void;
   onPrdReviewType: (char: string, key: InputKey) => void;
   // Arch synthesis done transition screen (replaces awaitingArchReviewConfirm)
   archSynthDone: SynthDoneState | null;
@@ -101,6 +102,7 @@ export interface InitRunnerState {
   openArchReviewEditor: () => void;
   startArchReviewTyping: () => void;
   submitArchReviewRewrite: (prompt: string) => void;
+  deleteArchReviewItem: () => void;
   onArchReviewType: (char: string, key: InputKey) => void;
   // Shared editor callbacks
   saveReviewEdit: (content: string) => void;

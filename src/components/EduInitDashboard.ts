@@ -42,6 +42,7 @@ function EduRunner(props: {
         if (key.return) { state.advanceLernSituationReview(); return; }
         if (input === "e") { state.openLernSituationReviewEditor(); return; }
         if (input === "r") { state.startLernSituationReviewTyping(); return; }
+        if (input === "d") { void state.deleteLernSituationReviewItem(); return; }
       } else if (state.lernSituationReview.inputMode === "typing") {
         if (key.return) { state.submitLernSituationReviewRewrite(state.lernSituationReview.typedInput); return; }
         state.onLernSituationReviewType(input, fixedKey);
@@ -65,6 +66,7 @@ function EduRunner(props: {
         if (key.return) { state.advanceLearningDesignReview(); return; }
         if (input === "e") { state.openLearningDesignReviewEditor(); return; }
         if (input === "r") { state.startLearningDesignReviewTyping(); return; }
+        if (input === "d") { void state.deleteLearningDesignReviewItem(); return; }
       } else if (state.learningDesignReview.inputMode === "typing") {
         if (key.return) { state.submitLearningDesignReviewRewrite(state.learningDesignReview.typedInput); return; }
         state.onLearningDesignReviewType(input, fixedKey);
@@ -88,6 +90,7 @@ function EduRunner(props: {
         if (key.return) { state.advancePrdReview(); return; }
         if (input === "e") { state.openPrdReviewEditor(); return; }
         if (input === "r") { state.startPrdReviewTyping(); return; }
+        if (input === "d") { void state.deletePrdReviewItem(); return; }
       } else if (state.prdReview.inputMode === "typing") {
         if (key.return) { state.submitPrdReviewRewrite(state.prdReview.typedInput); return; }
         state.onPrdReviewType(input, fixedKey);
@@ -111,6 +114,7 @@ function EduRunner(props: {
         if (key.return) { state.advanceArchReview(); return; }
         if (input === "e") { state.openArchReviewEditor(); return; }
         if (input === "r") { state.startArchReviewTyping(); return; }
+        if (input === "d") { void state.deleteArchReviewItem(); return; }
       } else if (state.archReview.inputMode === "typing") {
         if (key.return) { state.submitArchReviewRewrite(state.archReview.typedInput); return; }
         state.onArchReviewType(input, fixedKey);

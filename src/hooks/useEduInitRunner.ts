@@ -104,6 +104,7 @@ export interface EduInitRunnerState {
   openLernSituationReviewEditor: () => void;
   startLernSituationReviewTyping: () => void;
   submitLernSituationReviewRewrite: (prompt: string) => void;
+  deleteLernSituationReviewItem: () => void;
   onLernSituationReviewType: (char: string, key: InputKey) => void;
   // LearningDesign synth-done callbacks
   confirmLearningDesignSynthDone: () => void;
@@ -113,6 +114,7 @@ export interface EduInitRunnerState {
   openLearningDesignReviewEditor: () => void;
   startLearningDesignReviewTyping: () => void;
   submitLearningDesignReviewRewrite: (prompt: string) => void;
+  deleteLearningDesignReviewItem: () => void;
   onLearningDesignReviewType: (char: string, key: InputKey) => void;
   // PRD synth-done callbacks
   confirmPrdSynthDone: () => void;
@@ -122,6 +124,7 @@ export interface EduInitRunnerState {
   openPrdReviewEditor: () => void;
   startPrdReviewTyping: () => void;
   submitPrdReviewRewrite: (prompt: string) => void;
+  deletePrdReviewItem: () => void;
   onPrdReviewType: (char: string, key: InputKey) => void;
   // Arch synth-done callbacks
   confirmArchSynthDone: () => void;
@@ -131,6 +134,7 @@ export interface EduInitRunnerState {
   openArchReviewEditor: () => void;
   startArchReviewTyping: () => void;
   submitArchReviewRewrite: (prompt: string) => void;
+  deleteArchReviewItem: () => void;
   onArchReviewType: (char: string, key: InputKey) => void;
   // Shared editor callbacks
   saveReviewEdit: (content: string) => void;
@@ -562,6 +566,7 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
     openLernSituationReviewEditor: lernTarget.openEditor,
     startLernSituationReviewTyping: lernTarget.startTyping,
     submitLernSituationReviewRewrite: lernTarget.submitRewrite,
+    deleteLernSituationReviewItem: lernTarget.deleteCurrentItem,
     onLernSituationReviewType: lernTarget.onType,
     confirmLearningDesignSynthDone: learningDesignTarget.confirmSynthDone,
     skipLearningDesignReview: learningDesignTarget.skipReview,
@@ -569,6 +574,7 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
     openLearningDesignReviewEditor: learningDesignTarget.openEditor,
     startLearningDesignReviewTyping: learningDesignTarget.startTyping,
     submitLearningDesignReviewRewrite: learningDesignTarget.submitRewrite,
+    deleteLearningDesignReviewItem: learningDesignTarget.deleteCurrentItem,
     onLearningDesignReviewType: learningDesignTarget.onType,
     confirmPrdSynthDone: prdTarget.confirmSynthDone,
     skipPrdReview: prdTarget.skipReview,
@@ -576,6 +582,7 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
     openPrdReviewEditor: prdTarget.openEditor,
     startPrdReviewTyping: prdTarget.startTyping,
     submitPrdReviewRewrite: prdTarget.submitRewrite,
+    deletePrdReviewItem: prdTarget.deleteCurrentItem,
     onPrdReviewType: prdTarget.onType,
     confirmArchSynthDone: archTarget.confirmSynthDone,
     skipArchReview: archTarget.skipReview,
@@ -583,6 +590,7 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
     openArchReviewEditor: archTarget.openEditor,
     startArchReviewTyping: archTarget.startTyping,
     submitArchReviewRewrite: archTarget.submitRewrite,
+    deleteArchReviewItem: archTarget.deleteCurrentItem,
     onArchReviewType: archTarget.onType,
     saveReviewEdit,
     cancelReviewEdit,

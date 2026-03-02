@@ -6,7 +6,7 @@ import type {
   InputKey,
 } from "../types.ts";
 import { runClaude } from "./runClaude.ts";
-import { buildRewritePrompt, replaceItemInContent } from "./reviewUtils.ts";
+import { buildRewritePrompt, replaceItemInContent, deleteItemInContent } from "./reviewUtils.ts";
 import {
   makeInitialReviewState,
   advanceReviewState,
@@ -57,6 +57,7 @@ export interface ReviewFlowHandle {
   startTyping: () => void;
   onType: (char: string, key: InputKey) => void;
   submitRewrite: (prompt: string) => Promise<void>;
+  deleteCurrentItem: () => Promise<void>;
 }
 
 // ── useReviewTarget ─────────────────────────────────────────────
@@ -168,6 +169,39 @@ export function useReviewTarget(config: ReviewTargetConfig): ReviewFlowHandle {
     }
   }, [setReviewSynced, outputPath, rewriteType, rewriteModel, ctrlRef, setError]);
 
+  const deleteCurrentItem = useCallback(async () => {
+    const rev = reviewRef.current;
+    if (!rev || rev.inputMode !== "none") return;
+    const item = rev.items[rev.currentIdx];
+    if (!item) return;
+
+    const updatedFile = deleteItemInContent(rev.fileContent, item.content);
+    if (updatedFile === rev.fileContent) return;
+    await Deno.writeTextFile(outputPath, updatedFile);
+
+    setReviewSynced((prev: RS) => {
+      if (!prev) return null;
+
+      const newItems = prev.items.filter((_, i) => i !== prev.currentIdx);
+      if (newItems.length === 0) {
+        reviewDoneRef.current?.();
+        return null;
+      }
+
+      const newIdx = Math.min(prev.currentIdx, newItems.length - 1);
+      return {
+        ...prev,
+        items: newItems,
+        currentIdx: newIdx,
+        inputMode: "none",
+        typedInput: "",
+        typingCursorPos: 0,
+        editorOpen: false,
+        fileContent: updatedFile,
+      };
+    });
+  }, [setReviewSynced, outputPath]);
+
   return {
     synthDone,
     setSynthDone,
@@ -184,6 +218,7 @@ export function useReviewTarget(config: ReviewTargetConfig): ReviewFlowHandle {
     startTyping,
     onType,
     submitRewrite,
+    deleteCurrentItem,
   };
 }
 
