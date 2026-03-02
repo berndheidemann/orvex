@@ -36,6 +36,8 @@ let learningDesignExists = false;
 try { await Deno.stat("learning-design.md"); learningDesignExists = true; } catch { /* */ }
 let prdExists = false;
 try { await Deno.stat("PRD.md"); prdExists = true; } catch { /* */ }
+let archExists = false;
+try { await Deno.stat("architecture.md"); archExists = true; } catch { /* */ }
 
 const { useState } = React;
 
@@ -45,13 +47,14 @@ function App(): React.ReactElement {
   // EDU_INIT_MODE: explicit edu-init invocation
   // Resume path: LERNSITUATION.md exists and architecture.md is still missing —
   // regardless of whether PRD.md already exists (arch-only edu resume).
-  const eduResume = !EDU_INIT_MODE && lernsituationExists && !bothExist;
+  const eduResume = !EDU_INIT_MODE && lernsituationExists && (!bothExist || !learningDesignExists);
   if ((EDU_INIT_MODE || eduResume) && !initDone) {
     return h(EduInitDashboard, {
       lernsituationExists,
       lernpfadExists,
       learningDesignExists,
       prdExists,
+      archExists,
       onDone: () => setInitDone(true),
     });
   }

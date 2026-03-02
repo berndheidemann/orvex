@@ -245,9 +245,10 @@ export function EduInitDashboard(props: {
   lernpfadExists: boolean;
   learningDesignExists: boolean;
   prdExists: boolean;
+  archExists?: boolean;
   onDone?: () => void;
 }): React.ReactElement {
-  const { lernsituationExists, lernpfadExists, learningDesignExists, prdExists, onDone } = props;
+  const { lernsituationExists, lernpfadExists, learningDesignExists, prdExists, archExists = false, onDone } = props;
   const [config, setConfig] = useState<EduInitConfig | null>(null);
   const projectContext = useProjectContext();
 
@@ -256,7 +257,7 @@ export function EduInitDashboard(props: {
   }
 
   return h(EduRunner, {
-    config: { ...config, lernsituationExists, lernpfadExists, learningDesignExists, prdExists },
+    config: { ...config, lernsituationExists, lernpfadExists, learningDesignExists, prdExists, archExists },
     onDone,
   });
 }

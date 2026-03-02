@@ -74,6 +74,8 @@ export interface EduInitConfig {
   learningDesignExists?: boolean;
   /** Whether PRD.md already exists — skip EDU-PRD debate on resume */
   prdExists?: boolean;
+  /** Whether architecture.md already exists — skip arch debate on resume */
+  archExists?: boolean;
 }
 
 export interface EduInitRunnerState {
@@ -160,6 +162,7 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
     lernpfadExists = false,
     learningDesignExists = false,
     prdExists = false,
+    archExists = false,
   } = config;
 
   const [phases, setPhases] = useState<PhaseState[]>(() => {
@@ -168,6 +171,7 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
     if (lernsituationExists) preCompleted.add("didaktik");
     if (learningDesignExists) preCompleted.add("learning-design");
     if (prdExists) preCompleted.add("prd");
+    if (archExists) preCompleted.add("arch");
     if (preCompleted.size === 0) return p;
     return p.map((phase) => {
       if (!preCompleted.has(phase.id)) return phase;
@@ -495,30 +499,40 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
 
         // ── Phase 3: Arch-Debate → architecture.md ──────────────────
         await Deno.mkdir(AGENT_DIR, { recursive: true });
-        const prdForArch = await Deno.readTextFile(EDU_PRD_OUTPUT_PATH).catch(() => "");
 
-        await runDebatePhase(
-          {
-            phaseId: "arch",
-            phaseLabel: "Architecture",
-            outputPath: ARCH_OUTPUT_PATH,
-            agents: ARCH_AGENTS,
-            buildPrompt: buildArchPrompt,
-            context: prdForArch,
-            numRounds: archRounds,
-            phaseModel: model,
-            synthModel: SYNTH_MODEL,
-            formatRoundSummary: (roundNum, outputs) =>
-              formatRoundSummary(roundNum, ARCH_AGENTS, outputs),
-            formatSynthesisSummary: (content) => formatSynthesisSummary(content, "arch"),
-          },
-          makeSink(),
-          ctrl.signal,
-        );
+        if (archExists) {
+          // architecture.md already present — offer review, skip debate
+          const existingArch = await Deno.readTextFile(ARCH_OUTPUT_PATH).catch(() => "");
+          const existingArchItems = parseAdrs(existingArch);
+          if (existingArchItems.length > 0) {
+            await runReviewSequence(archTarget, existingArchItems, existingArch, { existing: true, signal: ctrl.signal });
+          }
+        } else {
+          const prdForArch = await Deno.readTextFile(EDU_PRD_OUTPUT_PATH).catch(() => "");
 
-        const archContent = await Deno.readTextFile(ARCH_OUTPUT_PATH).catch(() => "");
-        const archItems = parseAdrs(archContent);
-        await runReviewSequence(archTarget, archItems, archContent, { signal: ctrl.signal });
+          await runDebatePhase(
+            {
+              phaseId: "arch",
+              phaseLabel: "Architecture",
+              outputPath: ARCH_OUTPUT_PATH,
+              agents: ARCH_AGENTS,
+              buildPrompt: buildArchPrompt,
+              context: prdForArch,
+              numRounds: archRounds,
+              phaseModel: model,
+              synthModel: SYNTH_MODEL,
+              formatRoundSummary: (roundNum, outputs) =>
+                formatRoundSummary(roundNum, ARCH_AGENTS, outputs),
+              formatSynthesisSummary: (content) => formatSynthesisSummary(content, "arch"),
+            },
+            makeSink(),
+            ctrl.signal,
+          );
+
+          const archContent = await Deno.readTextFile(ARCH_OUTPUT_PATH).catch(() => "");
+          const archItems = parseAdrs(archContent);
+          await runReviewSequence(archTarget, archItems, archContent, { signal: ctrl.signal });
+        }
 
         // ── Inject REQ-000 Walking Skeleton ──────────────────────────
         const statusPath = `${AGENT_DIR}/status.json`;
