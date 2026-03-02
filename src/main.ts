@@ -3,6 +3,7 @@ import { render, Box, Text } from "ink";
 import { Dashboard } from "./components/Dashboard.ts";
 import { InitDashboard } from "./components/InitDashboard.ts";
 import { EduInitDashboard } from "./components/EduInitDashboard.ts";
+import { parseEduConfigFromContext, type EduInitConfig } from "./hooks/useEduInitRunner.ts";
 import { VERSION } from "./version.ts";
 
 const { createElement: h } = React;
@@ -40,6 +41,12 @@ try { await Deno.stat("PRD.md"); prdExists = true; } catch { /* */ }
 let archExists = false;
 try { await Deno.stat("architecture.md"); archExists = true; } catch { /* */ }
 
+let resumedEduConfig: EduInitConfig | null = null;
+if (lernsituationExists) {
+  const ctx = await Deno.readTextFile("learning-context.md").catch(() => "");
+  resumedEduConfig = parseEduConfigFromContext(ctx);
+}
+
 const { useState } = React;
 
 function App(): React.ReactElement {
@@ -56,6 +63,7 @@ function App(): React.ReactElement {
       learningDesignExists,
       prdExists,
       archExists,
+      initialConfig: resumedEduConfig ?? undefined,
       onDone: () => setInitDone(true),
     });
   }

@@ -78,6 +78,26 @@ export interface EduInitConfig {
   archExists?: boolean;
 }
 
+/** Parse EduInitConfig from learning-context.md content. Returns null if the file
+ *  is missing or doesn't contain the expected fields. */
+export function parseEduConfigFromContext(content: string): EduInitConfig | null {
+  const get = (label: string) =>
+    content.match(new RegExp(`\\*\\*${label}:\\*\\*\\s*(.+)`))?.[1]?.trim() ?? "";
+  const fach = get("Fach");
+  const thema = get("Thema");
+  if (!fach || !thema) return null;
+  const zeitStr = content.match(/\*\*Unterrichtszeit:\*\*\s*(\d+)/)?.[1];
+  const anf = get("Besondere Anforderungen");
+  return {
+    fach,
+    thema,
+    jahrgangsstufe: get("Jahrgangsstufe"),
+    vorwissen: get("Vorwissen"),
+    zeitMinuten: zeitStr ? parseInt(zeitStr, 10) : 45,
+    heterogenitaet: anf === "(keine)" ? "" : anf,
+  };
+}
+
 export interface EduInitRunnerState {
   phases: PhaseState[];
   liveLines: string[];

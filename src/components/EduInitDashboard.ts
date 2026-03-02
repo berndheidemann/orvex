@@ -246,10 +246,11 @@ export function EduInitDashboard(props: {
   learningDesignExists: boolean;
   prdExists: boolean;
   archExists?: boolean;
+  initialConfig?: EduInitConfig;
   onDone?: () => void;
 }): React.ReactElement {
-  const { lernsituationExists, lernpfadExists, learningDesignExists, prdExists, archExists = false, onDone } = props;
-  const [config, setConfig] = useState<EduInitConfig | null>(null);
+  const { lernsituationExists, lernpfadExists, learningDesignExists, prdExists, archExists = false, initialConfig, onDone } = props;
+  const [config, setConfig] = useState<EduInitConfig | null>(initialConfig ?? null);
   const projectContext = useProjectContext();
 
   if (!config) {
