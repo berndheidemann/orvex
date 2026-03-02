@@ -30,12 +30,24 @@ if ! command -v deno &>/dev/null; then
   echo -e "  ✅  Deno $(deno --version | head -1)"
 fi
 
-# ── Build binary if missing ────────────────────────────────────
+# ── Build binary (always rebuild if source is newer than binary) ─
+needs_build=false
 if [ ! -f "$REPO_DIR/orvex-tui" ]; then
+  needs_build=true
+else
+  # Rebuild if any source file is newer than the binary
+  newest_src=$(find "$REPO_DIR/src" -name "*.ts" -newer "$REPO_DIR/orvex-tui" 2>/dev/null | head -1)
+  if [ -n "$newest_src" ]; then
+    needs_build=true
+    echo -e "${YELLOW}  Source newer than binary — rebuilding...${RESET}"
+  fi
+fi
+
+if $needs_build; then
   echo -e "${BOLD}Building orvex-tui...${RESET}"
   (cd "$REPO_DIR" && deno task build)
 else
-  echo -e "  ✅  orvex-tui already built"
+  echo -e "  ✅  orvex-tui up to date"
 fi
 
 # ── Create symlink ─────────────────────────────────────────────
