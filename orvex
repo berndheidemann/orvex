@@ -71,6 +71,8 @@ if [ -z "${ORVEX_NO_UPDATE:-}" ]; then
         if find "$FRAMEWORK_DIR/src" -name "*.ts" -newer "$FRAMEWORK_DIR/orvex-tui" \
              2>/dev/null | grep -q .; then
           echo -e "  ${CYAN}⟳  Rebuilding binary…${RESET}"
+          export DENO_INSTALL="${DENO_INSTALL:-$HOME/.deno}"
+          export PATH="$DENO_INSTALL/bin:$PATH"
           (cd "$FRAMEWORK_DIR" && deno task build)
         fi
         ORVEX_NO_UPDATE=1 exec "$0" "$@"
