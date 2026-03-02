@@ -129,6 +129,15 @@ export function useReviewTarget(config: ReviewTargetConfig): ReviewFlowHandle {
     if (!currentReview) return;
     const item = currentReview.items[currentReview.currentIdx];
     if (!item) return;
+    const prompt = userPrompt.trim();
+
+    // Empty rewrite prompt: exit typing mode without triggering an AI rewrite.
+    if (prompt.length === 0) {
+      setReviewSynced((prev: RS) =>
+        prev ? { ...prev, inputMode: "none", typedInput: "", typingCursorPos: 0 } : null
+      );
+      return;
+    }
 
     setReviewSynced((prev: RS) =>
       prev ? { ...prev, inputMode: "rewriting", typedInput: "", typingCursorPos: 0 } : null
@@ -136,7 +145,7 @@ export function useReviewTarget(config: ReviewTargetConfig): ReviewFlowHandle {
 
     try {
       const newContent = await runClaude(
-        buildRewritePrompt(item, userPrompt, rewriteType),
+        buildRewritePrompt(item, prompt, rewriteType),
         () => {},
         ctrlRef.current!.signal,
         rewriteModel,

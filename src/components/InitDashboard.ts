@@ -15,6 +15,7 @@ import type {
 } from "../types.ts";
 import { SYNTH_MODEL } from "../lib/initAgents.ts";
 import { parseAdrConstraints } from "../lib/reviewUtils.ts";
+import { computeVisualRows } from "./editorLogic.ts";
 
 const { createElement: h, useEffect, useState } = React;
 
@@ -266,13 +267,15 @@ export function ReviewUI(props: {
     setScrollOffset(0);
   }, [currentIdx]);
 
-  const allLines = item ? item.content.split("\n") : [];
+  const logicalLines = item ? item.content.split("\n") : [];
+  const textWidth = Math.max(10, columns - 2);
+  const visualRows = computeVisualRows(logicalLines, textWidth);
   const constraints = type === "arch" && item ? parseAdrConstraints(item.content) : [];
   const hasConstraint = constraints.length > 0;
   const HEADER_H = 4 + (hasConstraint ? 2 : 0); // title bar + REQ header + [warning] + divider
   const FOOTER_H = inputMode === "typing" ? 3 : 2; // divider + hint(s)
   const viewportH = Math.max(5, rows - HEADER_H - FOOTER_H);
-  const maxScroll = Math.max(0, allLines.length - viewportH);
+  const maxScroll = Math.max(0, visualRows.length - viewportH);
 
   useInput((_input, key) => {
     if (inputMode !== "none") return;
@@ -280,7 +283,11 @@ export function ReviewUI(props: {
     if (key.downArrow) setScrollOffset((prev: number) => Math.min(maxScroll, prev + 1));
   });
 
-  const visibleLines = allLines.slice(scrollOffset, scrollOffset + viewportH);
+  useEffect(() => {
+    setScrollOffset((prev: number) => Math.min(prev, maxScroll));
+  }, [maxScroll]);
+
+  const visibleRows = visualRows.slice(scrollOffset, scrollOffset + viewportH);
   const divider = "─".repeat(Math.min(columns - 2, 60));
   const typeLabel = type === "prd" ? "PRD Review"
     : type === "lernsituation" ? "Lernsituation Review"
@@ -333,8 +340,10 @@ export function ReviewUI(props: {
     h(
       Box,
       { flexDirection: "column" },
-      ...visibleLines.map((line, i) =>
-        h(Text, { key: String(i), wrap: "truncate" }, line || " ")
+      ...visibleRows.map((vr, i) => {
+        const rowText = logicalLines[vr.logicalRow]?.slice(vr.startCol, vr.endCol) ?? "";
+        return h(Text, { key: String(i) }, rowText || " ");
+      },
       ),
     ),
     h(Text, { dimColor: true }, divider),
@@ -361,7 +370,7 @@ export function ReviewUI(props: {
           h(Text, { dimColor: true }, "  [Enter] Next  [e] Edit  [r] Opus-Rewrite"),
           maxScroll > 0
             ? h(Text, { dimColor: true },
-                `  ↑/↓ scroll (${scrollOffset + 1}–${Math.min(scrollOffset + viewportH, allLines.length)} / ${allLines.length})`)
+                `  ↑/↓ scroll (${scrollOffset + 1}–${Math.min(scrollOffset + viewportH, visualRows.length)} / ${visualRows.length})`)
             : null,
         ),
   );
