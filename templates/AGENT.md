@@ -96,16 +96,20 @@ Task(subagent_type="general-purpose", model="opus", max_turns=10, prompt="
 
 ---
 
-## Phase 2.6: Design Gate (for UI REQs with design.md)
+## Phase 2.6: Design Gate (for UI REQs)
 
 **Skip entirely if:**
 - `app_type` is `backend`, `api`, `android`, `ios`, `flutter`, `react-native`, `desktop`, or `other`
-- `design.md` does not exist in the project root
+- Neither `design.md` nor `learning-design.md` exists in the project root
 - The REQ has no Acceptance Criterion describing a visible UI element, form, layout, or interaction
 
-**When triggered:** `app_type: web` (or not set) AND `design.md` exists AND the REQ is UI-facing.
+**When triggered:** `app_type: web` (or not set) AND (`design.md` OR `learning-design.md` exists) AND the REQ is UI-facing.
 
-Read `design.md` to understand the project's design system (tokens, component primitives, interaction patterns). Then generate a focused Component Spec for this REQ:
+Determine which design file to use:
+- `design.md` → standard web project
+- `learning-design.md` → EDU project (contains visualization strategies, content-type patterns, cognitive load principles)
+
+Read the design file to understand the project's design system. Then generate a focused Component Spec for this REQ:
 
 ```
 Task(
@@ -115,7 +119,7 @@ Task(
   prompt="
   You are a UI Component Specifier. Task: translate a REQ + design system into a compact component spec.
 
-  Read: design.md
+  Read: [design.md OR learning-design.md — whichever exists]
 
   REQ: [REQ-ID] — [Title]
   Acceptance Criteria:
@@ -125,7 +129,7 @@ Task(
 
   ## Component: [ComponentName]
   **File:** [path/to/component file]
-  **Uses tokens:** [list relevant tokens from design.md — colors, spacing, typography]
+  **Uses tokens:** [list relevant tokens from the design file — colors, spacing, typography, content-type patterns]
   **Props:** [key props with types]
   **Variants:** [if multiple visual variants exist]
   **Interaction:** [what changes on user action — click, hover, submit, error]
