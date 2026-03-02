@@ -57,6 +57,29 @@ post_init_scaffold() {
   fi
 }
 
+# ── Auto-update ──────────────────────────────────────────────
+# Runs on every invocation. Silently skipped when offline or ORVEX_NO_UPDATE=1.
+# After a successful pull, rebuilds the binary if source changed, then re-execs.
+if [ -z "${ORVEX_NO_UPDATE:-}" ]; then
+  if git -c http.connectTimeout=3 -C "$FRAMEWORK_DIR" fetch origin main \
+       --quiet --no-tags 2>/dev/null; then
+    _LOCAL=$(git -C "$FRAMEWORK_DIR" rev-parse HEAD 2>/dev/null || echo "")
+    _REMOTE=$(git -C "$FRAMEWORK_DIR" rev-parse FETCH_HEAD 2>/dev/null || echo "")
+    if [ -n "$_REMOTE" ] && [ "$_LOCAL" != "$_REMOTE" ]; then
+      echo -e "  ${CYAN}⟳  Updating orvex…${RESET}"
+      if git -C "$FRAMEWORK_DIR" pull --ff-only --quiet 2>/dev/null; then
+        if find "$FRAMEWORK_DIR/src" -name "*.ts" -newer "$FRAMEWORK_DIR/orvex-tui" \
+             2>/dev/null | grep -q .; then
+          echo -e "  ${CYAN}⟳  Rebuilding binary…${RESET}"
+          (cd "$FRAMEWORK_DIR" && deno task build)
+        fi
+        ORVEX_NO_UPDATE=1 exec "$0" "$@"
+      fi
+    fi
+    unset _LOCAL _REMOTE
+  fi
+fi
+
 # Validate installation
 if [ ! -x "$TUI_BIN" ]; then
   echo -e "${RED}Error: orvex-tui binary not found at $TUI_BIN${RESET}"
