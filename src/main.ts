@@ -3,6 +3,7 @@ import { render, Box, Text } from "ink";
 import { Dashboard } from "./components/Dashboard.ts";
 import { InitDashboard } from "./components/InitDashboard.ts";
 import { EduInitDashboard } from "./components/EduInitDashboard.ts";
+import { VERSION } from "./version.ts";
 
 const { createElement: h } = React;
 
@@ -87,6 +88,7 @@ function App(): React.ReactElement {
     Box,
     { flexDirection: "column" },
     h(Text, { bold: true, color: "cyan" }, "Orvex"),
+    h(Text, { dimColor: true }, `v${VERSION}`),
     h(Text, { dimColor: true }, "─".repeat(40)),
     h(Dashboard, null),
   );

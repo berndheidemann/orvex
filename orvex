@@ -117,6 +117,12 @@ case "$CMD" in
     exit 0
     ;;
 
+  -v|--version)
+    VERSION=$(grep -o '"[0-9][^"]*"' "$FRAMEWORK_DIR/src/version.ts" | tr -d '"')
+    echo "orvex v${VERSION}"
+    exit 0
+    ;;
+
   -h|--help)
     # Show loop help directly (no TUI needed)
     cd "$(pwd)"

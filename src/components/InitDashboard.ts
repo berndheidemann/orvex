@@ -14,6 +14,7 @@ import type {
   SynthDoneState,
 } from "../types.ts";
 import { SYNTH_MODEL } from "../lib/initAgents.ts";
+import { VERSION } from "../version.ts";
 import { parseAdrConstraints } from "../lib/reviewUtils.ts";
 import { computeVisualRows } from "./editorLogic.ts";
 
@@ -529,6 +530,7 @@ export function RunnerDashboard(props: RunnerDashboardProps): React.ReactElement
       Box,
       { flexDirection: "row", gap: 2 },
       h(Text, { bold: true, color: "cyan" }, "Orvex"),
+      h(Text, { dimColor: true }, `v${VERSION}`),
       h(Text, { dimColor: true }, "—"),
       h(Text, { dimColor: true }, subtitle),
     ),
