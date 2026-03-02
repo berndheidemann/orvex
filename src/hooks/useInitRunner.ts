@@ -14,6 +14,7 @@ import {
   ARCH_AGENTS,
   PRD_OUTPUT_PATH,
   ARCH_OUTPUT_PATH,
+  DESIGN_OUTPUT_PATH,
   buildPrdPrompt,
   buildArchPrompt,
   makePhases,
@@ -23,12 +24,14 @@ import {
   injectSpikeIntoStatus,
   splitOversizedReqs,
   updateStatusAfterSplit,
+  runDesignSynthesis,
 } from "../lib/initAgents.ts";
 import { runDebatePhase } from "../lib/phaseRunner.ts";
 import { makeAddChunk, makePhaseSink } from "../lib/sinkFactory.ts";
 import {
   parseReqs,
   parseAdrs,
+  parseSections,
 } from "../lib/reviewUtils.ts";
 import {
   useReviewTarget,
@@ -71,12 +74,14 @@ export function useInitRunner(
   const [error, setError] = useState<string | null>(null);
   const [agentWarnLevel, setAgentWarnLevel] = useState<null | "yellow" | "red">(null);
   const [awaitingArchConfirm, setAwaitingArchConfirm] = useState(false);
+  const [awaitingDesignConfirm, setAwaitingDesignConfirm] = useState(false);
 
   // Arch runtime config — set by startArchWithConfig (archOnly) or startArch (default)
   const archRunConfigRef = useRef({ model, archRounds, archNote: "" });
 
   // Refs for async flow control
   const archResolveRef = useRef<((v: boolean) => void) | null>(null);
+  const designResolveRef = useRef<((v: boolean) => void) | null>(null);
   const ctrlRef = useRef<AbortController | null>(null);
 
   const lineBufferRef = useRef<string>("");
@@ -99,12 +104,20 @@ export function useInitRunner(
     setError: (err: string) => setError(err),
   });
 
-  const { saveReviewEdit, cancelReviewEdit } = useSharedEditCallbacks([prdTarget, archTarget]);
+  const designTarget = useReviewTarget({
+    outputPath: DESIGN_OUTPUT_PATH,
+    rewriteType: "section",
+    rewriteModel: DEFAULT_MODEL,
+    ctrlRef,
+    setError: (err: string) => setError(err),
+  });
+
+  const { saveReviewEdit, cancelReviewEdit } = useSharedEditCallbacks([prdTarget, archTarget, designTarget]);
 
   // ── State updaters ─────────────────────────────────────────────
 
   const setPhaseStatus = useCallback(
-    (phaseId: "prd" | "arch", status: PhaseStatus) => {
+    (phaseId: "prd" | "arch" | "design", status: PhaseStatus) => {
       setPhases((prev: PhaseState[]) =>
         prev.map((p) => (p.id === phaseId ? { ...p, status } : p))
       );
@@ -253,6 +266,55 @@ export function useInitRunner(
           setPhaseStatus("arch", "done");
         }
 
+        // ── UX Design Phase (opt-in, web/mobile only) ─────────────
+        if (appType === "web" || appType === "mobile") {
+          setAwaitingDesignConfirm(true);
+          const doDesign = await new Promise<boolean>((resolve) => {
+            designResolveRef.current = resolve;
+          });
+          setAwaitingDesignConfirm(false);
+
+          if (doDesign) {
+            setPhases((prev: PhaseState[]) => prev.map((p) => {
+              if (p.id !== "design") return p;
+              return {
+                ...p,
+                status: "running" as PhaseStatus,
+                startedAt: Date.now(),
+                rounds: p.rounds.map((r) => ({
+                  ...r,
+                  status: "running" as RoundStatus,
+                  agents: r.agents.map((a) => ({ ...a, status: "running" as AgentStatus })),
+                })),
+              };
+            }));
+
+            const prdForDesign = await Deno.readTextFile(PRD_OUTPUT_PATH).catch(() => "");
+            const archForDesign = await Deno.readTextFile(ARCH_OUTPUT_PATH).catch(() => "");
+            const designContent = await runDesignSynthesis(prdForDesign, archForDesign, ctrl.signal, addChunk);
+
+            setPhases((prev: PhaseState[]) => prev.map((p) => {
+              if (p.id !== "design") return p;
+              return {
+                ...p,
+                status: "done" as PhaseStatus,
+                rounds: p.rounds.map((r) => ({
+                  ...r,
+                  status: "done" as RoundStatus,
+                  agents: r.agents.map((a) => ({ ...a, status: "done" as AgentStatus })),
+                })),
+              };
+            }));
+
+            const designItems = parseSections(designContent);
+            await runReviewSequence(designTarget, designItems, designContent, { signal: ctrl.signal });
+          } else {
+            setPhaseStatus("design", "done");
+          }
+        } else {
+          setPhaseStatus("design", "done");
+        }
+
         // Inject REQ-000 Walking Skeleton into PRD + status.json
         const statusPath = `${AGENT_DIR}/status.json`;
         const [prdRaw, statusRaw] = await Promise.all([
@@ -309,6 +371,20 @@ export function useInitRunner(
     }
   }, []);
 
+  const startDesign = useCallback(() => {
+    if (designResolveRef.current) {
+      designResolveRef.current(true);
+      designResolveRef.current = null;
+    }
+  }, []);
+
+  const skipDesign = useCallback(() => {
+    if (designResolveRef.current) {
+      designResolveRef.current(false);
+      designResolveRef.current = null;
+    }
+  }, []);
+
   return {
     phases,
     liveLines,
@@ -341,6 +417,19 @@ export function useInitRunner(
     submitArchReviewRewrite: archTarget.submitRewrite,
     deleteArchReviewItem: archTarget.deleteCurrentItem,
     onArchReviewType: archTarget.onType,
+    awaitingDesignConfirm,
+    startDesign,
+    skipDesign,
+    designSynthDone: designTarget.synthDone,
+    confirmDesignSynthDone: designTarget.confirmSynthDone,
+    skipDesignSynthDone: designTarget.skipReview,
+    designReview: designTarget.review,
+    advanceDesignReview: designTarget.advance,
+    openDesignReviewEditor: designTarget.openEditor,
+    startDesignReviewTyping: designTarget.startTyping,
+    submitDesignReviewRewrite: designTarget.submitRewrite,
+    deleteDesignReviewItem: designTarget.deleteCurrentItem,
+    onDesignReviewType: designTarget.onType,
     saveReviewEdit,
     cancelReviewEdit,
   };

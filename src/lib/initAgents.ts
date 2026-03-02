@@ -13,6 +13,7 @@ export const SYNTH_MODEL = "claude-sonnet-4-6";  // Synthesis: always Sonnet (fa
 
 export const PRD_OUTPUT_PATH = "PRD.md";
 export const ARCH_OUTPUT_PATH = "architecture.md";
+export const DESIGN_OUTPUT_PATH = "design.md";
 
 const SUMMARY_DIVIDER = "─".repeat(26);
 
@@ -66,6 +67,19 @@ export function makePhases(prdRounds: number, archRounds: number): PhaseState[] 
       outputPath: ARCH_OUTPUT_PATH,
       status: "pending",
       rounds: makeRounds(ARCH_AGENTS, archRounds),
+      startedAt: null,
+    },
+    {
+      id: "design",
+      label: "UX Design",
+      outputPath: DESIGN_OUTPUT_PATH,
+      status: "pending",
+      estimatedSecs: 90,
+      rounds: [{
+        label: "Synthesis",
+        status: "pending",
+        agents: [{ name: "UX Design Synthesizer", status: "pending" }],
+      }],
       startedAt: null,
     },
   ];
@@ -309,6 +323,80 @@ Respond from your perspective:
 3. What is missing from your professional view — including in the PRD itself (contradictions, gaps)?
 4. Give your refined final position for this round — complete,
    not just as a delta. The synthesis only sees this round.`;
+}
+
+export function buildDesignPrompt(prdContent: string, archContent: string): string {
+  return `TASK: Generate a UX Design System document for this project.
+
+OUTPUT RULES (mandatory):
+- Your response starts with the character '#'. No text before it.
+- Do NOT write files. Do NOT execute commands. Do NOT use tools.
+- No introduction, no confirmation, no <k> block.
+- Your text response IS the document — complete and direct.
+
+Project PRD:
+${prdContent}
+
+Architecture Decisions:
+${archContent}
+
+Produce a structured design.md following this schema exactly:
+
+# Design System: [project name from PRD]
+
+## Screen-Inventar
+Derive from User Journeys. List every distinct screen/view:
+- **[Screen name]:** [One-sentence purpose] — entry: [UJ-XXX or trigger]
+
+## Layout-Skelett
+Root layout pattern (e.g. Single-Column, App Shell, Split-Panel, Dashboard Grid).
+Persistent UI elements — what is always visible across screens.
+
+## Navigationsgraph
+Screen transitions as a list:
+- [Screen A] → [Screen B]: [trigger / user action]
+
+## Component Primitives
+Token-level decisions:
+- **Farben:** Primary, Secondary, Surface, Error, Success
+- **Typografie:** Heading scale, Body, Caption
+- **Abstände:** Base unit and scale
+- **Radius:** Default border-radius
+
+Shared components:
+- **Button:** variants (Primary, Secondary, Ghost, Destructive)
+- **Card:** structure and use cases
+- **Form fields:** input, select, textarea style
+- **Feedback states:** loading, empty, error
+
+## Interaktions- & Feedback-Muster
+- **Loading:** [skeleton | spinner | none — where each is used]
+- **Empty state:** [pattern for empty lists/views]
+- **Fehlerbehandlung:** [inline errors, toasts, modal — when which]
+- **Erfolgsbestätigung:** [how success is communicated to the user]
+- **Navigation feedback:** [active state, transitions]
+
+## ADR-Constraint-Mapping
+MANDATORY: For each Type-B ADR (marked with "Restricts:") in the architecture, derive its direct design implication.
+
+| ADR | Restricts | Design Implication |
+|-----|-----------|-------------------|
+| ADR-XXX: [title] | REQ-XXX | [Concrete design constraint — e.g. "No async loading states for API data — all data must be available at render time"] |
+
+If no Type-B ADRs exist: write "No Type-B ADRs — no scope constraints on design."`;
+}
+
+export async function runDesignSynthesis(
+  prdContent: string,
+  archContent: string,
+  signal: AbortSignal,
+  onChunk: (chunk: string) => void,
+): Promise<string> {
+  const prompt = buildDesignPrompt(prdContent, archContent);
+  const content = await runClaude(prompt, onChunk, signal, SYNTH_MODEL, 1);
+  const trimmed = content.trim();
+  await Deno.writeTextFile(DESIGN_OUTPUT_PATH, trimmed);
+  return trimmed;
 }
 
 // ── Output utilities ───────────────────────────────────────────

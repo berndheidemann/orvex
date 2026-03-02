@@ -20,12 +20,13 @@ export interface RoundState {
 }
 
 export interface PhaseState {
-  id: "prd" | "arch" | "didaktik" | "learning-design";
+  id: "prd" | "arch" | "didaktik" | "learning-design" | "design";
   label: string;
   outputPath: string;
   status: PhaseStatus;
   rounds: RoundState[];
   startedAt: number | null;
+  estimatedSecs?: number; // override for time estimate in progress bar
 }
 
 // ── Review types ───────────────────────────────────────────────
@@ -104,6 +105,22 @@ export interface InitRunnerState {
   submitArchReviewRewrite: (prompt: string) => void;
   deleteArchReviewItem: () => void;
   onArchReviewType: (char: string, key: InputKey) => void;
+  // Design generation confirm (opt-in, web/mobile only)
+  awaitingDesignConfirm: boolean;
+  startDesign: () => void;
+  skipDesign: () => void;
+  // Design synthesis done transition screen
+  designSynthDone: SynthDoneState | null;
+  confirmDesignSynthDone: () => void;
+  skipDesignSynthDone: () => void;
+  // Design Review
+  designReview: ReviewState | null;
+  advanceDesignReview: () => void;
+  openDesignReviewEditor: () => void;
+  startDesignReviewTyping: () => void;
+  submitDesignReviewRewrite: (prompt: string) => void;
+  deleteDesignReviewItem: () => void;
+  onDesignReviewType: (char: string, key: InputKey) => void;
   // Shared editor callbacks
   saveReviewEdit: (content: string) => void;
   cancelReviewEdit: () => void;

@@ -76,7 +76,9 @@ export function PhaseBlockCompact(props: {
   const totalRounds = phase.rounds.length;
   const doneRounds = phase.rounds.filter((r) => r.status === "done").length;
   const discussionRounds = totalRounds - 1;
-  const estimatedMs = (discussionRounds * ROUND_SECS + SYNTH_SECS) * 1000;
+  const estimatedMs = phase.estimatedSecs
+    ? phase.estimatedSecs * 1000
+    : (discussionRounds * ROUND_SECS + SYNTH_SECS) * 1000;
 
   let filledWidth: number;
   let sideLabel: string;
@@ -153,7 +155,7 @@ export function PhaseBlockCompact(props: {
 // Arch: shows full scrollable architecture.md content.
 
 export function SynthDoneUI(props: {
-  type: "prd" | "arch" | "lernsituation" | "learning-design";
+  type: "prd" | "arch" | "lernsituation" | "learning-design" | "design";
   state: SynthDoneState;
 }): React.ReactElement {
   const { type, state } = props;
@@ -214,6 +216,8 @@ export function SynthDoneUI(props: {
     ? (state.existing ? "LERNSITUATION.md — Review" : "LERNSITUATION.md created")
     : type === "learning-design"
     ? (state.existing ? "learning-design.md — Review" : "learning-design.md created")
+    : type === "design"
+    ? "design.md created"
     : "architecture.md created";
 
   return h(
@@ -260,7 +264,7 @@ export function SynthDoneUI(props: {
 
 export function ReviewUI(props: {
   review: ReviewState;
-  type: "prd" | "arch" | "lernsituation" | "learning-design";
+  type: "prd" | "arch" | "lernsituation" | "learning-design" | "design";
 }): React.ReactElement {
   const { review, type } = props;
   const { columns, rows } = useTerminalSize();
@@ -299,9 +303,10 @@ export function ReviewUI(props: {
   const divider = "─".repeat(Math.min(columns - 2, 60));
   const typeLabel = type === "prd" ? "PRD Review"
     : type === "lernsituation" ? "Lernsituation Review"
+    : type === "design" ? "UX Design Review"
     : "Architecture Review";
   const itemLabel = type === "prd" ? "REQ"
-    : type === "lernsituation" ? "Section"
+    : type === "lernsituation" || type === "design" ? "Section"
     : "ADR";
 
   if (!item) {
@@ -681,6 +686,38 @@ function InitRunner(props: {
       }
       return;
     }
+
+    // Design generation confirm
+    if (state.awaitingDesignConfirm) {
+      if (key.return || input === "j" || input === "y") state.startDesign();
+      else if (key.escape || input === "n") state.skipDesign();
+      return;
+    }
+
+    // Design review — editor open: ReviewEditor handles its own input
+    if (state.designReview?.editorOpen) return;
+
+    // Design synth done transition
+    if (state.designSynthDone) {
+      if (key.return || input === "j" || input === "y") state.confirmDesignSynthDone();
+      else if (key.escape || input === "n") state.skipDesignSynthDone();
+      return;
+    }
+
+    // Design review
+    if (state.designReview) {
+      if (state.designReview.inputMode === "none") {
+        if (key.return) { state.advanceDesignReview(); return; }
+        if (input === "e") { state.openDesignReviewEditor(); return; }
+        if (input === "r") { state.startDesignReviewTyping(); return; }
+        if (input === "d") { void state.deleteDesignReviewItem(); return; }
+      } else if (state.designReview.inputMode === "typing") {
+        if (key.return) { state.submitDesignReviewRewrite(state.designReview.typedInput); return; }
+        const fixedKey = { ...key, backspace: key.backspace || (key.delete && rawWasBackspace.current) };
+        state.onDesignReviewType(input, fixedKey);
+      }
+      return;
+    }
   });
 
   // ── Early-return screens ───────────────────────────────────
@@ -742,6 +779,29 @@ function InitRunner(props: {
     return h(ReviewUI, { review: state.archReview, type: "arch" });
   }
 
+  // Design synth done transition
+  if (state.designSynthDone) {
+    return h(SynthDoneUI, { type: "design", state: state.designSynthDone });
+  }
+
+  // Design review editor
+  if (state.designReview?.editorOpen) {
+    const item = state.designReview.items[state.designReview.currentIdx];
+    if (item) {
+      return h(ReviewEditor, {
+        title: item.id,
+        initialContent: item.content,
+        onSave: state.saveReviewEdit,
+        onCancel: state.cancelReviewEdit,
+      });
+    }
+  }
+
+  // Design review
+  if (state.designReview) {
+    return h(ReviewUI, { review: state.designReview, type: "design" });
+  }
+
   // ── Normal dashboard ───────────────────────────────────────
 
   const runningPhase = state.phases.find((p) => p.status === "running");
@@ -755,6 +815,14 @@ function InitRunner(props: {
             "positions and respond to each other.",
             "The synthesis is saved as PRD.md.",
           ]
+        : runningPhase.id === "design"
+        ? [
+            "Generating UX Design System…",
+            "",
+            "Screen inventory, layout skeleton, navigation graph,",
+            "component primitives, and ADR constraint mapping.",
+            "The synthesis is saved as design.md.",
+          ]
         : [
             "Software Architect, Senior Developer and DevOps Engineer",
             "analyze the PRD and propose an architecture.",
@@ -765,7 +833,16 @@ function InitRunner(props: {
           ])
     : [];
 
-  const footer = state.awaitingArchConfirm
+  const footer = state.awaitingDesignConfirm
+    ? h(
+        Box,
+        { flexDirection: "column", marginTop: 0 },
+        h(Text, { bold: true, color: "green" }, "  ✓  architecture.md done"),
+        h(Text, {}, "  Generate a UX Design System? (design.md)"),
+        h(Text, { dimColor: true },
+          "  [Enter]  Yes, generate design.md    [Esc / n]  Skip"),
+      )
+    : state.awaitingArchConfirm
     ? h(
         Box,
         { flexDirection: "column", marginTop: 0 },
