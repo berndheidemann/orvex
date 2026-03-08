@@ -1,5 +1,5 @@
 import React from "react";
-import { useInput } from "ink";
+import { Box, Text, useInput } from "ink";
 import { useEduInitRunner, type EduInitConfig } from "../hooks/useEduInitRunner.ts";
 import { useRawBackspace } from "../hooks/useRawBackspace.ts";
 import {
@@ -219,7 +219,9 @@ function EduRunner(props: {
 
   // ── Normal dashboard ───────────────────────────────────────
 
-  const descText = `${config.fach}: ${config.thema} — Jg. ${config.jahrgangsstufe}`;
+  const descText = config.fach
+    ? `${config.fach}: ${config.thema} — Jg. ${config.jahrgangsstufe}`
+    : "Aus Projektdateien";
 
   return h(RunnerDashboard, {
     phases: state.phases,
@@ -238,6 +240,45 @@ function EduRunner(props: {
   });
 }
 
+// ── EduFileChoice ──────────────────────────────────────────────
+
+function EduFileChoice(props: {
+  projectContext: { files: string[]; summary: string | null };
+  onSkip: () => void;
+  onManual: () => void;
+}): React.ReactElement {
+  const { projectContext, onSkip, onManual } = props;
+
+  useInput((input, key) => {
+    if (key.return || input === "y" || input === "j") onSkip();
+    else if (key.escape || input === "n") onManual();
+  });
+
+  return h(
+    Box,
+    { flexDirection: "column", padding: 1 },
+    h(Box, { flexDirection: "row", gap: 2 },
+      h(Text, { bold: true, color: "cyan" }, "Orvex"),
+      h(Text, { dimColor: true }, "—"),
+      h(Text, { dimColor: true }, "Edu-Init"),
+    ),
+    h(Text, { dimColor: true }, "─".repeat(60)),
+    h(Box, { flexDirection: "column", marginTop: 1 },
+      h(Text, {}, `${projectContext.files.length} Projektdatei(en) gefunden:`),
+      ...projectContext.files.map((f) => h(Text, { key: f, dimColor: true }, `  • ${f}`)),
+      projectContext.summary
+        ? h(Text, { dimColor: true, marginTop: 1 }, `  ${projectContext.summary}`)
+        : null,
+    ),
+    h(Box, { flexDirection: "column", marginTop: 1 },
+      h(Text, {}, "Sind Fach, Thema, Jahrgangsstufe und Vorwissen bereits in diesen Dateien enthalten?"),
+    ),
+    h(Text, { dimColor: true }, ""),
+    h(Text, { dimColor: true }, "─".repeat(60)),
+    h(Text, { dimColor: true }, "  [Enter / y] Ja — Felder überspringen    [Esc / n] Nein — manuell eingeben"),
+  );
+}
+
 // ── EduInitDashboard ───────────────────────────────────────────
 
 export function EduInitDashboard(props: {
@@ -251,9 +292,18 @@ export function EduInitDashboard(props: {
 }): React.ReactElement {
   const { lernsituationExists, lernpfadExists, learningDesignExists, prdExists, archExists = false, initialConfig, onDone } = props;
   const [config, setConfig] = useState<EduInitConfig | null>(initialConfig ?? null);
+  const [showForm, setShowForm] = useState(false);
   const projectContext = useProjectContext();
 
   if (!config) {
+    // Files found and user hasn't chosen yet → ask
+    if (!projectContext.loading && projectContext.files.length > 0 && !showForm) {
+      return h(EduFileChoice, {
+        projectContext,
+        onSkip: () => setConfig({ fach: "", thema: "", jahrgangsstufe: "", vorwissen: "", zeitMinuten: 45, heterogenitaet: "" }),
+        onManual: () => setShowForm(true),
+      });
+    }
     return h(EduSetup, { onStart: setConfig, projectContext });
   }
 
