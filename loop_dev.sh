@@ -112,7 +112,7 @@ for arg in "$@"; do
       echo ""
       echo -e "${BOLD}Output:${RESET}"
       echo "  Compact stream with color-coded tool calls:"
-      echo -e "    ${GREEN}Read/Glob/Grep${RESET}  ${YELLOW}Edit/Write/Bash${RESET}  ${MAGENTA}Playwright${RESET}"
+      echo -e "    ${GREEN}Read/Glob/Grep${RESET}  ${YELLOW}Edit/Write/Bash${RESET}  ${MAGENTA}Playwright CLI${RESET}"
       echo -e "    ${BOLD}Task${RESET} ${MAGENTA}[opus]${RESET}  ${BLUE}[sonnet]${RESET}  ${GREEN}[haiku]${RESET}"
       echo "  + Cost tracking per iteration and cumulated"
       echo "  + Model usage breakdown (tokens, cache, costs)"
@@ -962,8 +962,13 @@ parse_progress() {
                 cmd="${cmd//"$PWD/"/}"
                 local display="${cmd:0:100}"
                 [ ${#cmd} -gt 100 ] && display="${display}…"
-                echo -e "  ${DIM}${ts}${RESET} ${CYAN}[$tool_count]${RESET} ${YELLOW}Bash${RESET} ${DIM}${display}${RESET}"
-                ev_category="bash"; ev_summary="${display}"
+                if [[ "$cmd" == *"playwright"* ]]; then
+                  echo -e "  ${DIM}${ts}${RESET} ${CYAN}[$tool_count]${RESET} ${MAGENTA}Playwright${RESET} ${DIM}${display}${RESET}"
+                  ev_category="playwright"; ev_summary="${display}"
+                else
+                  echo -e "  ${DIM}${ts}${RESET} ${CYAN}[$tool_count]${RESET} ${YELLOW}Bash${RESET} ${DIM}${display}${RESET}"
+                  ev_category="bash"; ev_summary="${display}"
+                fi
                 ;;
               Task)
                 local task_model task_type task_desc model_color
@@ -978,12 +983,6 @@ parse_progress() {
                 esac
                 echo -e "  ${DIM}${ts}${RESET} ${CYAN}[$tool_count]${RESET} ${BOLD}Task${RESET} ${model_color}[$task_model]${RESET} ${DIM}${task_type}${RESET} → ${DIM}${task_desc}${RESET}"
                 ev_category="task"; ev_summary="[$task_model] ${task_type}: ${task_desc}"
-                ;;
-              mcp__playwright__*)
-                local action="${tool_name#mcp__playwright__}"
-                action="${action#browser_}"
-                echo -e "  ${DIM}${ts}${RESET} ${CYAN}[$tool_count]${RESET} ${MAGENTA}Playwright${RESET} ${DIM}${action}${RESET}"
-                ev_category="playwright"; ev_summary="${action}"
                 ;;
               mcp__*)
                 local short="${tool_name#mcp__}"

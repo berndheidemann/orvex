@@ -208,7 +208,9 @@ No rebuild needed ONLY if no code changes have been made since the last build.
 
 **`app_type: web` (or not set) — Playwright mandatory**
 
-Use MCP Playwright against the **running application** (no static HTML, no mock page):
+Use the **Playwright CLI** via Bash against the **running application** (no static HTML, no mock page):
+- Write a test script (e.g. `/tmp/verify-req.spec.ts`) and run it with `npx playwright test /tmp/verify-req.spec.ts --reporter=line`
+- For quick screenshots: `npx playwright screenshot http://localhost:PORT /tmp/screenshot.png`
 - Start the app if necessary, test against the real running instance
 - Perform a complete user journey: do not click individual elements, but go through the entire flow like a user seeing the feature for the first time
 - Example: For a login REQ do not only test `POST /api/login`, but: open page → fill in fields → submit → check redirect → verify logged-in state
@@ -302,7 +304,7 @@ If the Capability Gate FAILs, set REQ-000 to `blocked` — all other REQs depend
 **Dev-mode smoke check (Vite / bundler projects):**
 After verifying the production build, also smoke-test the dev server — dev-mode errors (e.g. Vite pre-transform failures, missing assets, HMR issues) are invisible in the production build but break the developer and first-time-contributor experience:
 1. Start dev server: `npm run dev` (or equivalent), wait until ready
-2. Open the app entry page via MCP Playwright (or `curl -s http://localhost:PORT | grep -i error`)
+2. Open the app entry page via Playwright CLI (`npx playwright screenshot http://localhost:PORT /tmp/smoke.png`) or `curl -s http://localhost:PORT | grep -i error`
 3. Check browser console for pre-transform errors or failed module imports
 4. If errors exist → fix before marking done. Document in `.agent/learnings.md`.
 
@@ -325,7 +327,7 @@ Task(
   max_turns: 20,
   prompt: """
   You are a UX Critic. Your task: find real blocking problems in a running web UI.
-  Use MCP Playwright against the running application. Do NOT invent findings.
+  Use the **Playwright CLI** via Bash against the running application: write test scripts to `/tmp/ux-check-[req].spec.ts`, run with `npx playwright test /tmp/ux-check-[req].spec.ts --reporter=line`. For screenshots use `npx playwright screenshot <URL> /tmp/screenshot.png`. Do NOT invent findings.
 
   ## REQ being reviewed
   [REQ-ID] — [Title]
@@ -377,7 +379,7 @@ Task(
 
 Read the critic's report. For each `BLOCKING` issue:
 
-1. **Verify reproducibility** (max 2 Playwright actions): confirm you can reproduce the
+1. **Verify reproducibility** (max 2 Playwright CLI runs): confirm you can reproduce the
    issue yourself before touching code. If you cannot reproduce: skip that fix, note
    `NOT REPRODUCED` next to the issue.
 
