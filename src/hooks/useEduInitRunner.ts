@@ -385,7 +385,7 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
 
           // Synthesis-specific controller: 4-minute timeout + chain from parent abort
           const synthCtrl = new AbortController();
-          const synthTimeout = setTimeout(() => synthCtrl.abort(), 4 * 60 * 1000);
+          const synthTimeout = setTimeout(() => synthCtrl.abort(), 10 * 60 * 1000);
           const parentAbort = () => synthCtrl.abort();
           ctrl.signal.addEventListener("abort", parentAbort, { once: true });
 
@@ -404,7 +404,7 @@ export function useEduInitRunner(config: EduInitConfig): EduInitRunnerState {
           }
 
           if (synthCtrl.signal.aborted && !ctrl.signal.aborted) {
-            throw new Error("Lernpfad-Synthese: Timeout nach 4 Minuten");
+            throw new Error("Lernpfad-Synthese: Timeout nach 10 Minuten");
           }
           if (!drehbuchContent.trim()) {
             throw new Error("Drehbuch-Synthese produced no content");

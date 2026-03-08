@@ -151,7 +151,10 @@ export async function runClaude(
   if (resultIsError) {
     throw new Error(extractApiErrorMessage(fullText || resultFallback));
   }
-  if (!status.success && fullText.trim() === "") {
+  // When the caller aborted the signal (e.g. timeout or user quit), return
+  // whatever we collected and let the caller decide what to do with an empty result.
+  // Throwing here would mask the caller's own abort reason (e.g. "Timeout nach 4 Minuten").
+  if (!status.success && fullText.trim() === "" && !signal.aborted) {
     throw new Error(`claude exited with code ${status.code}`);
   }
   return fullText;
