@@ -177,6 +177,13 @@ In Phase 3: read `.agent/req-designs/[REQ-ID].md` before starting implementation
 2. All tests must be green
 3. Linter must be clean
 
+**⚠ Hanging-Command Rule:** Always wrap test commands with `timeout` to prevent the entire iteration from blocking:
+```bash
+timeout 120 pnpm test 2>&1 | tail -30        # unit/component tests
+timeout 180 npx playwright test --reporter=line 2>&1 | tail -30  # e2e tests
+```
+If a command times out: diagnose WHY (infinite loop, hanging test, missing server) before retrying. Do NOT just re-run the same command.
+
 ### 4.2 Acceptance Criteria Gate (required before `done`)
 
 Before a REQ is marked as `done`, check **every** Acceptance Criterion with the intent of finding a failure:

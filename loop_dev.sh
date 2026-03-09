@@ -532,7 +532,9 @@ summarize_log() {
   top_tools=$(jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use") | .name' "$logfile" 2>/dev/null | sort | uniq -c | sort -rn | head -3 | awk '{printf "%s(%s) ",$2,$1}')
   edits=$(jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use") | select(.name=="Edit" or .name=="Write") | .input.file_path // "?"' "$logfile" 2>/dev/null | sort -u | head -5 | tr '\n' ' ')
   iter_num=$(basename "$logfile" .jsonl | grep -Eo '[0-9]+$' || echo "?")
-  echo "**Iter ${iter_num}**: ${tool_count:-0} tools, \$${cost_fmt}, exit=${exit_code:-1}"
+  local exit_label=""
+  [ "${exit_code:-1}" = "124" ] && exit_label=" ⚠ TIMEOUT (exit 124) — a Bash command likely hung (infinite loop, blocking test, missing server). Diagnose before retrying."
+  echo "**Iter ${iter_num}**: ${tool_count:-0} tools, \$${cost_fmt}, exit=${exit_code:-1}${exit_label}"
   echo "  Top tools: ${top_tools:-none}"
   [ -n "$edits" ] && echo "  Files changed: ${edits}"
   # Neu: Fehler-Outputs (is_error tool results, erste 200 Zeichen)
@@ -1451,6 +1453,29 @@ while :; do
             --arg reason "Auto-blocked: 3 consecutive failed attempts" \
             '{"type":"req:status","ts":$ts,"iter":$iter,"reqId":$reqId,"from":"in_progress","to":"blocked","reason":$reason}')"
         fi
+      fi
+    fi
+  fi
+
+  # ── Consecutive-timeout detection ───────────────────────────
+  # If the same req/hint timed out 2× in a row, inject a warning into context.md
+  # so the next agent investigates instead of blindly retrying.
+  if [ "$EXIT_CODE" -eq 124 ] && [ -f "$ITER_LOG" ]; then
+    _timeout_req=$(echo "${NEXT_REQ_HINT:-}" | grep -Eo '(REQ|CONT)-[A-Z0-9-]+' | head -1 || true)
+    if [ -n "$_timeout_req" ]; then
+      _timeout_count=$(tail -3 "$ITER_LOG" \
+        | jq -r 'select(.exit_code==124) | .req_hint // ""' 2>/dev/null \
+        | grep -c "$_timeout_req" 2>/dev/null || echo "0")
+      if [ "$_timeout_count" -ge 2 ]; then
+        _warn="⚠ TIMEOUT-LOOP: $_timeout_req timed out (exit 124) ${_timeout_count}× in a row. A Bash command is likely hanging (infinite loop in tests, blocking command, missing dev server). Check last iter's tool calls and diagnose root cause before retrying."
+        if [ -f ".agent/context.md" ]; then
+          # Prepend warning after the first line (title) to make it visible
+          _ctx=$(cat ".agent/context.md")
+          _first=$(echo "$_ctx" | head -1)
+          _rest=$(echo "$_ctx" | tail -n +2)
+          printf '%s\n\n%s\n%s\n' "$_first" "$_warn" "$_rest" > ".agent/context.md"
+        fi
+        echo -e "  ${RED}${BOLD}⚠  Timeout-Loop: $_timeout_req timed out ${_timeout_count}× — warning written to context.md${RESET}"
       fi
     fi
   fi
