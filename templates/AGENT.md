@@ -215,7 +215,7 @@ No rebuild needed ONLY if no code changes have been made since the last build.
 
 **`app_type: web` (or not set) — Playwright mandatory**
 
-Use the **Playwright CLI** via Bash against the **running application** (no static HTML, no mock page):
+Use the **Playwright CLI** via Bash against the **running application** (no static HTML, no mock page). Never use `mcp__playwright__*` tools — CLI only:
 - Write a test script (e.g. `/tmp/verify-req.spec.ts`) and run it with `npx playwright test /tmp/verify-req.spec.ts --reporter=line`
 - For quick screenshots: `npx playwright screenshot http://localhost:PORT /tmp/screenshot.png`
 - Start the app if necessary, test against the real running instance

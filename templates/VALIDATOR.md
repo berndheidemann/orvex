@@ -53,7 +53,7 @@ You may not WRITE code, but you may run existing tests and test directly against
 
 **For UI projects: Playwright is mandatory**
 
-Use the **Playwright CLI** via Bash against the **running application** — not against static HTML, not against mocks. Write test scripts and run with `npx playwright test`, use `npx playwright screenshot <URL> /tmp/screenshot.png` for screenshots.
+Use the **Playwright CLI** via Bash against the **running application** — not against static HTML, not against mocks. Never use `mcp__playwright__*` tools — CLI only. Write test scripts and run with `npx playwright test`, use `npx playwright screenshot <URL> /tmp/screenshot.png` for screenshots.
 
 **User Journeys first (most important test block)**
 

@@ -23,10 +23,10 @@ const { createElement: h, useState, useEffect, useRef } = React;
 const MAX_BLOCKED_ENTRIES = 3;
 
 // Fixed rows consumed outside the feed entry list:
-// main.ts: "Orvex" + divider = 2
+// main.ts: "Orvex" + version + divider = 3
 // Dashboard: active-REQ bar + status + REQ bar + Phase bar + 2 dividers + hint = 7
-// ActivityFeed: header + divider + iter line = 3  → total = 12
-const FEED_OVERHEAD = 12;
+// ActivityFeed: header + divider + iter line = 3  → total = 13
+const FEED_OVERHEAD = 13;
 const FEED_SUMMARY_MAX_LEN = 60;
 const REQ_TITLE_MAX_LEN = 30;
 const BAR_WIDTH_DIVISOR = 3;
